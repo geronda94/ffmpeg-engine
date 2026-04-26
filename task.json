@@ -1,0 +1,30 @@
+{
+  "output": "result.mp4",
+  "resolution": {"w": 1080, "h": 1920},
+  "resources": [
+    {"id": "bg_video", "source": "https://example.com/clouds.mp4"},
+    {"id": "overlay_img", "source": "C:/videos/icon.png"},
+    {"id": "voice", "source": "https://example.com/audio.mp3"}
+  ],
+  "pipeline": [
+    {
+      "input": "bg_video",
+      "actions": [
+        {"type": "scale_and_crop", "w": 1080, "h": 1920},
+        {"type": "blur", "sigma": 20}
+      ],
+      "alias": "layer_back"
+    },
+    {
+      "input": "bg_video",
+      "actions": [
+        {"type": "scale", "w": 1080, "h": -1}
+      ],
+      "alias": "layer_front"
+    }
+  ],
+  "compose": [
+    {"base": "layer_back", "top": "layer_front", "pos": "center"},
+    {"base": "last_result", "top": "overlay_img", "pos": "bottom"}
+  ]
+}
