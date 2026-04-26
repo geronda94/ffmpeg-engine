@@ -73,6 +73,7 @@ def _build_compose(
     compose: ComposeRoot,
     step_labels: dict[str, str],
     resource_map: dict[str, int],
+    pipeline: list[PipelineStep],
 ) -> tuple[list[str], str]:
     """
     Строит цепочку overlay-фильтров для композиции слоёв.
@@ -80,6 +81,9 @@ def _build_compose(
     """
     filters: list[str] = []
     current = step_labels[compose.base]
+
+    # Карта таймингов слоев (из pipeline)
+    timings = {step.id: step.trim for step in pipeline}
 
     for i, layer in enumerate(compose.layers):
         src = layer.source
@@ -95,7 +99,17 @@ def _build_compose(
         out = f"comp_{i}"
         x = layer.pos.x.replace(" ", "")
         y = layer.pos.y.replace(" ", "")
-        filters.append(f"[{current}][{top}]overlay={x}:{y}[{out}]")
+        
+        # Оптимизация: отключаем отработавшие слои через enable
+        enable_str = ""
+        if src in timings and timings[src]:
+            trim = timings[src]
+            if trim.end:
+                enable_str = f":enable='between(t\\,{trim.start}\\,{trim.end})'"
+            else:
+                enable_str = f":enable='gte(t\\,{trim.start})'"
+
+        filters.append(f"[{current}][{top}]overlay={x}:{y}{enable_str}[{out}]")
         current = out
 
     return filters, current
@@ -164,7 +178,7 @@ def assemble(task: Task, dry_run: bool = False) -> bool:
 
         # 3. Compose (наложение слоёв)
         compose_filters, final_video = _build_compose(
-            task.compose, step_labels, resource_map
+            task.compose, step_labels, resource_map, task.pipeline
         )
 
         # 3.1 format=yuv420p — финализация цветового пространства

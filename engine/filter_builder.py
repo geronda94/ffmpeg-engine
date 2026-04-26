@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from engine.schema import Action, PipelineStep, Trim
+from engine import resolver
 
 logger = logging.getLogger(__name__)
 
@@ -32,16 +33,25 @@ def _resolve_fontfile(override: Optional[str]) -> str:
 
     Если ничего не найдено — падаем с понятной ошибкой.
     """
-    candidates = []
     if override:
-        candidates.append(override)
+        try:
+            resolved = resolver.resolve(override)
+            # Важно: drawtext капризен к путями, используем абсолютный unix-style путь
+            font_path = Path(resolved).resolve().as_posix()
+            logger.debug(f"Скачанный/найденный шрифт: {font_path}")
+            return font_path
+        except Exception as e:
+            logger.warning(f"Не удалось загрузить шрифт '{override}': {e}. Использую фоллбэк.")
+
+    candidates = []
     candidates.append(_DEFAULT_FONTFILE)
     candidates.extend(_SYSTEM_FONT_CANDIDATES)
 
     for path in candidates:
         if Path(path).exists():
-            logger.debug(f"Шрифт: {path}")
-            return path
+            font_path = Path(path).resolve().as_posix()
+            logger.debug(f"Системный/Локальный шрифт: {font_path}")
+            return font_path
 
     raise RuntimeError(
         "Шрифт для drawtext не найден!\n"

@@ -58,8 +58,20 @@
       "actions": [{ "type": "fade_in", "duration": 1.5, "start_time": 0, "alpha": true }] 
     },
     { "id": "fg4", "input": "img4", "preset": "fg_style", "trim": { "start": 32.5, "end": 43.6 }, 
-      "actions": [{ "type": "fade_in", "duration": 1.5, "start_time": 0, "alpha": true }] 
+      "actions": [
+        { "type": "fade_in", "duration": 1.5, "start_time": 0, "alpha": true },
+        {
+          "type": "drawtext",
+          "text": "AMEN",
+          "fontsize": 120,
+          "fontcolor": "gold",
+          "fontfile": "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf",
+          "x": "(w-text_w)/2",
+          "y": "(h-text_h)/2"
+        }
+      ] 
     }
+
   ],
   "compose": {
     "base": "base_canvas",
