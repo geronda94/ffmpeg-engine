@@ -113,12 +113,14 @@ def build_action(a: Action, fps: int = 30) -> str:
         y = _expr(a.y or "(h-text_h)/2")
         size = a.fontsize or 60
         color = a.fontcolor or "white"
-        return (
+        base = (
             f"drawtext=fontfile='{fontfile}':text='{text}'"
             f":fontsize={size}:fontcolor={color}"
             f":x={x}:y={y}"
-            f""
         )
+        if a.box:
+            base += f":box=1:boxcolor={a.boxcolor}:boxborderw={a.boxborderw}"
+        return base
 
     if t == "scale_contain":
         return f"scale={a.w}:{a.h}:force_original_aspect_ratio=decrease"
@@ -132,13 +134,13 @@ def build_action(a: Action, fps: int = 30) -> str:
 
         if a.smooth:
             # Трюк с апскейлом для устранения дрожания (Ken Burns jitter fix)
-            w_hd = (a.w or 540) * 2
-            h_hd = (a.h or 960) * 2
+            w_hd = (a.w or 540) * 4
+            h_hd = (a.h or 960) * 4
             return (
-                f"scale={w_hd}:{h_hd},format=yuv420p,"
+                f"scale={w_hd}:{h_hd}:flags=bicubic,format=yuv420p,"
                 f"zoompan=z='{z_expr}':s={w_hd}x{h_hd}"
-                f":x='round(iw/2-(iw/zoom/2))':y='round(ih/2-(ih/zoom/2))':d=1:fps={fps},"
-                f"scale={a.w or 540}:{a.h or 960}"
+                f":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:fps={fps},"
+                f"scale={a.w or 540}:{a.h or 960}:flags=bicubic"
             )
         else:
             # Чистый нативный zoompan

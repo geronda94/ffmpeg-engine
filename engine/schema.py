@@ -36,6 +36,9 @@ class Action(BaseModel):
     fontfile: Optional[str] = None   # переопределить шрифт для этого action
     x: Optional[str] = None
     y: Optional[str] = None
+    box: bool = False
+    boxcolor: str = "black@0.5"
+    boxborderw: int = 20
     # zoompan
     zoom: Optional[float] = None
     smooth: bool = True       # Устранение дрожания через апскейл (полезно для фото)

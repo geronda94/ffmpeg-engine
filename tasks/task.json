@@ -1,7 +1,7 @@
 {
   "version": "2.0",
   "output": {
-    "path": "output/n8n_promo_reel.mp4",
+    "path": "output/demo.mp4",
     "fps": 30,
     "duration": 12.0,
     "codec": "libx264",
@@ -19,7 +19,8 @@
     { "id": "canvas", "source": "color=c=black:s=540x960:d=12", "type": "lavfi" },
     { "id": "img1", "source": "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1080&auto=format&fit=crop", "type": "image" },
     { "id": "img2", "source": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1080&auto=format&fit=crop", "type": "image" },
-    { "id": "img3", "source": "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=1080&auto=format&fit=crop", "type": "image" }
+    { "id": "img3", "source": "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=1080&auto=format&fit=crop", "type": "image" },
+    { "id": "music", "source": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", "type": "audio" }
   ],
   "pipeline": [
     { "id": "base", "input": "canvas", "actions": [{ "type": "setsar" }] },
@@ -33,7 +34,7 @@
       "actions": [
         { "type": "scale_contain", "w": 540, "h": 960 },
         { "type": "zoom", "zoom": 1.15, "smooth": true },
-        { "type": "drawtext", "text": "N8N + FFMPEG", "fontfile": "https://github.com/googlefonts/montserrat/raw/main/fonts/ttf/Montserrat-Black.ttf", "fontsize": 65, "fontcolor": "white", "x": "(w-text_w)/2", "y": "(h-text_h)/2-100" },
+        { "type": "drawtext", "text": "N8N + FFMPEG", "fontfile": "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Black.ttf", "fontsize": 65, "fontcolor": "white", "x": "(w-text_w)/2", "y": "(h-text_h)/2-100", "box": true, "boxcolor": "black@0.6", "boxborderw": 30 },
         { "type": "fade_out", "duration": 1.0, "start_time": 3.5, "alpha": true }
       ] 
     },
@@ -50,7 +51,7 @@
       "actions": [
         { "type": "scale_contain", "w": 540, "h": 960 },
         { "type": "zoom", "zoom": 1.15, "smooth": true },
-        { "type": "drawtext", "text": "FULL CONTROL", "fontfile": "https://github.com/googlefonts/montserrat/raw/main/fonts/ttf/Montserrat-Black.ttf", "fontsize": 65, "fontcolor": "gold", "x": "(w-text_w)/2", "y": "(h-text_h)/2-100" },
+        { "type": "drawtext", "text": "FULL CONTROL", "fontfile": "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Black.ttf", "fontsize": 65, "fontcolor": "gold", "x": "(w-text_w)/2", "y": "(h-text_h)/2-100", "box": true, "boxcolor": "black@0.6", "boxborderw": 30 },
         { "type": "fade_in", "duration": 1.0, "start_time": 0, "alpha": true },
         { "type": "fade_out", "duration": 1.0, "start_time": 4.0, "alpha": true }
       ] 
@@ -65,7 +66,7 @@
       "actions": [
         { "type": "scale_contain", "w": 540, "h": 960 },
         { "type": "zoom", "zoom": 1.15, "smooth": true },
-        { "type": "drawtext", "text": "ZERO COST", "fontfile": "https://github.com/googlefonts/montserrat/raw/main/fonts/ttf/Montserrat-Black.ttf", "fontsize": 80, "fontcolor": "#00FF66", "x": "(w-text_w)/2", "y": "(h-text_h)/2-100" },
+        { "type": "drawtext", "text": "ZERO COST", "fontfile": "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Black.ttf", "fontsize": 80, "fontcolor": "#00FF66", "x": "(w-text_w)/2", "y": "(h-text_h)/2-100", "box": true, "boxcolor": "black@0.6", "boxborderw": 30 },
         { "type": "fade_in", "duration": 1.0, "start_time": 0, "alpha": true }
       ] 
     }
@@ -77,5 +78,6 @@
       { "source": "bg2" }, { "source": "fg2" },
       { "source": "bg3" }, { "source": "fg3" }
     ]
-  }
+  },
+  "audio": { "source": "music", "volume": 1.0, "fade_in": 1.0, "fade_out": 2.0 }
 }
