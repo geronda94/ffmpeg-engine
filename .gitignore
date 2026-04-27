@@ -6,3 +6,4 @@ __pycache__/
 .DS_Store
 *.egg-info/
 tasks/religious_reel.json
+docs/directus_integration_blueprint.md
