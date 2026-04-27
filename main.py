@@ -13,7 +13,7 @@ import shutil
 from pydantic import ValidationError
 
 from engine import filter_builder, resolver, runner
-from engine.schema import AudioConfig, ComposeRoot, Task
+from engine.schema import AudioTrack, ComposeRoot, Task
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -54,12 +54,14 @@ def _build_inputs(task: Task) -> tuple[list[str], dict[str, int]]:
 
     for idx, res in enumerate(task.resources):
         if res.type == "lavfi":
-            # Встроенный генератор FFmpeg — файл не нужен
-            inputs.extend(["-f", "lavfi", "-i", res.source])
+            # Принудительно задаем формат rgba для поддержки прозрачности в lavfi
+            source = res.source
+            if "format=" not in source:
+                source = f"{source},format=rgba"
+            inputs.extend(["-f", "lavfi", "-i", source])
         elif res.type == "image":
-            # -loop 1 — PNG/JPG без этого флага даёт 1 кадр и оверлей не совпадёт по длительности
             path = resolver.resolve(res.source)
-            inputs.extend(["-loop", "1", "-framerate", str(task.output.fps), "-i", str(path)])
+            inputs.extend(["-i", str(path)])
         else:
             path = resolver.resolve(res.source)
             inputs.extend(["-i", str(path)])
@@ -100,16 +102,8 @@ def _build_compose(
         x = layer.pos.x.replace(" ", "")
         y = layer.pos.y.replace(" ", "")
         
-        # Оптимизация: отключаем отработавшие слои через enable
-        enable_str = ""
-        if src in timings and timings[src]:
-            trim = timings[src]
-            if trim.end:
-                enable_str = f":enable='between(t\\,{trim.start}\\,{trim.end})'"
-            else:
-                enable_str = f":enable='gte(t\\,{trim.start})'"
-
-        filters.append(f"[{current}][{top}]overlay={x}:{y}{enable_str}[{out}]")
+        # eof_action=pass предотвращает остановку рендера при окончании коротких клипов
+        filters.append(f"[{current}][{top}]overlay={x}:{y}:eof_action=pass[{out}]")
         current = out
 
     return filters, current
@@ -127,33 +121,86 @@ def _add_format(filters: list[str], video_label: str) -> tuple[list[str], str]:
 
 
 def _build_audio_filter(
-    audio: AudioConfig,
+    tracks: list[AudioTrack],
+    steps: list[PipelineStep],
     resource_map: dict[str, int],
     duration: float | None = None,
 ) -> tuple[list[str], str | None]:
     """
-    Строит аудио-фильтры.
-    source может быть resource типа 'audio' ИЛИ 'video' (вытаскиваем аудиодорожку).
-    Если фильтров нет — возвращает ([], None) и используется прямой маппинг.
+    Строит аудио-фильтры для микширования:
+    - Явных аудио-дорожек из Task.audio
+    - Звука из слоев PipelineStep (если volume > 0)
     """
-    needs_filter = audio.volume != 1.0 or audio.fade_in > 0 or audio.fade_out > 0
-    if not needs_filter:
+    filters: list[str] = []
+    track_labels: list[str] = []
+
+    # 1. Звук из слоев видео (PipelineSteps)
+    for i, step in enumerate(steps):
+        if step.volume <= 0:
+            continue
+            
+        idx = resource_map[step.input]
+        l_in = f"{idx}:a"
+        l_out = f"a_step_{i}"
+        
+        chain: list[str] = []
+        
+        # Обрезка звука синхронно с видео
+        st_trim = step.src_trim or step.trim
+        if st_trim:
+            chain.append(f"atrim=start={st_trim.start}:end={st_trim.end},asetpts=PTS-STARTPTS")
+        
+        # Громкость слоя
+        if step.volume != 1.0:
+            chain.append(f"volume={step.volume}")
+            
+        # Задержка звука (чтобы совпадало с появлением слоя в Compose)
+        if step.trim and step.trim.start > 0:
+            ms = int(step.trim.start * 1000)
+            chain.append(f"adelay={ms}|{ms}")
+            
+        label = l_out
+        track_labels.append(label)
+        body = ",".join(chain) if chain else "anull"
+        filters.append(f"[{l_in}]{body}[{label}]")
+
+    # 2. Явные аудио-дорожки (Music, SFX)
+    for i, track in enumerate(tracks):
+        idx = resource_map[track.source]
+        l_in = f"{idx}:a"
+        l_out = f"a_track_{i}"
+        
+        chain: list[str] = []
+
+        if track.volume != 1.0:
+            chain.append(f"volume={track.volume}")
+        
+        if track.fade_in > 0:
+            chain.append(f"afade=t=in:st=0:d={track.fade_in}")
+        
+        if track.fade_out > 0 and duration:
+            st = max(0, duration - track.fade_out)
+            chain.append(f"afade=t=out:st={st}:d={track.fade_out}")
+
+        if track.start > 0:
+            ms = int(track.start * 1000)
+            chain.append(f"adelay={ms}|{ms}")
+
+        label = l_out
+        track_labels.append(label)
+        body = ",".join(chain) if chain else "anull"
+        filters.append(f"[{l_in}]{body}[{label}]")
+
+    if not track_labels:
         return [], None
 
-    idx = resource_map[audio.source]
-    chain: list[str] = []
+    # 3. Смешивание (Mix)
+    final_label = "audio_out"
+    inputs_str = "".join(f"[{l}]" for l in track_labels)
+    # normalize=0 отключает автоматическое понижение громкости
+    filters.append(f"{inputs_str}amix=inputs={len(track_labels)}:duration=first:dropout_transition=0:normalize=0[{final_label}]")
 
-    if audio.volume != 1.0:
-        chain.append(f"volume={audio.volume}")
-    if audio.fade_in > 0:
-        chain.append(f"afade=t=in:st=0:d={audio.fade_in}")
-    if audio.fade_out > 0 and duration:
-        # st = длительность - время затухания
-        st = max(0, duration - audio.fade_out)
-        chain.append(f"afade=t=out:st={st}:d={audio.fade_out}")
-
-    label = "audio_out"
-    return [f"[{idx}:a]{','.join(chain)}[{label}]"], label
+    return filters, final_label
 
 
 # ---------------------------------------------------------------------------
@@ -162,6 +209,7 @@ def _build_audio_filter(
 
 def assemble(task: Task, dry_run: bool = False) -> bool:
     # 0. Подготовка временной папки
+    ok = False
     _resolve_presets(task)
     temp_dir = Path("temp_render")
     resolver.init_session(temp_dir)
@@ -170,10 +218,11 @@ def assemble(task: Task, dry_run: bool = False) -> bool:
     try:
         # 1. Входы
         inputs, resource_map = _build_inputs(task)
+        resource_types = {r.id: r.type for r in task.resources}
 
         # 2. Pipeline (обработка каждого слоя)
         pipeline_filters, step_labels = filter_builder.build_pipeline(
-            task.pipeline, resource_map, task.output.fps
+            task.pipeline, resource_map, resource_types, task.output.fps
         )
 
         # 3. Compose (наложение слоёв)
@@ -187,9 +236,9 @@ def assemble(task: Task, dry_run: bool = False) -> bool:
         # 4. Audio
         audio_filters: list[str] = []
         final_audio: str | None = None
-        if task.audio:
+        if task.audio or any(s.volume > 0 for s in task.pipeline):
             audio_filters, final_audio = _build_audio_filter(
-                task.audio, resource_map, task.output.duration
+                task.audio, task.pipeline, resource_map, task.output.duration
             )
 
         # 5. Собираем filter_complex
@@ -211,15 +260,14 @@ def assemble(task: Task, dry_run: bool = False) -> bool:
         cmd = ["ffmpeg", "-y"]
         cmd.extend(inputs)
         cmd += ["-filter_complex", filter_complex]
+        
+        logger.info("--- FULL FFMPEG COMMAND ---")
+        logger.info(" ".join(cmd))
+        
         cmd += ["-map", f"[{final_video}]"]
 
         if final_audio:
             cmd += ["-map", f"[{final_audio}]"]
-        elif task.audio:
-            audio_idx = resource_map[task.audio.source]
-            # Используем :a:0 — работает как для audio-ресурсов, так и для video
-            # (видеофайл может содержать аудиодорожку, берём первую)
-            cmd += ["-map", f"{audio_idx}:a:0"]
 
         cmd += ["-c:v", codec]
         if codec == "libx264":
@@ -240,11 +288,14 @@ def assemble(task: Task, dry_run: bool = False) -> bool:
 
         cmd.append(task.output.path)
 
-        return runner.run(cmd, dry_run=dry_run)
+        ok = runner.run(cmd, dry_run=dry_run)
+        return ok
     finally:
-        if not dry_run and temp_dir.exists():
+        if not dry_run and ok and temp_dir.exists():
             logger.info(f"Очистка временных файлов: {temp_dir}")
             shutil.rmtree(temp_dir)
+        elif not ok:
+            logger.warning(f"Рендер не удался. Временные файлы сохранены в: {temp_dir}")
 
 
 # ---------------------------------------------------------------------------

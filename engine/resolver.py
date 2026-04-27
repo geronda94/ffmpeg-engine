@@ -67,8 +67,11 @@ def _download_http(url: str) -> Path:
         return local_path
 
     logger.info(f"Скачиваю {url}")
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
     try:
-        r = requests.get(url, stream=True, timeout=30)
+        r = requests.get(url, headers=headers, stream=True, timeout=30)
         r.raise_for_status()
     except requests.RequestException as e:
         raise RuntimeError(f"Ошибка загрузки {url}: {e}") from e

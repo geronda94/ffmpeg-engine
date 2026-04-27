@@ -7,14 +7,15 @@ class AnimationBuilder(BaseActionBuilder):
         t = a.type
         if t == "zoom":
             z_val = a.zoom or 1.1
-            z_expr = a.expr or f"min(1+on*{(z_val-1)/(fps*10):.5f}, {z_val})"
+            z_expr = a.expr or f"min(1+on*{(z_val-1)/(fps*10):.5f},{z_val})"
+            w_out = a.w or 1080
+            h_out = a.h or 1920
             if a.smooth:
-                w_hd, h_hd = (a.w or 540) * 4, (a.h or 960) * 4
+                w_hd, h_hd = w_out * 4, h_out * 4
                 f = (f"scale={w_hd}:{h_hd}:flags=bicubic,format=yuv420p,"
                      f"zoompan=z='{z_expr}':s={w_hd}x{h_hd}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:fps={fps},"
-                     f"scale={a.w or 540}:{a.h or 960}:flags=bicubic")
+                     f"scale={w_out}:{h_out}:flags=bicubic")
             else:
-                w_out, h_out = a.w or 540, a.h or 960
                 f = f"zoompan=z='{z_expr}':s={w_out}x{h_out}:x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2':d=1:fps={fps}"
             return self.simple(in_label, f, out_label)
 

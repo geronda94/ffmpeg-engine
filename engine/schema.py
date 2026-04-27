@@ -44,6 +44,8 @@ class Action(BaseModel):
     border_color: Optional[str] = None
     border_width: Optional[int] = None
     blur: Optional[int] = None
+    glow_color: Optional[str] = None
+    glow_width: Optional[int] = None
 
     # zoompan
     zoom: Optional[float] = None
@@ -63,7 +65,9 @@ class Trim(BaseModel):
 class PipelineStep(BaseModel):
     id: str
     input: str  # resource id
-    trim: Optional[Trim] = None
+    trim: Optional[Trim] = None     # Timeline position and duration
+    src_trim: Optional[Trim] = None # Source segment (if different from trim)
+    volume: float = 1.0           # Громкость звука этого слоя (0.0 = без звука)
     preset: Optional[str] = None  # Ссылка на пресет
     actions: List[Action] = []
 
@@ -83,8 +87,9 @@ class ComposeRoot(BaseModel):
     layers: List[Layer] = []
 
 
-class AudioConfig(BaseModel):
+class AudioTrack(BaseModel):
     source: str        # resource id
+    start: float = 0.0 # задержка начала в секундах
     volume: float = 1.0
     fade_in: float = 0.0
     fade_out: float = 0.0
@@ -96,5 +101,5 @@ class Task(BaseModel):
     resources: List[Resource]
     pipeline: List[PipelineStep]
     compose: ComposeRoot
-    audio: Optional[AudioConfig] = None
+    audio: List[AudioTrack] = []
     presets: dict[str, List[Action]] = {} # Новая секция пресетов
