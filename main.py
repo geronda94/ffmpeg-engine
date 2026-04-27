@@ -13,7 +13,7 @@ import shutil
 from pydantic import ValidationError
 
 from engine import filter_builder, resolver, runner
-from engine.schema import AudioTrack, ComposeRoot, Task
+from engine.schema import AudioTrack, ComposeRoot, Task, PipelineStep
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -214,8 +214,12 @@ def _build_audio_filter(
 # Главная сборка
 # ---------------------------------------------------------------------------
 
-def assemble(task: Task, dry_run: bool = False) -> bool:
-    # 0. Подготовка временной папки
+def assemble(task: Task | dict, dry_run: bool = False) -> bool:
+    # 0. Преобразование словаря в объект Task, если нужно
+    if isinstance(task, dict):
+        task = Task(**task)
+        
+    # 0.1 Подготовка временной папки
     ok = False
     _resolve_presets(task)
     temp_dir = Path("temp_render")

@@ -1,0 +1,24 @@
+{
+  "version": "3.3",
+  "output": {
+    "path": "output/generated_video.mp4",
+    "fps": 30,
+    "w": 1920,
+    "h": 1080
+  },
+  "resources": [
+    { "id": "black_bg", "source": "color=c=black:s=1920x1080:r=30", "type": "lavfi" }
+  ],
+  "pipeline": [
+    {
+      "id": "canvas",
+      "input": "black_bg",
+      "trim": { "start": 0, "end": 180 },
+      "actions": [{ "type": "scale", "w": 1920, "h": 1080 }]
+    }
+  ],
+  "compose": {
+    "base": "canvas",
+    "layers": []
+  }
+}

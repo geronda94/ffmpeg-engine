@@ -12,6 +12,11 @@ class TextBuilder(BaseActionBuilder):
         color = a.fontcolor or "white"
         
         base = f"drawtext=fontfile='{fontfile}':text='{text}':fontsize={size}:fontcolor={color}:x={x_val}:y={y_val}"
+        
+        # ДОБАВЛЯЕМ ТАЙМИНГ
+        if a.start is not None and a.end is not None:
+            base += f":enable='between(t,{a.start},{a.end})'"
+            
         if a.box:
             base += f":box=1:boxcolor={a.boxcolor}:boxborderw={a.boxborderw}"
             
