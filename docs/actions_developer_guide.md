@@ -46,7 +46,7 @@ engine/
 Делегирует построение нужному билдеру через фабрику:
 ```python
 builder = factory.get_builder(a.type)  # → ConcreteBuilder
-return builder.build(a, in_label, out_label, fps)
+return builder.build(a, in_label, out_label, fps, duration=step_dur)
 ```
 
 ### 3. Лейблы (`[in_label]` → `[out_label]`)
@@ -71,7 +71,7 @@ from engine.actions.base import BaseActionBuilder
 from engine.schema import Action
 
 class SepiaBuilder(BaseActionBuilder):
-    def build(self, a: Action, in_label: str, out_label: str, fps: int = 30) -> str:
+    def build(self, a: Action, in_label: str, out_label: str, fps: int = 30, duration: float = 0) -> str:
         intensity = a.sigma or 1.0  # переиспользуем существующие поля
         f = (
             f"colorchannelmixer="

@@ -14,6 +14,8 @@ def _register_all():
     plate = PlateBuilder()
     anim = AnimationBuilder()
     misc = MiscBuilder()
+    from engine.actions.misc import RegionBlurBuilder
+    r_blur = RegionBlurBuilder()
     
     # Регистрация типов
     for t in ["scale", "scale_and_crop", "scale_contain", "setsar"]:
@@ -21,6 +23,7 @@ def _register_all():
     
     _BUILDERS["drawtext"] = text
     _BUILDERS["plate"] = plate
+    _BUILDERS["region_blur"] = r_blur
     
     for t in ["zoom", "zoom_blur", "fade_in", "fade_out", "dissolve"]:
         _BUILDERS[t] = anim

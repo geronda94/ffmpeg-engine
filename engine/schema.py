@@ -17,11 +17,14 @@ class Resource(BaseModel):
     id: str
     source: str
     # lavfi — встроенный генератор FFmpeg (для тестов без файлов)
-    type: Literal["video", "audio", "image", "lavfi"]
+    type: Literal["video", "audio", "image", "lavfi", "loop_video"]
 
 
 class Action(BaseModel):
     type: str
+    enabled: bool = True
+    start: Optional[float] = None
+    end: Optional[float] = None
     filter: Optional[str] = None
     expr: Optional[str] = None # Для математических выражений (например, зум)
     # scale / scale_and_crop

@@ -61,7 +61,11 @@ def _build_inputs(task: Task) -> tuple[list[str], dict[str, int]]:
             inputs.extend(["-f", "lavfi", "-i", source])
         elif res.type == "image":
             path = resolver.resolve(res.source)
-            inputs.extend(["-i", str(path)])
+            inputs.extend(["-loop", "1", "-framerate", str(task.output.fps), "-i", str(path)])
+        elif res.type == "loop_video":
+            # Бесконечное зацикливание для GIF и анимированных плашек (WebM)
+            path = resolver.resolve(res.source)
+            inputs.extend(["-stream_loop", "-1", "-i", str(path)])
         else:
             path = resolver.resolve(res.source)
             inputs.extend(["-i", str(path)])
@@ -229,12 +233,14 @@ def assemble(task: Task, dry_run: bool = False) -> bool:
         )
 
         # 3. Compose (наложение слоёв)
-        compose_filters, final_video = _build_compose(
+        compose_filters, final_video = filter_builder.build_compose(
             task.compose, step_labels, resource_map, task.pipeline
         )
 
         # 3.1 format=yuv420p — финализация цветового пространства
-        compose_filters, final_video = _add_format(compose_filters, final_video)
+        final_video_out = "final_video_stream"
+        compose_filters.append(f"[{final_video}]format=yuv420p[{final_video_out}]")
+        final_video = final_video_out
 
         # 4. Audio
         audio_filters: list[str] = []

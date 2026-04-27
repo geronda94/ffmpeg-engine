@@ -3,7 +3,7 @@ from engine.schema import Action
 
 class BaseActionBuilder(ABC):
     @abstractmethod
-    def build(self, a: Action, in_label: str, out_label: str, fps: int = 30) -> str:
+    def build(self, a: Action, in_label: str, out_label: str, fps: int = 30, duration: float = 0) -> str:
         """Построить строку (или цепочку) фильтров для данного экшена."""
         pass
 

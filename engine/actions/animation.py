@@ -3,7 +3,7 @@ from engine.schema import Action
 from engine.actions.utils import expr
 
 class AnimationBuilder(BaseActionBuilder):
-    def build(self, a: Action, in_label: str, out_label: str, fps: int = 30) -> str:
+    def build(self, a: Action, in_label: str, out_label: str, fps: int = 30, duration: float = 0) -> str:
         t = a.type
         if t == "zoom":
             z_val = a.zoom or 1.1
@@ -33,13 +33,20 @@ class AnimationBuilder(BaseActionBuilder):
             return self.simple(in_label, f, out_label)
 
         if t in ("fade_in", "fade_out"):
-            st = a.start_time or 0
+            dur = a.duration or 1.0
             type_tag = "in" if t == "fade_in" else "out"
-            f = f"fade=t={type_tag}:st={st}:d={a.duration or 1}"
+            
+            # Если это fade_out и старт не задан, вычисляем его от конца потока
+            if t == "fade_out" and not a.start_time:
+                st = max(0, duration - dur)
+            else:
+                st = a.start_time or 0
+                
+            f = f"fade=t={type_tag}:st={st}:d={dur}"
             if a.alpha: 
                 f = f"format=rgba,{f}:alpha=1"
             else: 
-                f += f":color={a.color}"
+                f += f":color={a.color or 'black'}"
             return self.simple(in_label, f, out_label)
             
         return self.simple(in_label, "copy", out_label)

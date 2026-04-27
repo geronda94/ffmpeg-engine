@@ -3,7 +3,7 @@ from engine.schema import Action
 from engine.actions.utils import resolve_fontfile, sanitize_text, expr
 
 class TextBuilder(BaseActionBuilder):
-    def build(self, a: Action, in_label: str, out_label: str, fps: int = 30) -> str:
+    def build(self, a: Action, in_label: str, out_label: str, fps: int = 30, duration: float = 0) -> str:
         text = sanitize_text(a.text or "")
         fontfile = resolve_fontfile(a.fontfile)
         x_val = expr(a.x or "(w-text_w)/2")
