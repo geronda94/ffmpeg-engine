@@ -39,6 +39,12 @@ class Action(BaseModel):
     box: bool = False
     boxcolor: str = "black@0.5"
     boxborderw: int = 20
+    # plate / glassmorphism
+    radius: Optional[int] = None
+    border_color: Optional[str] = None
+    border_width: Optional[int] = None
+    blur: Optional[int] = None
+
     # zoompan
     zoom: Optional[float] = None
     smooth: bool = True       # Устранение дрожания через апскейл (полезно для фото)

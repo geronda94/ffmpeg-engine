@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 # Шрифт по умолчанию
 # ---------------------------------------------------------------------------
 
-# Сначала ищем пользовательский шрифт, потом системные
 _DEFAULT_FONTFILE = "local_assets/default.ttf"
 _SYSTEM_FONT_CANDIDATES = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -23,88 +22,114 @@ _SYSTEM_FONT_CANDIDATES = [
     "/System/Library/Fonts/Helvetica.ttc",   # macOS
 ]
 
-
 def _resolve_fontfile(override: Optional[str]) -> str:
-    """
-    Возвращает путь к шрифту. Порядок приоритетов:
-      1. override из action.fontfile
-      2. local_assets/default.ttf
-      3. Системные шрифты (DejaVu, Liberation и др.)
-
-    Если ничего не найдено — падаем с понятной ошибкой.
-    """
     if override:
         try:
             resolved = resolver.resolve(override)
-            # Важно: drawtext капризен к путями, используем абсолютный unix-style путь
-            font_path = Path(resolved).resolve().as_posix()
-            logger.debug(f"Скачанный/найденный шрифт: {font_path}")
-            return font_path
+            return Path(resolved).resolve().as_posix()
         except Exception as e:
             logger.warning(f"Не удалось загрузить шрифт '{override}': {e}. Использую фоллбэк.")
 
-    candidates = []
-    candidates.append(_DEFAULT_FONTFILE)
-    candidates.extend(_SYSTEM_FONT_CANDIDATES)
-
-    for path in candidates:
+    for path in [_DEFAULT_FONTFILE] + _SYSTEM_FONT_CANDIDATES:
         if Path(path).exists():
-            font_path = Path(path).resolve().as_posix()
-            logger.debug(f"Системный/Локальный шрифт: {font_path}")
-            return font_path
+            return Path(path).resolve().as_posix()
 
-    raise RuntimeError(
-        "Шрифт для drawtext не найден!\n"
-        f"  Положи любой .ttf в: {_DEFAULT_FONTFILE}\n"
-        "  Или установи системные шрифты: sudo apt install fonts-dejavu"
-    )
-
-
-# ---------------------------------------------------------------------------
-# Санитизация текста для drawtext
-# ---------------------------------------------------------------------------
+    raise RuntimeError("Шрифт для drawtext не найден!")
 
 def _sanitize_text(text: str) -> str:
-    """
-    Экранирует спецсимволы FFmpeg drawtext фильтра.
-    Порядок важен: сначала бэкслеш, потом остальные.
-    """
-    text = text.replace("\\", r"\\")   # \ → \\  (первым!)
-    text = text.replace("'",  r"\'")   # ' → \'
-    text = text.replace(":",  r"\:")   # : → \:
-    text = text.replace(",",  r"\,")   # , → \,
-    return text
-
-
-# ---------------------------------------------------------------------------
-# Санитизация FFmpeg-выражений (убираем пробелы)
-# ---------------------------------------------------------------------------
+    return text.replace("\\", r"\\").replace("'",  r"\'").replace(":",  r"\:").replace(",",  r"\,")
 
 def _expr(s: str) -> str:
-    """Убирает пробелы из FFmpeg-выражений.
-    Пример: '(w-text_w)/2 - 80'  →  '(w-text_w)/2-80'
-    """
     return s.replace(" ", "")
 
+# ---------------------------------------------------------------------------
+# Продвинутая плашка (Plate / Glassmorphism / Rounding)
+# ---------------------------------------------------------------------------
+
+def _build_plate_action(a: Action, in_label: str, out_label: str) -> str:
+    """
+    Создает сложную плашку с поддержкой Glassmorphism и скруглений.
+    Алгоритм:
+    1. Split на фон и кусок для обработки.
+    2. Crop + Blur + Color + Border для куска.
+    3. Применение маски для скругления углов.
+    4. Overlay обратно на фон.
+    """
+    w = a.w or 400
+    h = a.h or 100
+    x = _expr(a.x or "(W-w)/2")
+    y = _expr(a.y or "(H-h)/2")
+    
+    # Метки для внутреннего графа
+    l_orig = f"{out_label}_orig"
+    l_blur = f"{out_label}_blur"
+    l_mask = f"{out_label}_mask"
+    l_final_box = f"{out_label}_box"
+
+    # 1. Разделение и подготовка
+    chain = [f"[{in_label}]split[ {l_orig} ][ {l_blur} ]"]
+
+    # 2. Эффект стекла и заливка
+    proc = f"[{l_blur}]crop={w}:{h}:{x}:{y}"
+    if a.blur:
+        proc += f",boxblur={a.blur}:{a.blur}"
+    
+    # Наложение цвета (плашка)
+    color = a.boxcolor or "black@0.5"
+    proc += f",drawbox=x=0:y=0:w={w}:h={h}:color={color}:t=fill"
+    
+    # Рамка
+    if a.border_width:
+        b_color = a.border_color or "white"
+        proc += f",drawbox=x=0:y=0:w={w}:h={h}:color={b_color}:t={a.border_width}"
+    
+    proc += f"[{l_mask}]"
+    chain.append(proc)
+
+    # 3. Скругление углов (если есть radius)
+    if a.radius:
+        r = a.radius
+        # Формула для geq маски
+        geq_expr = (
+            f"if("
+            f" (x<{r} && y<{r} && (pow({r}-x,2)+pow({r}-y,2))>pow({r},2)) || "
+            f" (x>{w}-{r} && y<{r} && (pow(x-({w}-{r}),2)+pow({r}-y,2))>pow({r},2)) || "
+            f" (x<{r} && y>{h}-{r} && (pow({r}-x,2)+pow(y-({h}-{r}),2))>pow({r},2)) || "
+            f" (x>{w}-{r} && y>{h}-{r} && (pow(x-({w}-{r}),2)+pow(y-({h}-{r}),2))>pow({r},2))"
+            f", 0, 255)"
+        )
+        chain.append(f"[{l_mask}]format=rgba,geq=a='{geq_expr}'[{l_final_box}]")
+    else:
+        chain.append(f"[{l_mask}]copy[{l_final_box}]")
+
+    # 4. Финальный Overlay
+    chain.append(f"[{l_orig}][{l_final_box}]overlay={x}:{y}[{out_label}]")
+    
+    return ";".join(chain)
 
 # ---------------------------------------------------------------------------
-# Одиночный action → строка фильтра
+# Построение action
 # ---------------------------------------------------------------------------
 
-def build_action(a: Action, fps: int = 30) -> str:
+def build_action(a: Action, in_label: str, out_label: str, fps: int = 30) -> str:
     t = a.type
+    
+    # Простые фильтры (можно объединять через запятую, но для чистоты рефакторинга сделаем единообразно)
+    def simple(f_str: str):
+        return f"[{in_label}]{f_str}[{out_label}]"
+
+    if t == "plate":
+        return _build_plate_action(a, in_label, out_label)
 
     if t == "scale_and_crop":
-        return (
-            f"scale={a.w}:{a.h}:force_original_aspect_ratio=increase,"
-            f"crop={a.w}:{a.h}"
-        )
+        return simple(f"scale={a.w}:{a.h}:force_original_aspect_ratio=increase,crop={a.w}:{a.h}")
+    
     if t == "scale":
-        return f"scale={a.w}:{a.h}"
+        return simple(f"scale={a.w}:{a.h}")
 
     if t == "blur":
         s = a.sigma or 5
-        return f"boxblur={s}:{s}"
+        return simple(f"boxblur={s}:{s}")
 
     if t == "drawtext":
         text = _sanitize_text(a.text or "")
@@ -113,83 +138,49 @@ def build_action(a: Action, fps: int = 30) -> str:
         y = _expr(a.y or "(h-text_h)/2")
         size = a.fontsize or 60
         color = a.fontcolor or "white"
-        base = (
-            f"drawtext=fontfile='{fontfile}':text='{text}'"
-            f":fontsize={size}:fontcolor={color}"
-            f":x={x}:y={y}"
-        )
+        base = f"drawtext=fontfile='{fontfile}':text='{text}':fontsize={size}:fontcolor={color}:x={x}:y={y}"
         if a.box:
             base += f":box=1:boxcolor={a.boxcolor}:boxborderw={a.boxborderw}"
-        return base
-
-    if t == "scale_contain":
-        return f"scale={a.w}:{a.h}:force_original_aspect_ratio=decrease"
+        return simple(base)
 
     if t == "zoom":
         z_val = a.zoom or 1.1
-        if a.expr:
-            z_expr = a.expr
-        else:
-            z_expr = f"min(1+on*{(z_val-1)/(fps*10):.5f}, {z_val})"
-
+        z_expr = a.expr or f"min(1+on*{(z_val-1)/(fps*10):.5f}, {z_val})"
         if a.smooth:
-            # Трюк с апскейлом для устранения дрожания (Ken Burns jitter fix)
-            w_hd = (a.w or 540) * 4
-            h_hd = (a.h or 960) * 4
-            return (
+            w_hd, h_hd = (a.w or 540) * 4, (a.h or 960) * 4
+            return simple(
                 f"scale={w_hd}:{h_hd}:flags=bicubic,format=yuv420p,"
-                f"zoompan=z='{z_expr}':s={w_hd}x{h_hd}"
-                f":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:fps={fps},"
+                f"zoompan=z='{z_expr}':s={w_hd}x{h_hd}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:fps={fps},"
                 f"scale={a.w or 540}:{a.h or 960}:flags=bicubic"
             )
         else:
-            # Чистый нативный zoompan
-            w_out = a.w or 540
-            h_out = a.h or 960
-            return (
-                f"zoompan=z='{z_expr}':s={w_out}x{h_out}"
-                f":x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2':d=1:fps={fps}"
-            )
+            w_out, h_out = a.w or 540, a.h or 960
+            return simple(f"zoompan=z='{z_expr}':s={w_out}x{h_out}:x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2':d=1:fps={fps}")
 
     if t == "fade_in":
         st = a.start_time or 0
-        if a.alpha:
-            return f"format=rgba,fade=t=in:st={st}:d={a.duration or 1}:alpha=1"
-        return f"fade=t=in:st={st}:d={a.duration or 1}:color={a.color}"
+        f = f"fade=t=in:st={st}:d={a.duration or 1}"
+        if a.alpha: f = f"format=rgba,{f}:alpha=1"
+        else: f += f":color={a.color}"
+        return simple(f)
 
     if t == "fade_out":
         st = a.start_time or 0
-        if a.alpha:
-            return f"format=rgba,fade=t=out:st={st}:d={a.duration or 1}:alpha=1"
-        return f"fade=t=out:st={st}:d={a.duration or 1}:color={a.color}"
+        f = f"fade=t=out:st={st}:d={a.duration or 1}"
+        if a.alpha: f = f"format=rgba,{f}:alpha=1"
+        else: f += f":color={a.color}"
+        return simple(f)
 
     if t == "custom":
-        return a.filter or ""
+        return simple(a.filter or "copy")
 
     if t == "setsar":
-        return "setsar=1"
+        return simple("setsar=1")
 
-    logger.warning(f"Неизвестный action type: '{t}' — пропускаю")
-    return ""
-
-
+    return simple("copy")
 
 # ---------------------------------------------------------------------------
-# Trim → строка фильтра
-# ---------------------------------------------------------------------------
-
-def build_trim(trim: Trim) -> str:
-    parts = [f"trim=start={trim.start}"]
-    if trim.end is not None:
-        parts.append(f"end={trim.end}")
-    
-    trim_filter = ":".join(parts)
-    # Сдвигаем PTS вперед на время старта, чтобы overlay поймал слой в нужное время
-    return f"{trim_filter},setpts=PTS-STARTPTS+{trim.start}/TB"
-
-
-# ---------------------------------------------------------------------------
-# Весь pipeline → список filter-строк + маппинг id→label
+# Сборка пайплайна
 # ---------------------------------------------------------------------------
 
 def build_pipeline(
@@ -202,26 +193,27 @@ def build_pipeline(
 
     for step in steps:
         idx = resource_map[step.input]
-        in_label = f"{idx}:v"
-        chain: list[str] = []
-
-        # 1. Обрезка и сброс PTS в 0 (чтобы эффекты внутри сегмента работали от 0)
+        curr = f"{idx}:v"
+        
+        # 1. Trim
         if step.trim:
-            chain.append(f"trim=start={step.trim.start}:end={step.trim.end}")
-            chain.append("setpts=PTS-STARTPTS")
+            nxt = f"tr_{step.id}"
+            filters.append(f"[{curr}]trim=start={step.trim.start}:end={step.trim.end},setpts=PTS-STARTPTS[{nxt}]")
+            curr = nxt
 
-        # 2. Применяем все действия (уже в пространстве 0..duration)
-        for action in step.actions:
-            f = build_action(action, fps)
-            if f: chain.append(f)
+        # 2. Actions
+        for i, action in enumerate(step.actions):
+            nxt = f"a_{step.id}_{i}"
+            filters.append(build_action(action, curr, nxt, fps))
+            curr = nxt
 
-        # 3. Возвращаем PTS на место для overlay
-        if step.trim:
-            chain.append(f"setpts=PTS+{step.trim.start}/TB")
-
+        # 3. Final PTS restore and output label
         out_label = step.id
+        if step.trim:
+            filters.append(f"[{curr}]setpts=PTS+{step.trim.start}/TB[{out_label}]")
+        else:
+            filters.append(f"[{curr}]copy[{out_label}]")
+            
         step_labels[step.id] = out_label
-        body = ",".join(chain) if chain else "copy"
-        filters.append(f"[{in_label}]{body}[{out_label}]")
 
     return filters, step_labels
