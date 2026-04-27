@@ -124,6 +124,7 @@ def _build_audio_filter(
     tracks: list[AudioTrack],
     steps: list[PipelineStep],
     resource_map: dict[str, int],
+    resource_types: dict[str, str],
     duration: float | None = None,
 ) -> tuple[list[str], str | None]:
     """
@@ -136,7 +137,9 @@ def _build_audio_filter(
 
     # 1. Звук из слоев видео (PipelineSteps)
     for i, step in enumerate(steps):
-        if step.volume <= 0:
+        # Пропускаем, если громкость 0 или ресурс не поддерживает звук
+        res_type = resource_types.get(step.input, "video")
+        if step.volume <= 0 or res_type in ["image", "lavfi"]:
             continue
             
         idx = resource_map[step.input]
@@ -238,7 +241,7 @@ def assemble(task: Task, dry_run: bool = False) -> bool:
         final_audio: str | None = None
         if task.audio or any(s.volume > 0 for s in task.pipeline):
             audio_filters, final_audio = _build_audio_filter(
-                task.audio, task.pipeline, resource_map, task.output.duration
+                task.audio, task.pipeline, resource_map, resource_types, task.output.duration
             )
 
         # 5. Собираем filter_complex

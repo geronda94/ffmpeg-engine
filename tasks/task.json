@@ -1,16 +1,36 @@
 {
-  "version": "3.2",
+  "version": "3.3",
   "output": {
-    "path": "output/premium_demo.mp4",
+    "path": "output/demo.mp4",
     "fps": 30,
-    "duration": 10.0,
+    "duration": 20.0,
     "codec": "auto"
   },
   "resources": [
     {
-      "id": "bg_video",
+      "id": "video_src",
       "source": "https://vjs.zencdn.net/v/oceans.mp4",
       "type": "video"
+    },
+    {
+      "id": "img_1",
+      "source": "nature_1.jpg",
+      "type": "image"
+    },
+    {
+      "id": "img_2",
+      "source": "nature_2.jpg",
+      "type": "image"
+    },
+    {
+      "id": "ui_plate_png",
+      "source": "local_assets/ui/plate_dark.png",
+      "type": "image"
+    },
+    {
+      "id": "black_bg",
+      "source": "color=c=black:s=1080x1920:r=30",
+      "type": "lavfi"
     },
     {
       "id": "music",
@@ -20,63 +40,110 @@
   ],
   "pipeline": [
     {
-      "id": "main_bg",
-      "input": "bg_video",
-      "trim": { "start": 0, "end": 10 },
-      "volume": 0.0,
+      "id": "canvas",
+      "input": "black_bg",
+      "trim": { "start": 0, "end": 20 },
+      "volume": 0,
       "actions": [
-        { "type": "scale_and_crop", "w": 1080, "h": 1920 },
-        { "type": "zoom", "zoom": 1.08, "smooth": true, "w": 1080, "h": 1920 }
+        { "type": "scale", "w": 1080, "h": 1920 }
       ]
     },
     {
-      "id": "text_layer",
-      "input": "bg_video",
-      "trim": { "start": 2, "end": 9 },
-      "volume": 0.0,
+      "id": "clip_1",
+      "input": "video_src",
+      "trim": { "start": 0, "end": 5.5 },
+      "src_trim": { "start": 0, "end": 5.5 },
+      "volume": 0,
+      "actions": [
+        { "type": "scale_and_crop", "w": 1080, "h": 1920 }
+      ]
+    },
+    {
+      "id": "clip_2",
+      "input": "img_1",
+      "trim": { "start": 4, "end": 9.5 },
+      "volume": 0,
       "actions": [
         { "type": "scale_and_crop", "w": 1080, "h": 1920 },
+        { "type": "dissolve", "duration": 1.5 }
+      ]
+    },
+    {
+      "id": "clip_3",
+      "input": "video_src",
+      "trim": { "start": 8, "end": 13.5 },
+      "src_trim": { "start": 20, "end": 25.5 },
+      "volume": 0,
+      "actions": [
+        { "type": "scale_and_crop", "w": 1080, "h": 1920 },
+        { "type": "dissolve", "duration": 1.5 }
+      ]
+    },
+    {
+      "id": "clip_4",
+      "input": "img_2",
+      "trim": { "start": 12, "end": 17.5 },
+      "volume": 0,
+      "actions": [
+        { "type": "scale_and_crop", "w": 1080, "h": 1920 },
+        { "type": "dissolve", "duration": 1.5 }
+      ]
+    },
+    {
+      "id": "clip_5",
+      "input": "video_src",
+      "trim": { "start": 16, "end": 20 },
+      "src_trim": { "start": 40, "end": 44 },
+      "volume": 0,
+      "actions": [
+        { "type": "scale_and_crop", "w": 1080, "h": 1920 },
+        { "type": "zoom", "zoom": 1.2, "smooth": true, "w": 1080, "h": 1920 },
+        { "type": "dissolve", "duration": 1.5 }
+      ]
+    },
+    {
+      "id": "premium_title",
+      "input": "ui_plate_png",
+      "trim": { "start": 2, "end": 18 },
+      "volume": 0,
+      "actions": [
         {
-          "type": "plate",
-          "w": 880,
-          "h": 220,
-          "x": "100",
-          "y": "800",
-          "blur": 25,
-          "radius": 36,
-          "boxcolor": "white@0.12",
-          "border_width": 2,
-          "border_color": "white@0.5",
-          "glow_color": "white@0.18",
-          "glow_width": 18
+          "type": "drawtext",
+          "text": "PREMIUM MULTI-RESOURCE MONTAGE",
+          "fontsize": 40,
+          "fontcolor": "white",
+          "x": "(w-text_w)/2",
+          "y": "80"
         },
         {
           "type": "drawtext",
-          "text": "PREMIUM ENGINE",
-          "fontsize": 72,
-          "fontcolor": "white",
+          "text": "Video + AI Generated Images",
+          "fontsize": 30,
+          "fontcolor": "white@0.8",
           "x": "(w-text_w)/2",
-          "y": "870"
+          "y": "140"
         },
-        { "type": "dissolve", "duration": 1.2 }
+        { "type": "dissolve", "duration": 1.0 }
       ]
     }
   ],
   "compose": {
-    "base": "main_bg",
+    "base": "canvas",
     "layers": [
-      {
-        "source": "text_layer",
-        "pos": { "x": "0", "y": "0" }
-      }
+      { "source": "clip_1", "pos": { "x": "0", "y": "0" } },
+      { "source": "clip_2", "pos": { "x": "0", "y": "0" } },
+      { "source": "clip_3", "pos": { "x": "0", "y": "0" } },
+      { "source": "clip_4", "pos": { "x": "0", "y": "0" } },
+      { "source": "clip_5", "pos": { "x": "0", "y": "0" } },
+      { "source": "premium_title", "pos": { "x": "(W-w)/2", "y": "800" } }
     ]
   },
   "audio": [
     {
       "source": "music",
-      "volume": 0.7,
-      "fade_in": 1.5,
-      "fade_out": 2.0
+      "volume": 0.5,
+      "fade_in": 2.0,
+      "fade_out": 3.0
     }
   ]
 }
