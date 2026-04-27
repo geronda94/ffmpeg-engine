@@ -7,3 +7,5 @@ __pycache__/
 *.egg-info/
 tasks/religious_reel.json
 docs/directus_integration_blueprint.md
+.env
+env

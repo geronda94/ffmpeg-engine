@@ -1,0 +1,9 @@
+{
+  "model": "gemini-3.1-flash-tts-preview",
+  "voice": "Alnilam",
+  "output": "local_assets/audio/gabriel_voiceover.wav",
+  "pause": 0.6,
+  "temperature": 1.0,
+  "prompt": "# Audio Profile: A formal, steady, and clear documentary narrator with a solemn tone. # Director's note: Style: Intimate, breathy, close-to-mic proximity effect. Pace: Natural conversational pace. Accent: British (GB). ## Scene: A professional radio broadcasting studio, dead quiet, high-quality microphone. ## Sample Context: Non-fiction documentary narration. Warm, authoritative, and steady pace. Clear and solemn tone. Professional orator style, no whispering, no breathiness.",
+  "text": "В самом сердце Грузии, среди древних стен монастыря Самтавро, жил человек, чьё сердце горело неземной любовью. Старец Гавриил Ургебадзе. В суровые годы безбожия он не боялся обличать тьму, неся в руках лишь крест и слово о Боге. Его называли безумным, но его безумие было высшей мудростью. Он мог плакать о грехах мира и в тот же миг радовать прохожих детской улыбкой. 'Бог — это любовь', — повторял он, и эти слова становились живым щитом для каждого, кто приходил к нему за утешением. Старец Гавриил оставил нам великое сокровище: веру, которая не знает страха, и доброту, которая не имеет границ. Его маленькая келлия и сегодня полна тепла, а его молитва продолжает согревать сердца людей по всему миру. Помни: выше всех канонов и правил — любовь."
+}
