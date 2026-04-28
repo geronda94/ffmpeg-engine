@@ -1,0 +1,71 @@
+{
+  "tts_engines": {
+    "edge": {
+      "name": "🎙 Бесплатная (Edge-TTS)",
+      "presets": [
+        {
+          "id": "edge_male_fast", 
+          "name": "🚀 Мужской (Быстрый)", 
+          "voices": {
+            "Russian": "ru-RU-DmitryNeural",
+            "English": "en-US-GuyNeural",
+            "Romanian": "ro-RO-EmilNeural",
+            "Georgian": "ka-GE-GiorgiNeural"
+          },
+          "rate": "+20%", 
+          "pitch": "+0Hz"
+        },
+        {
+          "id": "edge_female_soft", 
+          "name": "🌸 Женский (Мягкий)", 
+          "voices": {
+            "Russian": "ru-RU-SvetlanaNeural",
+            "English": "en-US-AvaNeural",
+            "Romanian": "ro-RO-AlinaNeural",
+            "Georgian": "ka-GE-EkaNeural"
+          }, 
+          "rate": "-10%", 
+          "pitch": "-5Hz"
+        },
+        {
+          "id": "edge_announcer", 
+          "name": "📺 Диктор (Стандарт)", 
+          "voices": {
+            "Russian": "ru-RU-DmitryNeural",
+            "English": "en-US-ChristopherNeural",
+            "Romanian": "ro-RO-EmilNeural",
+            "Georgian": "ka-GE-GiorgiNeural"
+          }, 
+          "rate": "+0%", 
+          "pitch": "+0Hz"
+        },
+        {
+          "id": "edge_female_fast", 
+          "name": "⚡ Женский (Энергичный)", 
+          "voices": {
+            "Russian": "ru-RU-SvetlanaNeural",
+            "English": "en-US-EmmaNeural",
+            "Romanian": "ro-RO-AlinaNeural",
+            "Georgian": "ka-GE-EkaNeural"
+          }, 
+          "rate": "+15%", 
+          "pitch": "+5Hz"
+        }
+      ]
+    },
+    "gemini": {
+      "name": "💎 Премиум (Gemini Pro)",
+      "presets": [
+        {"id": "gem_onyx_deep", "name": "🌑 Onyx (Глубокий)", "model": "tts-1-hd", "voice": "onyx"},
+        {"id": "gem_nova_bright", "name": "☀️ Nova (Яркий)", "model": "tts-1-hd", "voice": "nova"},
+        {"id": "gem_shimmer_pro", "name": "✨ Shimmer (Профи)", "model": "tts-1-hd", "voice": "shimmer"},
+        {"id": "gem_echo_soft", "name": "🌊 Echo (Спокойный)", "model": "tts-1-hd", "voice": "echo"}
+      ]
+    }
+  },
+  "script_styles": [
+    {"id": "dynamic", "name": "⚡ Динамичный", "prompt": "Use short, punchy sentences. Maximum action."},
+    {"id": "educational", "name": "🎓 Обучающий", "prompt": "Explain things clearly, use a calm educational tone."},
+    {"id": "mystic", "name": "🔮 Мистический", "prompt": "Create an atmosphere of mystery and wonder."}
+  ]
+}

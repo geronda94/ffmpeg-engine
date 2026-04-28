@@ -1,0 +1,29 @@
+{
+  "modes": [
+    {"id": "auto", "name": "🤖 Полный автомат", "desc": "Бот сам придумывает историю по вашей теме"},
+    {"id": "manual", "name": "✍️ Свой текст", "desc": "Вы даете готовый текст, бот делает раскадровку"},
+    {"id": "hybrid", "name": "🤝 Гибрид (Тезисы)", "desc": "Бот пишет сценарий на основе ваших фактов"}
+  ],
+  "styles": [
+    {
+      "id": "news", 
+      "name": "📺 Новостной", 
+      "prompt": "Style: Professional news broadcast. Serious tone, objective reporting, clear and structured information."
+    },
+    {
+      "id": "scientific", 
+      "name": "🎓 Научно-популярный", 
+      "prompt": "Style: Educational documentary. Explaining complex things simply, using facts, curious and engaging tone."
+    },
+    {
+      "id": "narrative", 
+      "name": "📖 Повествовательный", 
+      "prompt": "Style: Storytelling/Blog. Personal, emotional, uses 'I' and 'you', descriptive and immersive."
+    },
+    {
+      "id": "hype", 
+      "name": "🔥 Хайповый/Рекламный", 
+      "prompt": "Style: Viral marketing/Ad. Short punchy sentences, lots of energy, calls to action, emotional hooks."
+    }
+  ]
+}
