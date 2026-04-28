@@ -1,42 +1,52 @@
-import os
-import sys
 import asyncio
 import logging
+import os
+import sys
 from pathlib import Path
-
-# Настройка путей
-root_dir = Path(__file__).resolve().parent.parent
-if str(root_dir) not in sys.path:
-    sys.path.insert(0, str(root_dir))
-
-from aiogram import Bot, Dispatcher
-from aiogram.types import BotCommand
 from dotenv import load_dotenv
+from aiogram import Bot, Dispatcher
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.client.session.aiohttp import AiohttpSession
 
-# Импорт роутеров
+# Добавляем корень проекта в путь поиска модулей
+root_dir = Path(__file__).resolve().parent.parent
+sys.path.append(str(root_dir))
+
 from bot.handlers import common, scripting, assets, production
 
-load_dotenv()
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
+# Загружаем переменные окружения
+load_dotenv(root_dir / ".env")
 API_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher()
 
-# Регистрация роутеров в правильном порядке
-dp.include_router(common.router)
-dp.include_router(scripting.router)
-dp.include_router(assets.router)
-dp.include_router(production.router)
-
-async def set_main_menu(bot: Bot):
-    await bot.set_my_commands([BotCommand(command='/start', description='🚀 Начать новый проект')])
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 async def main():
-    logger.info("Starting bot v3.1 (Modular Edition)...")
-    await set_main_menu(bot)
+    if not API_TOKEN:
+        logging.error("TELEGRAM_BOT_TOKEN не найден в .env файле!")
+        return
+
+    # ФИКС: Используем простое число секунд вместо ClientTimeout
+    # Это позволит aiogram корректно вычислять время опроса (polling)
+    session = AiohttpSession()
+    # Устанавливаем таймаут напрямую в секундах, чтобы избежать TypeError
+    session.timeout = 900 
+    
+    bot = Bot(token=API_TOKEN, session=session)
+    dp = Dispatcher(storage=MemoryStorage())
+
+    dp.include_router(common.router)
+    dp.include_router(scripting.router)
+    dp.include_router(assets.router)
+    dp.include_router(production.router)
+
+    logging.info("Starting bot v3.2.3 (Stability-Fix Edition)...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logging.info("Polling stopped")

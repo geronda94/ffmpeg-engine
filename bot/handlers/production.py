@@ -74,22 +74,38 @@ async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
     
     status = await callback.message.answer("🎬 **Монтаж запущен.**\nПрогресс: [░░░░░░░░░░] 0%")
 
-    # ФИКС: Добавляем **kwargs, чтобы принимать любые сообщения от логгера
+    main_loop = asyncio.get_running_loop()
+    last_text = ""
+
+    # Вспомогательная функция для безопасного вызова API бота
+    async def safe_edit_text(new_text):
+        nonlocal last_text
+        if new_text == last_text: return
+        try:
+            # Используем bot.edit_message_text напрямую для надежности
+            await status.bot.edit_message_text(
+                text=new_text,
+                chat_id=status.chat.id,
+                message_id=status.message_id
+            )
+            last_text = new_text
+        except Exception:
+            pass # Игнорируем ошибки (например, если сообщение не изменилось или удалено)
+
     def update_progress(percent=None, **kwargs):
-        if percent is None: 
-            return # Игнорируем текстовые логи (типа "Building video")
-            
-        loop = asyncio.get_event_loop()
+        if percent is None: return
         bar_count = percent // 10
         bar = "█" * bar_count + "░" * (10 - bar_count)
         text = f"🎬 **Монтаж в процессе...**\nПрогресс: [{bar}] {percent}%"
-        asyncio.run_coroutine_threadsafe(status.edit_text(text), loop)
+        # Передаем именно ВЫЗОВ асинхронной функции
+        asyncio.run_coroutine_threadsafe(safe_edit_text(text), main_loop)
 
     try:
         video_path = await render_project_video(data, data['current_audio_path'], progress_callback=update_progress)
         
         if video_path and os.path.exists(video_path):
-            await status.edit_text("⏳ **Монтаж завершен!**\nНачинаю отправку файла...")
+            # Финальный статус перед отправкой
+            asyncio.run_coroutine_threadsafe(safe_edit_text("⏳ **Монтаж завершен!**\nНачинаю отправку файла..."), main_loop)
             
             for attempt in range(3):
                 try:
