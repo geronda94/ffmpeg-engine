@@ -7,25 +7,35 @@ from proglog import ProgressBarLogger
 logger = logging.getLogger(__name__)
 
 class TelegramProgressLogger(ProgressBarLogger):
-    """Логгер с дебагом имен баров для v2.x."""
+    """Универсальный логгер, который ловит любой прогресс."""
     def __init__(self, callback=None):
         super().__init__()
         self.callback = callback
         self.last_percent = -1
 
+    def callback_write(self, s):
+        # Выводим внутренние сообщения MoviePy в консоль для отладки
+        if "MoviePy" in str(s):
+            print(f"🎬 {s}")
+
+    def log(self, message):
+        # Логируем все сообщения в консоль
+        if 'message' in message:
+            print(f"ℹ️ {message['message']}")
+
     def bars_callback(self, bar, attr, value, old_value=None):
-        # Включаем логирование всех баров в консоль для отладки
-        # print(f"DEBUG MOVIEPY BAR: {bar} | {attr}: {value}")
-        
-        # В v2.x MoviePy часто использует 't' (время) или 'frame'
-        if bar in ['chunk', 't', 'frame']:
-            total = self.bars[bar].get('total')
-            if total and total > 0:
-                percent = int((value / total) * 100)
-                if percent % 10 == 0 and percent != self.last_percent:
-                    self.last_percent = percent
-                    if self.callback:
-                        self.callback(percent)
+        # Если это основной процесс (обычно 't' или 'chunk')
+        total = self.bars[bar].get('total')
+        if total and total > 0:
+            percent = int((value / total) * 100)
+            # Обновляем каждые 5%
+            if percent % 5 == 0 and percent != self.last_percent:
+                self.last_percent = percent
+                # Печатаем в терминал
+                print(f"📊 Монтаж [{bar}]: {percent}%")
+                # Отправляем в Телеграм
+                if self.callback:
+                    self.callback(percent)
 
 class MontageAgent:
     def __init__(self, width=1080, height=1920, fps=30):
@@ -47,7 +57,7 @@ class MontageAgent:
         return clip
 
     def render(self, scenes, audio_path, output_path, preset, progress_callback=None):
-        """Рендеринг v9.2: Универсальный логгер прогресса."""
+        """Рендеринг v9.3: Тотальный контроль прогресса."""
         try:
             audio = AudioFileClip(audio_path)
             clips = []
@@ -80,7 +90,10 @@ class MontageAgent:
             final_video = concatenate_videoclips(clips, method="compose", padding=-cross_dur if use_crossfade else 0)
             final_video = final_video.with_audio(audio)
             
+            # Создаем логгер
             my_logger = TelegramProgressLogger(callback=progress_callback)
+            
+            print(f"🚀 Запуск финальной сборки в {output_path}...")
             
             final_video.write_videofile(
                 output_path, 
@@ -89,7 +102,7 @@ class MontageAgent:
                 audio_codec="aac",
                 threads=4,
                 preset="veryfast",
-                logger=my_logger
+                logger=my_logger # Передаем наш продвинутый логгер
             )
             
             audio.close()
