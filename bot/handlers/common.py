@@ -1,11 +1,14 @@
 import json
+import time
 from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.states import ProjectStates
+from core.project_manager import ProjectManager
 
 router = Router()
+pm = ProjectManager()
 
 def load_json(path):
     with open(path, "r", encoding="utf-8") as f:
@@ -14,25 +17,35 @@ def load_json(path):
 @router.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     await state.clear()
+    
+    project_id = f"p_{int(time.time())}_{message.from_user.id % 1000}"
+    user_id = str(message.from_user.id)
+    
+    pm.create_project(project_id, user_id)
+    await state.update_data(project_id=project_id, user_id=user_id)
+    
     kb = InlineKeyboardBuilder()
     kb.button(text="🇷🇺 Русский", callback_data="lang_Russian")
     kb.button(text="🇺🇸 English", callback_data="lang_English")
     kb.button(text="🇷🇴 Română", callback_data="lang_Romanian")
     kb.button(text="🇬🇪 ქართული", callback_data="lang_Georgian")
     kb.adjust(2)
-    await message.answer("👋 **Контент-Завод v4.3**\n\nВыберите язык ролика:", reply_markup=kb.as_markup())
+    await message.answer("👋 **Контент-Завод v9.5 (Persist Edition)**\n\nВыберите язык ролика:", reply_markup=kb.as_markup())
     await state.set_state(ProjectStates.choosing_language)
 
 @router.callback_query(F.data.startswith("lang_"), ProjectStates.choosing_language)
 async def choose_lang(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     lang = callback.data.split("_")[1]
+    data = await state.get_data()
+    proj = pm.load_project(data['project_id'])
+    proj['language'] = lang
+    pm.save_project(data['project_id'], proj)
     await state.update_data(language=lang)
     
     kb = InlineKeyboardBuilder()
     kb.button(text="📱 Вертикальное (9:16)", callback_data="format_vertical")
     kb.button(text="📺 Широкое (16:9)", callback_data="format_wide")
-    
     await callback.message.edit_text("📐 Выберите формат видео:", reply_markup=kb.as_markup())
     await state.set_state(ProjectStates.choosing_format)
 
@@ -40,15 +53,17 @@ async def choose_lang(callback: types.CallbackQuery, state: FSMContext):
 async def choose_format(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     fmt = callback.data.split("_")[1]
+    data = await state.get_data()
+    proj = pm.load_project(data['project_id'])
+    proj['video_format'] = fmt
+    pm.save_project(data['project_id'], proj)
     await state.update_data(video_format=fmt)
     
-    # Сразу к сценарию
     presets = load_json("config/script_presets.json")
     kb = InlineKeyboardBuilder()
     for mode in presets['modes']:
         kb.button(text=mode['name'], callback_data=f"scrmode_{mode['id']}")
     kb.adjust(1)
-    
     await callback.message.edit_text("🧠 Как будем готовить сценарий?", reply_markup=kb.as_markup())
     await state.set_state(ProjectStates.choosing_script_mode)
 

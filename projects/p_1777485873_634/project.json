@@ -1,0 +1,82 @@
+{
+  "script": "Представьте, что вы просыпаетесь в густом зеленом лесу, где каждый лист может быть едой или укрытием. Для обезьян джунгли — и дом, и супермаркет, и игровая площадка. Но это не просто рай: каждый день здесь — борьба за выживание. Утро начинается с поиска пищи. Плоды, орехи, насекомые — всё нужно успеть найти до того, как это сделают конкуренты. А опасности повсюду: хищники, вроде ягуаров, или ядовитые змеи. Но есть и радости: игры с сородичами, купание в реке, уход за шерстью друг друга. Сложнее всего — забота о детёнышах: они требуют внимания 24/7. Но именно в такие моменты обезьяны чувствуют себя по-настоящему счастливыми. Каждый день — это вызов, но и награда: свобода, общение, жизнь в гармонии с природой. Как вам такой образ жизни?",
+  "updated_at": "2026-04-29T21:07:40.450620",
+  "scenes": [
+    {
+      "scene_id": 1,
+      "text_segment": "Представьте, что вы просыпаетесь в густом зеленом лесу, где каждый лист может быть едой или укрытием.",
+      "visual_description": "Камера медленно открывается от черноты, показывая густой зеленый лес с лучами утреннего солнца, пробивающимися сквозь листву. Крупным планом лист, на котором сидит маленькая обезьянка, протирающая глаза.",
+      "image_prompt": "cinematic wide shot of a dense green jungle at dawn, sunlight rays piercing through foliage, a small monkey waking up on a leaf, hyperrealistic, vibrant colors, 8k",
+      "ui_caption": "Пробуждение в джунглях"
+    },
+    {
+      "scene_id": 2,
+      "text_segment": "Для обезьян джунгли — и дом, и супермаркет, и игровая площадка. Но это не просто рай: каждый день здесь — борьба за выживание.",
+      "visual_description": "Монтаж: обезьяна срывает фрукт с ветки (супермаркет), затем играет с другой обезьяной (игровая площадка), затем настороженно оглядывается (борьба за выживание).",
+      "image_prompt": "collage of three scenes: a monkey picking a fruit, two monkeys playing, a monkey looking alert in the jungle, dynamic angles, natural lighting, National Geographic style",
+      "ui_caption": "Дом, еда и игра"
+    },
+    {
+      "scene_id": 3,
+      "text_segment": "Утро начинается с поиска пищи. Плоды, орехи, насекомые — всё нужно успеть найти до того, как это сделают конкуренты.",
+      "visual_description": "Обезьяна быстро перебирается с ветки на ветку, осматриваясь в поисках еды. Другая обезьяна схватила орех и убегает от соперника.",
+      "image_prompt": "monkey actively searching for food in tree canopy, reaching for nuts, another monkey grabbing a fruit, competitive urgency, sharp focus, morning light, 8k",
+      "ui_caption": "Завтрак на бегу"
+    },
+    {
+      "scene_id": 4,
+      "text_segment": "А опасности повсюду: хищники, вроде ягуаров, или ядовитые змеи. Но есть и радости: игры с сородичами, купание в реке, уход за шерстью друг друга.",
+      "visual_description": "Обезьяна замирает на ветке, глядя вниз, где крадется ягуар. В другой сцене змея свисает с ветки рядом с обезьяной, которая отпрыгивает. Затем монтаж: группа обезьян играет, купается в реке, вычесывает друг друга.",
+      "image_prompt": "split screen: left side monkey frozen seeing a jaguar below, right side monkey dodging a venomous snake; then cut to happy monkeys playing, swimming, grooming, warm golden hour light, high detail, 8k",
+      "ui_caption": "Опасности и радости"
+    },
+    {
+      "scene_id": 5,
+      "text_segment": "Сложнее всего — забота о детёнышах: они требуют внимания 24/7. Но именно в такие моменты обезьяны чувствуют себя по-настоящему счастливыми.",
+      "visual_description": "Обезьяна-мать нежно держит детёныша, кормит его и обнимает. Детёныш цепляется за мать, когда она карабкается.",
+      "image_prompt": "mother monkey cradling her baby, feeding, climbing with baby clinging to her, tender expression, deep focus, lush green background, emotional, 8k",
+      "ui_caption": "Материнская любовь"
+    },
+    {
+      "scene_id": 6,
+      "text_segment": "Каждый день — это вызов, но и награда: свобода, общение, жизнь в гармонии с природой. Как вам такой образ жизни?",
+      "visual_description": "Обезьяна сидит на высокой ветке, глядя на закат над джунглями. Камера медленно отдаляется, показывая всю панораму леса.",
+      "image_prompt": "monkey silhouetted against a stunning sunset over the jungle canopy, peaceful, harmony with nature, wide panoramic view, cinematic, 8k, vibrant colors",
+      "ui_caption": "Жизнь в гармонии"
+    }
+  ],
+  "assets": {
+    "0": {
+      "path": "projects/p_1777485873_634/assets/scene_0.jpg",
+      "original_path": "temp/url_1777485955.jpg",
+      "type": "image"
+    },
+    "1": {
+      "path": "projects/p_1777485873_634/assets/scene_1.jpg",
+      "original_path": "temp/url_1777485967.jpg",
+      "type": "image"
+    },
+    "2": {
+      "path": "projects/p_1777485873_634/assets/scene_2.jpg",
+      "original_path": "temp/url_1777485978.jpg",
+      "type": "image"
+    },
+    "3": {
+      "path": "projects/p_1777485873_634/assets/scene_3.jpg",
+      "original_path": "temp/url_1777485993.jpg",
+      "type": "image"
+    },
+    "4": {
+      "path": "projects/p_1777485873_634/assets/scene_4.jpg",
+      "original_path": "temp/url_1777486014.jpg",
+      "type": "image"
+    },
+    "5": {
+      "path": "projects/p_1777485873_634/assets/scene_5.jpg",
+      "original_path": "temp/url_1777486026.jpg",
+      "type": "image"
+    }
+  },
+  "language": "Russian",
+  "current_audio_path": "projects/p_1777485873_634/audio/voice_Russian.wav"
+}

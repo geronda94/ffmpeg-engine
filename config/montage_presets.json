@@ -1,25 +1,30 @@
 {
-  "styles": [
+  "vertical": [
     {
-      "id": "smooth_story",
-      "name": "📖 Плавный сторителлинг",
-      "transition": { "type": "crossfade", "duration": 0.5 },
+      "id": "v_smooth_story",
+      "name": "📖 Плавный сторителлинг (Вертикаль)",
       "effects": ["soft_zoom"],
-      "text_style": { "use_plate": true, "plate_asset": "plate_anthracite_noise.png" }
+      "transition": { "type": "crossfade", "duration": 0.5 }
     },
     {
-      "id": "dynamic_viral",
-      "name": "⚡ Динамичный Вирал",
-      "transition": { "type": "slide", "duration": 0.3 },
-      "effects": ["quick_zoom", "blur_edges"],
-      "text_style": { "use_plate": false, "font_color": "yellow", "shadow": true }
+      "id": "v_dynamic_shorts",
+      "name": "⚡ Динамичный Shorts",
+      "effects": ["quick_zoom"],
+      "transition": { "type": "crossfade", "duration": 0.2 }
+    }
+  ],
+  "wide": [
+    {
+      "id": "w_cinematic",
+      "name": "🎬 Кинематографичный (Широкий)",
+      "effects": ["soft_zoom"],
+      "transition": { "type": "crossfade", "duration": 1.0 }
     },
     {
-      "id": "cinematic_doc",
-      "name": "🎬 Кино-Документалистика",
-      "transition": { "type": "fade_to_black", "duration": 0.8 },
-      "effects": ["slow_pull_back", "vignette"],
-      "text_style": { "use_plate": true, "plate_asset": "plate_simple_black.png" }
+      "id": "w_vlog_wide",
+      "name": "📺 Влог / Обзор",
+      "effects": [],
+      "transition": { "type": "crossfade", "duration": 0.3 }
     }
   ]
 }

@@ -1,118 +1,161 @@
+import logging
 import os
 import asyncio
-import logging
-from aiogram import Router, types, F, Bot
+import time
+import re
+import aiohttp
+from aiogram import Router, types, F
+from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.states import ProjectStates
-from ai.image_generator import generate_image
+from core.project_manager import ProjectManager
 from bot.navigation import ask_for_asset
-import aiohttp
+from ai.image_generator import generate_image
 
 logger = logging.getLogger(__name__)
 router = Router()
+pm = ProjectManager()
 
-async def download_file_from_url(url: str, dest_path: str):
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=30) as resp:
-                if resp.status == 200:
-                    with open(dest_path, "wb") as f: f.write(await resp.read())
-                    return True
-    except Exception as e:
-        logger.error(f"Download error: {e}")
-    return False
+URL_PATTERN = re.compile(r'https?://[^\s]+')
 
-@router.callback_query(F.data.in_(["asset_ai", "asset_manual"]), ProjectStates.collecting_assets)
-@router.callback_query(F.data.in_(["asset_ai", "asset_manual"]), ProjectStates.approving_asset)
-async def handle_asset_choice(callback: types.CallbackQuery, state: FSMContext):
-    # Пытаемся ответить на колбэк, если не вышло (таймаут) - просто логируем
-    try:
-        await callback.answer()
-    except Exception as e:
-        logger.warning(f"Could not answer callback: {e}")
-
-    try:
-        await callback.message.edit_reply_markup(reply_markup=None)
-    except: pass
-
-    choice = callback.data.split("_")[1]
-    logger.info(f"Asset choice triggered: {choice}")
+@router.callback_query(F.data == "asset_ai", StateFilter(ProjectStates.collecting_assets, ProjectStates.approving_asset))
+async def ai_asset_choice(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    project_id = data['project_id']
+    idx = data['current_scene_idx']
+    scene = data['scenes'][idx]
     
-    if choice == "ai":
-        data = await state.get_data()
-        idx = data['current_scene_idx']
-        path = f"local_assets/uploads/v3_s{idx}_ai.png"
-        status = await callback.message.answer("🎨 Генерирую через ИИ...")
+    status = await callback.message.answer(f"🎨 Генерирую ИИ-изображение для сцены {idx+1}...")
+    
+    try:
+        prompt = scene.get('image_prompt', scene.get('visual_description', 'Video scene'))
+        os.makedirs("temp", exist_ok=True)
+        temp_path = f"temp/ai_{int(time.time())}_{idx}.png"
         
-        try:
-            await asyncio.to_thread(generate_image, data['scenes'][idx]['image_prompt'], path)
-            await status.delete()
-            await state.update_data(temp_asset_path=path)
-            kb = InlineKeyboardBuilder().button(text="✅ Ок", callback_data="asset_confirm").button(text="🔄 Переделать", callback_data="asset_ai")
-            await callback.message.answer_photo(types.FSInputFile(path), caption="Результат ИИ. Одобряем?", reply_markup=kb.as_markup())
-            await state.set_state(ProjectStates.approving_asset)
-        except Exception as e:
-            logger.error(f"Image generation error: {e}")
-            await callback.message.answer("❌ Ошибка генерации картинки. Попробуйте еще раз или выберите другой метод.")
+        success = await asyncio.to_thread(generate_image, prompt, temp_path)
+        
+        if success and os.path.exists(temp_path):
+            pm.update_asset(project_id, idx, temp_path)
+            os.remove(temp_path)
             
-    elif choice == "manual":
-        await callback.message.answer("Пришлите файл или ссылку:")
-        await state.set_state(ProjectStates.waiting_for_asset)
+            proj = pm.load_project(project_id)
+            new_path = proj['assets'][str(idx)]['path']
+            
+            all_assets = data.get('assets', {})
+            all_assets[str(idx)] = {"path": new_path, "type": "image"}
+            await state.update_data(assets=all_assets)
+            
+            await status.delete()
+            kb = InlineKeyboardBuilder()
+            kb.button(text="✅ Подтвердить", callback_data="asset_confirm")
+            kb.button(text="🔄 Переделать", callback_data="asset_ai")
+            kb.button(text="📁 Своё", callback_data="asset_manual")
+            kb.adjust(1)
+            
+            await callback.message.answer_photo(
+                types.FSInputFile(new_path), 
+                caption=f"✨ Готово! Подходит для сцены {idx+1}?", 
+                reply_markup=kb.as_markup()
+            )
+            await state.set_state(ProjectStates.approving_asset)
+        else: raise Exception("Fail")
+    except:
+        await status.edit_text("⚠️ Ошибка генерации. Попробуйте загрузить своё.")
 
-@router.message(ProjectStates.waiting_for_asset)
-async def handle_manual_asset(message: types.Message, state: FSMContext, bot: Bot):
-    logger.info("Received manual asset message")
+@router.callback_query(F.data == "asset_manual", StateFilter(ProjectStates.collecting_assets, ProjectStates.approving_asset))
+async def manual_asset_choice(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
     data = await state.get_data()
     idx = data['current_scene_idx']
-    path = f"local_assets/uploads/v3_s{idx}.jpg"
+    scene = data['scenes'][idx]
     
-    if message.photo or message.video:
-        file_id = message.photo[-1].file_id if message.photo else message.video.file_id
-        file_info = await bot.get_file(file_id)
-        path = f"local_assets/uploads/v3_s{idx}.{file_info.file_path.split('.')[-1]}"
-        await bot.download_file(file_info.file_path, path)
-        try: await message.delete()
-        except: pass
-    elif message.text and "http" in message.text:
-        success = await download_file_from_url(message.text, path)
-        if success: 
-            try: await message.delete()
-            except: pass
-        else:
-            await message.answer("❌ Ошибка загрузки по ссылке.")
-            return
+    msg = (
+        f"📎 **Загрузка для сцены {idx+1}**\n\n"
+        f"🎬 **Что нужно:** {scene.get('visual_description', 'Нет описания')}\n\n"
+        f"🎨 **Промпт (для ИИ):** `{scene.get('image_prompt', 'Нет промпта')}`\n\n"
+        f"--- \nПришлите фото, видео или **прямую ссылку** на файл:"
+    )
     
-    if path:
-        await state.update_data(temp_asset_path=path)
-        kb = InlineKeyboardBuilder().button(text="✅ Ок", callback_data="asset_confirm").button(text="🔄 Заменить", callback_data="asset_manual")
+    try: await callback.message.delete()
+    except: pass
+    await callback.message.answer(msg, parse_mode="Markdown")
+    await state.set_state(ProjectStates.waiting_for_asset)
+
+@router.message(ProjectStates.waiting_for_asset, F.photo | F.video | F.document | F.text)
+async def handle_manual_asset(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    project_id = data['project_id']
+    scene_idx = data['current_scene_idx']
+    
+    temp_path = None
+    ext = ".jpg"
+
+    if message.photo:
+        file_id = message.photo[-1].file_id
+        file = await message.bot.get_file(file_id)
+        temp_path = f"temp/{file_id}.jpg"
+        await message.bot.download_file(file.file_path, temp_path)
+    elif message.video:
+        file_id = message.video.file_id
+        file = await message.bot.get_file(file_id)
+        temp_path = f"temp/{file_id}.mp4"
+        ext = ".mp4"
+        await message.bot.download_file(file.file_path, temp_path)
+    elif message.document:
+        file_id = message.document.file_id
+        file = await message.bot.get_file(file_id)
+        ext = os.path.splitext(message.document.file_name)[1]
+        temp_path = f"temp/{file_id}{ext}"
+        await message.bot.download_file(file.file_path, temp_path)
+    elif message.text and URL_PATTERN.match(message.text):
+        url = URL_PATTERN.search(message.text).group()
+        status = await message.answer("🌐 Качаю файл по ссылке...")
         try:
-            if ".mp4" in path or ".mov" in path: await message.answer_video(types.FSInputFile(path), reply_markup=kb.as_markup())
-            else: await message.answer_photo(types.FSInputFile(path), reply_markup=kb.as_markup())
-        except Exception as e:
-            logger.error(f"Error sending confirmation photo: {e}")
-            await message.answer("Файл получен. Одобряем?", reply_markup=kb.as_markup())
-        await state.set_state(ProjectStates.approving_asset)
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        ext = ".mp4" if "video" in resp.headers.get("Content-Type", "") else ".jpg"
+                        temp_path = f"temp/url_{int(time.time())}{ext}"
+                        os.makedirs("temp", exist_ok=True)
+                        with open(temp_path, "wb") as f:
+                            f.write(await resp.read())
+            await status.delete()
+        except: 
+            await message.answer("❌ Не удалось скачать по ссылке.")
+            return
+
+    if not temp_path or not os.path.exists(temp_path):
+        return
+
+    pm.update_asset(project_id, scene_idx, temp_path)
+    os.remove(temp_path)
+    
+    proj = pm.load_project(project_id)
+    new_asset_path = proj['assets'][str(scene_idx)]['path']
+    
+    all_assets = data.get('assets', {})
+    all_assets[str(scene_idx)] = {"path": new_asset_path, "type": proj['assets'][str(scene_idx)]['type']}
+    await state.update_data(assets=all_assets)
+    
+    kb = InlineKeyboardBuilder().button(text="✅ Подтвердить", callback_data="asset_confirm").button(text="🔄 Другой", callback_data="asset_manual").adjust(1)
+    
+    if new_asset_path.endswith(".mp4"):
+        await message.answer_video(types.FSInputFile(new_asset_path), caption="Принято! Подтверждаем?", reply_markup=kb.as_markup())
+    else:
+        await message.answer_photo(types.FSInputFile(new_asset_path), caption="Принято! Подтверждаем?", reply_markup=kb.as_markup())
+    
+    await state.set_state(ProjectStates.approving_asset)
 
 @router.callback_query(F.data == "asset_confirm", ProjectStates.approving_asset)
-async def asset_confirm(callback: types.CallbackQuery, state: FSMContext):
-    logger.info("Asset confirmed by user")
-    try:
-        await callback.answer("Принято!")
-    except: pass
-
-    try:
-        await callback.message.edit_reply_markup(reply_markup=None)
-    except: pass
-    
+async def confirm_asset(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
     data = await state.get_data()
-    assets = data.get('assets', {})
-    assets[str(data['current_scene_idx'])] = {"path": data['temp_asset_path']}
-    
-    new_idx = data['current_scene_idx'] + 1
-    logger.info(f"Updating index to {new_idx}")
-    await state.update_data(assets=assets, current_scene_idx=new_idx)
-    
-    # ПЕРЕХОДИМ К СЛЕДУЮЩЕЙ СЦЕНЕ
-    logger.info(f"Calling ask_for_asset for next scene (new_idx={new_idx})")
-    await ask_for_asset(callback.message, state)
+    idx = data['current_scene_idx']
+    try:
+        new_caption = f"✅ **Сцена {idx + 1} одобрена**"
+        if callback.message.caption: await callback.message.edit_caption(caption=new_caption, reply_markup=None)
+        else: await callback.message.edit_text(text=new_caption, reply_markup=None)
+    except: pass
+    await ask_for_asset(callback.message, state, idx + 1)

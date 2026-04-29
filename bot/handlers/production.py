@@ -56,12 +56,19 @@ async def handle_preset_choice(callback: types.CallbackQuery, state: FSMContext)
 async def approve_audio(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     await callback.message.edit_reply_markup(reply_markup=None)
-    v_presets = load_json("config/montage_presets.json")
+    
+    data = await state.get_data()
+    v_format = data.get('video_format', 'vertical')
+    
+    v_config = load_json("config/montage_presets.json")
+    # ФИКС: Берем пресеты только для выбранного формата
+    styles = v_config.get(v_format, v_config['vertical'])
+    
     kb = InlineKeyboardBuilder()
-    for s in v_presets['styles']:
+    for s in styles:
         kb.button(text=s['name'], callback_data=f"visstyle_{s['id']}")
     kb.adjust(1)
-    await callback.message.answer("🎨 Выберите визуальный стиль монтажа:", reply_markup=kb.as_markup())
+    await callback.message.answer(f"🎨 Выберите стиль монтажа для {'вертикального' if v_format=='vertical' else 'широкого'} видео:", reply_markup=kb.as_markup())
     await state.set_state(ProjectStates.choosing_visual_style)
 
 @router.callback_query(F.data.startswith("visstyle_"), ProjectStates.choosing_visual_style)
@@ -77,54 +84,35 @@ async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
     main_loop = asyncio.get_running_loop()
     last_text = ""
 
-    # Вспомогательная функция для безопасного вызова API бота
     async def safe_edit_text(new_text):
         nonlocal last_text
         if new_text == last_text: return
         try:
-            # Используем bot.edit_message_text напрямую для надежности
-            await status.bot.edit_message_text(
-                text=new_text,
-                chat_id=status.chat.id,
-                message_id=status.message_id
-            )
+            await status.bot.edit_message_text(text=new_text, chat_id=status.chat.id, message_id=status.message_id)
             last_text = new_text
-        except Exception:
-            pass # Игнорируем ошибки (например, если сообщение не изменилось или удалено)
+        except Exception: pass
 
     def update_progress(percent=None, **kwargs):
         if percent is None: return
         bar_count = percent // 10
         bar = "█" * bar_count + "░" * (10 - bar_count)
         text = f"🎬 **Монтаж в процессе...**\nПрогресс: [{bar}] {percent}%"
-        # Передаем именно ВЫЗОВ асинхронной функции
         asyncio.run_coroutine_threadsafe(safe_edit_text(text), main_loop)
 
     try:
         video_path = await render_project_video(data, data['current_audio_path'], progress_callback=update_progress)
         
         if video_path and os.path.exists(video_path):
-            # Финальный статус перед отправкой
             asyncio.run_coroutine_threadsafe(safe_edit_text("⏳ **Монтаж завершен!**\nНачинаю отправку файла..."), main_loop)
             
             for attempt in range(3):
                 try:
-                    await callback.message.answer_video(
-                        types.FSInputFile(video_path), 
-                        caption="✨ **Ваш ролик готов!**", 
-                        request_timeout=600 
-                    )
+                    await callback.message.answer_video(types.FSInputFile(video_path), caption="✨ **Ваш ролик готов!**", request_timeout=600)
                     break 
                 except Exception as e:
-                    logger.warning(f"Attempt {attempt+1} failed: {e}")
                     if attempt == 2:
-                        await callback.message.answer_document(
-                            types.FSInputFile(video_path), 
-                            caption="✨ **Ваш ролик готов (отправлен как файл)!**",
-                            request_timeout=600
-                        )
-                    else:
-                        await asyncio.sleep(5)
+                        await callback.message.answer_document(types.FSInputFile(video_path), caption="✨ **Ваш ролик готов (файл)!**", request_timeout=600)
+                    else: await asyncio.sleep(5)
         else:
             await status.edit_text("❌ Ошибка: Файл видео не был создан.")
     except Exception as e:
