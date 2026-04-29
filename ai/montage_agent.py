@@ -8,7 +8,8 @@ logger = logging.getLogger(__name__)
 
 class TelegramProgressLogger(ProgressBarLogger):
     def __init__(self, callback=None):
-        super().__init__()
+        # Инициализируем без callback в суперклассе, чтобы избежать авто-вызова None
+        super().__init__(init_state=None)
         self.callback = callback
         self.last_percent = -1
 
@@ -18,8 +19,14 @@ class TelegramProgressLogger(ProgressBarLogger):
             percent = int((value / total) * 100)
             if percent % 5 == 0 and percent != self.last_percent:
                 self.last_percent = percent
-                if self.callback:
+                if self.callback: # Проверяем наличие перед вызовом
                     self.callback(percent)
+    
+    def __call__(self, **kw):
+        # Заглушка для callable-вызовов MoviePy, чтобы не было ошибки при отсутствии callback
+        if self.callback:
+            try: self.callback(kw)
+            except: pass
 
 class BaseMontageEngine:
     def __init__(self, width, height, fps=30):
@@ -63,27 +70,40 @@ class BaseMontageEngine:
             cross_dur = trans_cfg.get('duration', 0) if trans_cfg.get('type') == 'crossfade' else 0
 
             for i, scene in enumerate(scenes):
-                # Базовая длительность
-                net_dur = scene['end'] - scene['start']
-                # Увеличиваем длительность клипа на время перехода, чтобы компенсировать padding
-                # (кроме последнего клипа, ему не нужен нахлест в конце)
-                total_dur = net_dur + cross_dur if i < len(scenes) - 1 else net_dur
+                start_time = scene['start']
+                end_time = scene['end']
                 
+                # РЕШЕНИЕ: Чтобы не было черных дыр, сцена должна длиться как минимум 
+                # до начала следующей сцены + время на переход (cross_dur)
+                if i < len(scenes) - 1:
+                    next_start = scenes[i+1]['start']
+                    # Длительность = (время до следующей сцены) + (запас на переход)
+                    total_dur = (next_start - start_time) + cross_dur
+                else:
+                    # Последняя сцена длится до конца аудио
+                    total_dur = audio.duration - start_time
+
                 clip = self.process_scene_asset(scene['asset_path'], total_dur, preset.get('effects', []))
                 
+                # Устанавливаем абсолютную позицию начала клипа
+                clip = clip.with_start(start_time)
+                
                 if cross_dur > 0 and i > 0:
-                    # Накладываем эффект затухания для плавного перехода (CrossFade)
+                    # Плавное проявление поверх предыдущего кадра
                     clip = clip.with_effects([vfx.CrossFadeIn(cross_dur)])
                 
                 final_clips.append(clip)
 
-            # Используем отрицательный padding для наложения клипов друг на друга (переход)
-            video_track = concatenate_videoclips(final_clips, method="compose", padding=-cross_dur if cross_dur > 0 else 0)
+            # Создаем финальную композицию, где каждый клип лежит на своем месте во времени
+            video_track = CompositeVideoClip(final_clips, size=(self.width, self.height))
             
-            # Обрезаем видео точно под длину аудио на всякий случай
+            # Обрезаем видео точно под длину аудио
             final_video = video_track.with_audio(audio).with_duration(audio.duration)
             
             temp_audio = os.path.join("temp", f"temp_audio_{os.path.basename(output_path)}.m4a")
+            # Определяем логгер: для бота используем кастомный, для консоли - стандартный 'bar'
+            render_logger = TelegramProgressLogger(callback=progress_callback) if progress_callback else "bar"
+
             final_video.write_videofile(
                 output_path, 
                 fps=self.fps, 
@@ -93,7 +113,7 @@ class BaseMontageEngine:
                 remove_temp=True,
                 threads=4,
                 preset="veryfast",
-                logger=TelegramProgressLogger(callback=progress_callback)
+                logger=render_logger
             )
             audio.close()
             for c in final_clips: c.close()

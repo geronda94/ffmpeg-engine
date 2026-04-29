@@ -6,6 +6,7 @@ from pathlib import Path
 from ai.tts_edge import generate_tts
 from ai.timing_agent import align_scenes_with_audio
 from ai.montage_agent import run_montage
+from ai.metadata_agent import generate_video_metadata
 from core.project_manager import ProjectManager
 
 logger = logging.getLogger(__name__)
@@ -51,19 +52,37 @@ async def render_project_video(data: dict, audio_path: str, progress_callback=No
     
     proj_data = pm.load_project(project_id)
     if not proj_data:
-        # Если вызвано из бота старым способом
         pm.create_project(project_id, user_id)
         proj_data = pm.load_project(project_id)
 
-    output_path = str(pm.get_project_path(project_id) / f"{project_id}_final.mp4")
+    # Генерируем SEO-метаданные, если их еще нет
+    if 'metadata' not in proj_data:
+        logger.info("Generating SEO metadata...")
+        meta = await generate_video_metadata(proj_data.get('script', ''), proj_data.get('language', 'Russian'))
+        proj_data['metadata'] = meta
+        pm.save_project(project_id, proj_data)
+    else:
+        meta = proj_data['metadata']
+
+    # Имя файла на основе slug
+    slug = meta.get('slug', project_id)
+    output_path = str(pm.get_project_path(project_id) / f"{slug}.mp4")
 
     # Синхронизация (Whisper)
     scenes_data = data.get('scenes', [])
-    scenes = await asyncio.to_thread(align_scenes_with_audio, [s.copy() for s in scenes_data], audio_path)
     
-    # Сохраняем тайминги в проект, чтобы они были доступны в JSON
-    proj_data['scenes'] = scenes
-    pm.save_project(project_id, proj_data)
+    # Проверяем, есть ли уже тайминги во всех сценах
+    has_timing = all('start' in s and 'end' in s for s in scenes_data)
+    
+    if has_timing:
+        logger.info("Timings found in JSON, skipping Whisper...")
+        scenes = scenes_data
+    else:
+        logger.info("Timings missing or incomplete, running Whisper...")
+        scenes = await asyncio.to_thread(align_scenes_with_audio, [s.copy() for s in scenes_data], audio_path)
+        # Сохраняем тайминги в проект
+        proj_data['scenes'] = scenes
+        pm.save_project(project_id, proj_data)
     
     # Подгрузка пресетов
     with open("config/montage_presets.json", "r", encoding="utf-8") as f:
