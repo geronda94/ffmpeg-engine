@@ -11,8 +11,8 @@ load_dotenv(os.path.join(root_dir, ".env"))
 
 logger = logging.getLogger(__name__)
 
-async def optimize_text_for_tts(text: str, lang: str):
-    """Оптимизация текста через ИИ для лучшего звучания робота."""
+async def optimize_text_for_tts(text: str, lang: str, rate: str = "+0%"):
+    """Оптимизация текста через ИИ с учетом темпа речи."""
     try:
         api_key = os.getenv("DEEPSEEK_API_KEY")
         if not api_key:
@@ -21,16 +21,27 @@ async def optimize_text_for_tts(text: str, lang: str):
             
         client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
         
-        # Улучшенный промпт для дикции и ударений
+        # Определяем характер темпа для ИИ
+        speed_info = "normal"
+        if "+" in rate:
+            val = int(rate.replace("+", "").replace("%", ""))
+            if val > 15: speed_info = "very fast and energetic"
+            elif val > 5: speed_info = "fast"
+        elif "-" in rate:
+            val = int(rate.replace("-", "").replace("%", ""))
+            if val > 15: speed_info = "very slow and dramatic"
+            elif val > 5: speed_info = "slow"
+
         prompt = (
             f"You are a professional voiceover director. Optimize this text for Microsoft Edge TTS.\n"
-            f"GOAL: Maximum clarity and natural rhythm in {lang}.\n\n"
+            f"GOAL: Maximum clarity and natural rhythm in {lang}.\n"
+            f"SPEED CONTEXT: The text will be read in a **{speed_info}** tempo.\n\n"
             f"RULES:\n"
-            f"1. ALPHABET: Keep the text STRICTLY in the original alphabet ({lang}). NEVER use Latin characters or transliteration for Russian text!\n"
-            f"2. STRESS: Capitalize the stressed vowel ONLY in tricky or ambiguous words (e.g., 'крОна', 'едА'). Do not capitalize every word.\n"
-            f"3. PAUSES: Use '...' for natural breaths between sentences. Use dashes '—' for logical pauses.\n"
-            f"4. NUMBERS: Write out numbers as words.\n"
-            f"5. NO QUOTES: Return ONLY the raw optimized text.\n\n"
+            f"1. ALPHABET: Keep strictly in {lang}. NO Latin/transliteration.\n"
+            f"2. PAUSES: If speed is fast, use FEWER pauses. If speed is slow, use MORE '...' for dramatic effect.\n"
+            f"3. STRESS: Capitalize stressed vowels only in tricky words.\n"
+            f"4. CLARITY: For fast speed, avoid complex multi-syllable words if possible (use simpler synonyms).\n"
+            f"5. NO QUOTES: Return ONLY the optimized text.\n\n"
             f"TEXT: {text}"
         )
         
@@ -39,7 +50,7 @@ async def optimize_text_for_tts(text: str, lang: str):
             messages=[{"role":"user", "content":prompt}]
         )
         optimized = res.choices[0].message.content.strip().replace('"', '')
-        logger.info(f"TTS Optimized Text: {optimized}") # ОТЛАДКА
+        logger.info(f"TTS Optimized Text ({speed_info}): {optimized}")
         return optimized
     except Exception as e:
         logger.error(f"TTS Optimization Error: {e}")
@@ -50,9 +61,8 @@ async def generate_tts(text: str, output_path: str, lang: str = "Russian", voice
     Генерация озвучки через Microsoft Edge TTS (бесплатно).
     """
     try:
-        # Оптимизируем текст перед озвучкой
-        logger.info("Optimizing text for better TTS quality...")
-        optimized_text = await optimize_text_for_tts(text, lang)
+        # Оптимизируем текст с учетом ТЕМПА (rate)
+        optimized_text = await optimize_text_for_tts(text, lang, rate)
         
         if not voice:
             # Дефолтные голоса, если не переданы
