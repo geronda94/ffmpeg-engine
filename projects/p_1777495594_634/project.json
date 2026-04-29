@@ -1,0 +1,109 @@
+{
+  "script": "Вы когда-нибудь задумывались, каково быть обезьяной в джунглях? Это не только веселые прыжки по деревьям, но и постоянная борьба за выживание. Каждый день начинается с поиска еды: фрукты, листья, насекомые. Но конкуренция огромна — другие обезьяны, птицы и даже слоны хотят тот же банан! А еще хищники: змеи, орлы, ягуары. Обезьяны всегда начеку, их острые глаза и уши — главное оружие. Но есть и радости: игры с сородичами, забота о детенышах, вечерние посиделки в кронах деревьев. Социальная жизнь сложная: есть иерархия, ссоры, но и крепкие дружеские узы. Знаете ли вы, что обезьяны используют инструменты? Например, камни для раскалывания орехов. Это показывает их ум и адаптивность. Так что жизнь обезьян — это постоянный баланс между опасностями и удовольствиями, как и у нас.",
+  "updated_at": "2026-04-29T23:58:39.967511",
+  "scenes": [
+    {
+      "scene_id": 1,
+      "text_segment": "Вы когда-нибудь задумывались, каково быть обезьяной в джунглях? Это не только веселые прыжки по деревьям, но и постоянная борьба за выживание.",
+      "visual_description": "Крупный план обезьяны, сидящей на ветке в густом тропическом лесу, солнечные лучи пробиваются сквозь листву. Обезьяна смотрит вдаль, затем начинает прыгать.",
+      "image_prompt": "Close-up of a curious monkey sitting on a tree branch in a dense tropical jungle, sunlight filtering through leaves, monkey looks around then starts jumping, cinematic lighting, 4K.",
+      "ui_caption": "Быть обезьяной — это не только игры.",
+      "start": 0.0,
+      "end": 10.0
+    },
+    {
+      "scene_id": 2,
+      "text_segment": "Каждый день начинается с поиска еды: фрукты, листья, насекомые. Но конкуренция огромна — другие обезьяны, птицы и даже слоны хотят тот же банан!",
+      "visual_description": "Обезьяна срывает банан, но на него претендуют другая обезьяна, попугай и слон. Все смотрят на банан.",
+      "image_prompt": "A monkey picking a banana from a tree, while another monkey, a parrot, and an elephant all reach for the same banana, competitive jungle scene, vibrant colors.",
+      "ui_caption": "Конкуренция за еду — серьезная проблема.",
+      "start": 10.0,
+      "end": 21.7
+    },
+    {
+      "scene_id": 3,
+      "text_segment": "А еще хищники: змеи, орлы, ягуары. Обезьяны всегда начеку, их острые глаза и уши — главное оружие.",
+      "visual_description": "Обезьяна на ветке настороженно оглядывается. Вдалеке ягуар крадется, змея в листве и орел в небе.",
+      "image_prompt": "A wary monkey on a tree branch scanning the jungle, in the background a jaguar stalks, a snake slithers in foliage, and an eagle circles overhead, tense atmosphere.",
+      "ui_caption": "Опасность подстерегает повсюду.",
+      "start": 21.7,
+      "end": 31.5
+    },
+    {
+      "scene_id": 4,
+      "text_segment": "Но есть и радости: игры с сородичами, забота о детенышах, вечерние посиделки в кронах деревьев. Социальная жизнь сложная: есть иерархия, ссоры, но и крепкие дружеские узы.",
+      "visual_description": "Несколько обезьян играют, одна обезьяна ухаживает за детенышем, вечером вся группа сидит на ветвях. В другой части сцены две обезьяны ссорятся, затем обнимаются.",
+      "image_prompt": "Monkeys playing and grooming, two monkeys squabbling then embracing, group relaxing at sunset, emotional range, cinematic.",
+      "ui_caption": "Вместе веселее, но бывают и ссоры.",
+      "start": 31.5,
+      "end": 44.5
+    },
+    {
+      "scene_id": 5,
+      "text_segment": "Знаете ли вы, что обезьяны используют инструменты? Например, камни для раскалывания орехов. Это показывает их ум и адаптивность.",
+      "visual_description": "Обезьяна сидит на камне и использует другой камень, чтобы разбить орех, рядом лежит скорлупа.",
+      "image_prompt": "A monkey using a stone to crack a nut on an anvil stone, nuts and shells around, intelligence demonstrated, macro photography.",
+      "ui_caption": "Инструменты — признак ума.",
+      "start": 44.5,
+      "end": 55.5
+    },
+    {
+      "scene_id": 6,
+      "text_segment": "Так что жизнь обезьян — это постоянный баланс между опасностями и удовольствиями, как и у нас.",
+      "visual_description": "Обезьяна сидит на ветке на закате, смотрит на горизонт, солнце садится.",
+      "image_prompt": "A monkey sitting on a tree branch at sunset, silhouetted against the orange sky, contemplative mood, balance of life, cinematic.",
+      "ui_caption": "Баланс — ключ к жизни.",
+      "start": 55.5,
+      "end": 62.5
+    }
+  ],
+  "assets": {
+    "0": {
+      "path": "projects/p_1777495594_634/assets/scene_0.jpg",
+      "original_path": "temp/url_1777495678.jpg",
+      "type": "image"
+    },
+    "1": {
+      "path": "projects/p_1777495594_634/assets/scene_1.jpg",
+      "original_path": "temp/url_1777495690.jpg",
+      "type": "image"
+    },
+    "2": {
+      "path": "projects/p_1777495594_634/assets/scene_2.jpg",
+      "original_path": "temp/url_1777495719.jpg",
+      "type": "image"
+    },
+    "3": {
+      "path": "projects/p_1777495594_634/assets/scene_3.jpg",
+      "original_path": "temp/AgACAgQAAxkBAAIJ7WnybttL45pqfFyKfxElfWRQXMRtAAKRDGsbc3GRU_Xqrg5WEkVaAQADAgADeAADOwQ.jpg",
+      "type": "image"
+    },
+    "4": {
+      "path": "projects/p_1777495594_634/assets/scene_4.jpg",
+      "original_path": "temp/url_1777495788.jpg",
+      "type": "image"
+    },
+    "5": {
+      "path": "projects/p_1777495594_634/assets/scene_5.jpg",
+      "original_path": "temp/url_1777495800.jpg",
+      "type": "image"
+    }
+  },
+  "language": "Russian",
+  "current_audio_path": "projects/p_1777495594_634/audio/voice_Russian.wav",
+  "metadata": {
+    "title": "Жизнь обезьян: борьба и радости в джунглях",
+    "description": "Узнайте, как обезьяны выживают в джунглях: поиск еды, опасности хищников и социальная жизнь. Эти умные животные используют инструменты и строят сложные отношения.",
+    "hashtags": [
+      "#обезьяны",
+      "#джунгли",
+      "#природа",
+      "#животные",
+      "#выживание",
+      "#интересныефакты",
+      "#дикаяприрода"
+    ],
+    "slug": "life-of-monkeys-struggles-and-joys-in-the-jungle"
+  },
+  "status": "completed"
+}

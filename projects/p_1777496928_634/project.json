@@ -1,0 +1,109 @@
+{
+  "script": "Представьте себе жизнь высоко в кронах джунглей. Каждый день для обезьян — это испытание и праздник. Еда: спелые фрукты, листья, насекомые. Но конкуренция жесткая! Приходится быть быстрым и хитрым. Опасности подстерегают повсюду: хищники, змеи, даже сородичи. Но есть и радости: игры с детенышами, солнечные ванны, общение. Знаете ли вы, что обезьяны используют инструменты? Например, раскалывают орехи камнями. Социальная жизнь сложна: иерархия, дружба, ссоры. Но в конце дня, когда садится солнце, вся стая собирается вместе, чтобы пережить ночь. Это удивительный мир, где каждое мгновение — борьба и удовольствие.",
+  "updated_at": "2026-04-30T00:34:16.800909",
+  "scenes": [
+    {
+      "scene_id": 1,
+      "text_segment": "Представьте себе жизнь высоко в кронах джунглей. Каждый день для обезьян — это испытание и праздник.",
+      "visual_description": "Вид сверху на густой лесной полог, солнечный свет пробивается сквозь листву. Обезьяны прыгают между ветвями вдалеке.",
+      "image_prompt": "Cinematic wide shot looking down from above onto a dense jungle canopy, dappled sunlight filtering through leaves, monkeys swinging between branches in the distance, vibrant green foliage, realistic style.",
+      "ui_caption": "Жизнь в кронах джунглей.",
+      "start": 0.0,
+      "end": 7.88
+    },
+    {
+      "scene_id": 2,
+      "text_segment": "Еда: спелые фрукты, листья, насекомые. Но конкуренция жесткая! Приходится быть быстрым и хитрым.",
+      "visual_description": "Крупный план обезьяны, срывающей спелый фрукт с ветки. Рядом другая обезьяна пытается схватить тот же фрукт. Выражение соперничества на мордах.",
+      "image_prompt": "Close-up of a capuchin monkey reaching for a ripe mango on a branch, another monkey's hand grabbing the same fruit, competitive expressions, detailed fur and fruit textures, vibrant lighting.",
+      "ui_caption": "Борьба за еду.",
+      "start": 7.88,
+      "end": 18.0
+    },
+    {
+      "scene_id": 3,
+      "text_segment": "Опасности подстерегают повсюду: хищники, змеи, даже сородичи.",
+      "visual_description": "Обезьяна настороженно смотрит вниз с ветки, внизу ползет змея. Вдалеке силуэт хищной птицы в небе.",
+      "image_prompt": "Medium shot of a monkey looking down nervously from a tree branch, a green snake slithering on a lower branch, silhouette of a bird of prey in the sky, tense atmosphere, dramatic lighting.",
+      "ui_caption": "Опасности джунглей.",
+      "start": 18.0,
+      "end": 23.64
+    },
+    {
+      "scene_id": 4,
+      "text_segment": "Но есть и радости: игры с детенышами, солнечные ванны, общение. Знаете ли вы, что обезьяны используют инструменты? Например, раскалывают орехи камнями.",
+      "visual_description": "Несколько обезьян греются на солнце, лежа на ветвях. Детеныши играют друг с другом, кувыркаясь. Одна обезьяна чистит шерсть другой. Затем переход к крупному плану обезьяны, разбивающей орех камнем.",
+      "image_prompt": "Group of howler monkeys relaxing on sunlit branches, infants playfully tumbling, one monkey grooming another, warm golden light; then close-up of a macaque using a stone to crack a nut, detailed hands and fur, flying nutshell fragments, forest floor background, sharp focus.",
+      "ui_caption": "Радости и изобретательность.",
+      "start": 23.64,
+      "end": 37.08
+    },
+    {
+      "scene_id": 5,
+      "text_segment": "Социальная жизнь сложна: иерархия, дружба, ссоры.",
+      "visual_description": "Группа обезьян на поляне: одна обезьяна сидит на возвышении, доминируя, другие вокруг. Две обезьяны ссорятся, скаля зубы, третьи сидят в стороне, общаясь.",
+      "image_prompt": "Group of baboons in a clearing, alpha male sitting on a rock, two monkeys fighting with bared teeth, others grooming or resting nearby, dynamic composition, natural lighting.",
+      "ui_caption": "Сложные отношения.",
+      "start": 37.08,
+      "end": 41.8
+    },
+    {
+      "scene_id": 6,
+      "text_segment": "Но в конце дня, когда садится солнце, вся стая собирается вместе, чтобы пережить ночь. Это удивительный мир, где каждое мгновение — борьба и удовольствие.",
+      "visual_description": "Закат над джунглями. Стая обезьян собирается вместе на больших ветвях, обнимаясь и готовясь ко сну. Теплые оранжево-розовые тона.",
+      "image_prompt": "Golden hour wide shot of monkeys huddling together on large tree branches, embracing for safety, sunset sky with orange and pink hues, silhouette leaves, serene atmosphere.",
+      "ui_caption": "Ночной приют.",
+      "start": 41.8,
+      "end": 53.36
+    }
+  ],
+  "assets": {
+    "0": {
+      "path": "projects/p_1777496928_634/assets/scene_0.jpg",
+      "original_path": "temp/url_1777497051.jpg",
+      "type": "image"
+    },
+    "1": {
+      "path": "projects/p_1777496928_634/assets/scene_1.jpg",
+      "original_path": "temp/url_1777497065.jpg",
+      "type": "image"
+    },
+    "2": {
+      "path": "projects/p_1777496928_634/assets/scene_2.jpg",
+      "original_path": "temp/AgACAgQAAxkBAAIKGWnydAaNzqL87dFJgJ6aoNyIo2h6AAKaDGsbc3GRU4BHBa45fsRuAQADAgADeAADOwQ.jpg",
+      "type": "image"
+    },
+    "3": {
+      "path": "projects/p_1777496928_634/assets/scene_3.jpg",
+      "original_path": "temp/AgACAgQAAxkBAAIKHWnydBcDY1XiXzOyrfI09ilX2CUHAAKcDGsbc3GRU9OnIAMeT1CCAQADAgADeAADOwQ.jpg",
+      "type": "image"
+    },
+    "4": {
+      "path": "projects/p_1777496928_634/assets/scene_4.jpg",
+      "original_path": "temp/url_1777497125.jpg",
+      "type": "image"
+    },
+    "5": {
+      "path": "projects/p_1777496928_634/assets/scene_5.jpg",
+      "original_path": "temp/url_1777497137.jpg",
+      "type": "image"
+    }
+  },
+  "language": "Russian",
+  "current_audio_path": "projects/p_1777496928_634/audio/voice_Russian.wav",
+  "metadata": {
+    "title": "Жизнь обезьян: Испытания и радости в джунглях",
+    "description": "Погрузитесь в удивительный мир обезьян, где каждый день — борьба за выживание и праздник. Узнайте, как они используют инструменты и строят сложные социальные связи.",
+    "hashtags": [
+      "#обезьяны",
+      "#джунгли",
+      "#дикаяприрода",
+      "#животные",
+      "#природа",
+      "#выживание",
+      "#интересно"
+    ],
+    "slug": "monkey-life-jungle-challenges-joys"
+  },
+  "status": "completed"
+}

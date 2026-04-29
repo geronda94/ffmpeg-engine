@@ -7,26 +7,42 @@ from proglog import ProgressBarLogger
 logger = logging.getLogger(__name__)
 
 class TelegramProgressLogger(ProgressBarLogger):
+    """
+    Кастомный логгер для передачи прогресса в Telegram.
+    Наследуемся от ProgressBarLogger, но не мешаем ему работать с барами (tqdm/chunk).
+    """
     def __init__(self, callback=None):
-        # Инициализируем без callback в суперклассе, чтобы избежать авто-вызова None
-        super().__init__(init_state=None)
-        self.callback = callback
+        super().__init__()
+        self.tg_callback = callback
         self.last_percent = -1
 
-    def bars_callback(self, bar, attr, value, old_value=None):
-        total = self.bars[bar].get('total')
-        if total and total > 0:
-            percent = int((value / total) * 100)
-            if percent % 5 == 0 and percent != self.last_percent:
-                self.last_percent = percent
-                if self.callback: # Проверяем наличие перед вызовом
-                    self.callback(percent)
-    
-    def __call__(self, **kw):
-        # Заглушка для callable-вызовов MoviePy, чтобы не было ошибки при отсутствии callback
-        if self.callback:
-            try: self.callback(kw)
-            except: pass
+    def callback(self, **kwargs):
+        """Этот метод вызывается proglog при любом обновлении любого бара."""
+        if not self.tg_callback:
+            return
+            
+        # MoviePy использует 'tqdm' для основного видео-рендеринга. 
+        # Это наш приоритет №1.
+        main_bar = self.bars.get('tqdm') or self.bars.get('video')
+        
+        if main_bar and main_bar.get('total'):
+            bar_data = main_bar
+        else:
+            # Если главной шкалы нет, ищем любую, которая еще не закончена
+            active_bars = [b for b in self.bars.values() if b.get('total', 0) > 0 and b['index'] < b['total']]
+            if not active_bars:
+                # Если всё закончено, берем последний из списка
+                active_bars = [b for b in self.bars.values() if b.get('total', 0) > 0]
+            
+            if not active_bars: return
+            bar_data = active_bars[-1]
+
+        percent = int((bar_data['index'] / bar_data['total']) * 100)
+        
+        # Обновляем только при изменении на 5% или больше
+        if percent != self.last_percent and (percent % 5 == 0 or percent == 100):
+            self.last_percent = percent
+            self.tg_callback(percent)
 
 class BaseMontageEngine:
     def __init__(self, width, height, fps=30):

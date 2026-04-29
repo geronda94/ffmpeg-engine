@@ -15,11 +15,10 @@ pm = ProjectManager()
 
 async def generate_project_audio(data: dict, tts_preset: dict) -> str:
     """Генерация аудио с сохранением в структуру проекта."""
-    project_id = data.get('project_id', f"proj_{int(asyncio.get_event_loop().time())}")
-    user_id = str(data.get('user_id', 'default'))
-    
-    # Гарантируем наличие проекта в БД
-    pm.create_project(project_id, user_id)
+    project_id = data.get('project_id')
+    if not project_id:
+        raise ValueError("Project ID must be provided in data")
+        
     project_path = pm.get_project_path(project_id)
     
     audio_filename = f"voice_{data.get('language', 'Russian')}.wav"

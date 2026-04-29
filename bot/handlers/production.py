@@ -105,13 +105,34 @@ async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
         if video_path and os.path.exists(video_path):
             asyncio.run_coroutine_threadsafe(safe_edit_text("⏳ **Монтаж завершен!**\nНачинаю отправку файла..."), main_loop)
             
+            # Подтягиваем метаданные для описания
+            from bot.pipeline_manager import pm
+            proj_data = pm.load_project(data['project_id'])
+            meta = proj_data.get('metadata', {})
+            
+            caption = (
+                f"✨ <b>{meta.get('title', 'Ваш ролик готов!')}</b>\n\n"
+                f"{meta.get('description', '')}\n\n"
+                f"{' '.join(meta.get('hashtags', []))}"
+            )
+            
             for attempt in range(3):
                 try:
-                    await callback.message.answer_video(types.FSInputFile(video_path), caption="✨ **Ваш ролик готов!**", request_timeout=600)
+                    await callback.message.answer_video(
+                        types.FSInputFile(video_path), 
+                        caption=caption, 
+                        parse_mode="HTML",
+                        request_timeout=600
+                    )
                     break 
                 except Exception as e:
                     if attempt == 2:
-                        await callback.message.answer_document(types.FSInputFile(video_path), caption="✨ **Ваш ролик готов (файл)!**", request_timeout=600)
+                        await callback.message.answer_document(
+                            types.FSInputFile(video_path), 
+                            caption=caption, 
+                            parse_mode="HTML",
+                            request_timeout=600
+                        )
                     else: await asyncio.sleep(5)
         else:
             await status.edit_text("❌ Ошибка: Файл видео не был создан.")
