@@ -63,14 +63,25 @@ class BaseMontageEngine:
             cross_dur = trans_cfg.get('duration', 0) if trans_cfg.get('type') == 'crossfade' else 0
 
             for i, scene in enumerate(scenes):
-                dur = scene['end'] - scene['start']
-                clip = self.process_scene_asset(scene['asset_path'], dur, preset.get('effects', []))
+                # Базовая длительность
+                net_dur = scene['end'] - scene['start']
+                # Увеличиваем длительность клипа на время перехода, чтобы компенсировать padding
+                # (кроме последнего клипа, ему не нужен нахлест в конце)
+                total_dur = net_dur + cross_dur if i < len(scenes) - 1 else net_dur
+                
+                clip = self.process_scene_asset(scene['asset_path'], total_dur, preset.get('effects', []))
+                
                 if cross_dur > 0 and i > 0:
+                    # Накладываем эффект затухания для плавного перехода (CrossFade)
                     clip = clip.with_effects([vfx.CrossFadeIn(cross_dur)])
+                
                 final_clips.append(clip)
 
+            # Используем отрицательный padding для наложения клипов друг на друга (переход)
             video_track = concatenate_videoclips(final_clips, method="compose", padding=-cross_dur if cross_dur > 0 else 0)
-            final_video = video_track.with_audio(audio)
+            
+            # Обрезаем видео точно под длину аудио на всякий случай
+            final_video = video_track.with_audio(audio).with_duration(audio.duration)
             
             temp_audio = os.path.join("temp", f"temp_audio_{os.path.basename(output_path)}.m4a")
             final_video.write_videofile(
