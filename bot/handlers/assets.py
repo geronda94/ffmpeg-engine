@@ -514,13 +514,15 @@ async def handle_manual_asset(message: types.Message, state: FSMContext):
             temp_path = f"temp/{file_id}{ext}"
             is_video = ext in ['.mp4', '.mov', '.avi']
             await download_with_retry(file_id, temp_path, is_video)
-        elif message.text and URL_PATTERN.match(message.text):
+        elif message.text and URL_PATTERN.search(message.text):
             url = URL_PATTERN.search(message.text).group()
             logger.info(f"Downloading from URL: {url}")
             status = await message.answer("🌐 Качаю файл по ссылке...")
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url) as resp:
+                timeout = aiohttp.ClientTimeout(total=30)
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    async with session.get(url, headers=headers) as resp:
                         if resp.status == 200:
                             content_type = resp.headers.get("Content-Type", "").lower()
                             is_video = "video" in content_type
@@ -529,14 +531,31 @@ async def handle_manual_asset(message: types.Message, state: FSMContext):
                             os.makedirs("temp", exist_ok=True)
                             with open(temp_path, "wb") as f:
                                 f.write(await resp.read())
+                        else:
+                            await message.answer(f"❌ Ошибка скачивания: сервер вернул код {resp.status}.")
                 await status.delete()
+            except asyncio.TimeoutError:
+                logger.error(f"URL Download Timeout: {url}")
+                await message.answer("❌ Сервер с файлом не отвечает (таймаут).")
+                try: await status.delete()
+                except: pass
+                return
             except Exception as e: 
                 logger.error(f"URL Download Error: {e}")
                 await message.answer(f"❌ Не удалось скачать по ссылке: {e}")
+                try: await status.delete()
+                except: pass
                 return
+        elif message.text:
+            await message.answer("❌ Ожидается файл или прямая ссылка. Пожалуйста, отправьте медиафайл или ссылку.")
+            return
 
         if not temp_path or not os.path.exists(temp_path):
             logger.warning("No file was saved after processing.")
+            if message.text and URL_PATTERN.search(message.text):
+                pass # Ошибка уже отправлена
+            else:
+                await message.answer("❌ Не удалось сохранить файл. Попробуйте еще раз.")
             return
 
         # Если это видео — переходим к выбору момента
