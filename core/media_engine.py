@@ -15,9 +15,9 @@ class MediaEngine:
         self.height = height
         self.fps = fps
         # Константы эстетики
-        self.BLUR_RESIZE_FACTOR = 0.05
-        self.BLUR_UPSCALER = 20.0
-        self.DEFAULT_LUM = -40
+        self.BLUR_RESIZE_FACTOR = 0.02
+        self.BLUR_UPSCALER = 50.0
+        self.DEFAULT_LUM = -50
 
     def smart_resize_stable(self, clip, mode="fit"):
         """
