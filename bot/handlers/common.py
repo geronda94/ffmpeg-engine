@@ -33,9 +33,10 @@ async def cmd_start(message: types.Message, state: FSMContext):
         
         if all_projs:
             all_projs.sort(key=lambda x: x.get('updated_at', x.get('created_at', '')), reverse=True)
-            # Если проект не завершен (статус не completed)
-            if all_projs[0].get('status') != "completed":
-                last_proj = all_projs[0]
+            # Если проект не завершен и НЕ в процессе рендеринга
+            latest = all_projs[0]
+            if latest.get('status') not in ["completed", "rendering"]:
+                last_proj = latest
 
     if last_proj:
         kb = InlineKeyboardBuilder()

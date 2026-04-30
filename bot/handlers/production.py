@@ -33,29 +33,53 @@ async def send_video_result(task: dict):
     project_id = task['project_id']
     video_path = task.get('video_path')
     
+    logger.info(f"Callback send_video_result triggered for {project_id} (status: {task['status']})")
+    
     if task['status'] == "completed" and video_path and os.path.exists(video_path):
+        # Источник правды — диск
         proj_data = pm.load_project(project_id)
+        if not proj_data:
+            logger.error(f"Project {project_id} data not found on disk during callback!")
+            return
+            
+        proj_data['status'] = "completed"
+        proj_data['video_result_path'] = video_path
+        pm.save_project(project_id, proj_data)
+        
         meta = proj_data.get('metadata', {})
+        title = meta.get('title', project_id)
+        description = meta.get('description', '')
+        hashtags = " ".join(meta.get('hashtags', []))
+        
         caption = (
             f"✅ **Ролик готов!**\n\n"
-            f"✨ <b>{meta.get('title', project_id)}</b>\n"
-            f"{meta.get('description', '')[:500]}...\n\n"
-            f"{' '.join(meta.get('hashtags', []))}"
+            f"✨ **{title}**\n\n"
+            f"{description[:800]}\n\n"
+            f"{hashtags}"
         )
         
         try:
+            logger.info(f"Sending video to user {user_id}: {video_path}")
             from aiogram.types import FSInputFile
+            
+            # Получаем ID сообщения для ответа
+            extra = task.get('extra_data', {})
+            reply_id = extra.get('reply_to_message_id')
+            
             await bot.send_video(
                 user_id, 
                 FSInputFile(video_path), 
                 caption=caption[:1024], 
-                parse_mode="HTML"
+                parse_mode="Markdown",
+                reply_to_message_id=reply_id
             )
+            logger.info(f"Video sent successfully to {user_id} (as reply: {reply_id})")
         except Exception as e:
             logger.error(f"Failed to send video to user {user_id}: {e}")
-            await bot.send_message(user_id, f"❌ Ролик {project_id} готов, но не удалось отправить файл. Он сохранен на сервере.")
+            await bot.send_message(user_id, f"❌ Ролик `{project_id}` готов, но не удалось отправить файл. Он сохранен на сервере.")
     else:
         error_msg = task.get('error', 'Неизвестная ошибка рендеринга.')
+        logger.error(f"Render failed or file missing for {project_id}: {error_msg}")
         await bot.send_message(user_id, f"❌ Ошибка при монтаже проекта `{project_id}`:\n{error_msg}")
 
 @router.message(Command("render"))
@@ -178,8 +202,6 @@ async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
     proj_data['status'] = "rendering"
     pm.save_project(project_id, proj_data)
     
-    await task_manager.add_task(project_id, audio_path, user_id, callback_on_done=send_video_result)
-    
     q_pos = task_manager.queue.qsize()
     msg = await callback.message.answer(
         f"⏳ **Проект `{project_id}` добавлен в очередь на монтаж!**\n"
@@ -191,6 +213,12 @@ async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
         await callback.bot.pin_chat_message(chat_id=callback.message.chat.id, message_id=msg.message_id)
     except Exception as e:
         logger.warning(f"Failed to pin message: {e}")
+
+    await task_manager.add_task(
+        project_id, audio_path, user_id, 
+        callback_on_done=send_video_result,
+        extra_data={"reply_to_message_id": msg.message_id}
+    )
     
     await state.clear()
 

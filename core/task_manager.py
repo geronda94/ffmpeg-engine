@@ -26,7 +26,7 @@ class RenderTaskManager:
             self.worker_task = asyncio.create_task(self._worker())
             logger.info("Render Task Manager started.")
 
-    async def add_task(self, project_id: str, audio_path: str, user_id: str, callback_on_done: Callable = None):
+    async def add_task(self, project_id: str, audio_path: str, user_id: str, callback_on_done: Callable = None, extra_data: dict = None):
         """Добавление проекта в очередь на рендер."""
         task_id = f"task_{project_id}_{int(time.time())}"
         task_info = {
@@ -36,7 +36,8 @@ class RenderTaskManager:
             "user_id": user_id,
             "status": "in_queue",
             "added_at": time.time(),
-            "callback": callback_on_done
+            "callback": callback_on_done,
+            "extra_data": extra_data or {}
         }
         self.active_tasks[project_id] = task_info
         await self.queue.put(task_info)
@@ -71,7 +72,10 @@ class RenderTaskManager:
                 
                 # Вызываем коллбэк (например, для отправки видео пользователю)
                 if task['callback']:
+                    logger.info(f"Worker: Triggering callback for {project_id}")
                     await task['callback'](task)
+                else:
+                    logger.warning(f"Worker: No callback defined for {project_id}")
                     
             except Exception as e:
                 logger.error(f"Worker Critical Error in task {project_id}: {e}", exc_info=True)
