@@ -47,15 +47,16 @@ async def send_video_result(task: dict):
         pm.save_project(project_id, proj_data)
         
         meta = proj_data.get('metadata', {})
-        title = meta.get('title', project_id)
+        title = meta.get('title', 'Без названия')
         description = meta.get('description', '')
-        hashtags = " ".join(meta.get('hashtags', []))
+        tags_list = meta.get('hashtags', [])
+        hashtags = " ".join([f"#{t}" if not t.startswith("#") else t for t in tags_list])
         
         caption = (
             f"✅ **Ролик готов!**\n\n"
-            f"✨ **{title}**\n\n"
-            f"{description[:800]}\n\n"
-            f"{hashtags}"
+            f"✨ **Заголовок (кликни, чтобы скопировать):**\n`{title}`\n\n"
+            f"📝 **Описание:**\n`{description[:800]}`\n\n"
+            f"🏷 **Теги:**\n`{hashtags}`"
         )
         
         try:
@@ -66,12 +67,19 @@ async def send_video_result(task: dict):
             extra = task.get('extra_data', {})
             reply_id = extra.get('reply_to_message_id')
             
+            # Кнопки пост-обработки
+            kb = InlineKeyboardBuilder()
+            kb.button(text="🎬 Добавить субтитры", callback_data=f"subtitles_{project_id}")
+            kb.button(text="🌍 Перевести", callback_data=f"translate_menu_{project_id}")
+            kb.adjust(1)
+
             await bot.send_video(
                 user_id, 
                 FSInputFile(video_path), 
                 caption=caption[:1024], 
                 parse_mode="Markdown",
-                reply_to_message_id=reply_id
+                reply_to_message_id=reply_id,
+                reply_markup=kb.as_markup()
             )
             logger.info(f"Video sent successfully to {user_id} (as reply: {reply_id})")
         except Exception as e:
@@ -221,6 +229,93 @@ async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
     )
     
     await state.clear()
+
+@router.callback_query(F.data.startswith("subtitles_"))
+async def handle_add_subtitles(callback: types.CallbackQuery):
+    project_id = callback.data.split("_", 1)[1]
+    logger.info(f"Button 'Add Subtitles' pressed for project: {project_id}")
+    await callback.answer("⏳ Готовлю версию с субтитрами...")
+    
+    proj_data = pm.load_project(project_id)
+    if not proj_data:
+        await callback.message.answer(f"❌ Ошибка: Проект `{project_id}` не найден.")
+        return
+
+    video_path = proj_data.get('video_result_path')
+    if not video_path or not os.path.exists(video_path):
+        await callback.message.answer("❌ Ошибка: Исходное видео не найдено.")
+        return
+
+    status_msg = await callback.message.answer("🖋 Вшиваю субтитры (это займет около минуты)...")
+    
+    try:
+        from ai.subtitle_agent import generate_srt_from_project, burn_subtitles
+        
+        # ФИКС: Если данных Whisper нет (старый проект), прогоняем его сейчас
+        if 'whisper_segments' not in proj_data:
+            audio_path = proj_data.get('current_audio_path')
+            if audio_path and os.path.exists(audio_path):
+                logger.info(f"Whisper segments missing for {project_id}, running fallback...")
+                from ai.timing_agent import get_model
+                model = get_model()
+                whisper_res = await asyncio.to_thread(model.transcribe, audio_path, verbose=False)
+                proj_data['whisper_segments'] = whisper_res.get('segments', [])
+                pm.save_project(project_id, proj_data)
+            else:
+                await status_msg.edit_text("❌ Ошибка: данные Whisper и аудиофайл отсутствуют.")
+                return
+
+        project_path = pm.get_project_path(project_id)
+        srt_path = str(project_path / "subtitles.srt")
+        output_path = str(project_path / "video_with_subtitles.mp4")
+        
+        # 1. Генерируем SRT (пропуская динамику)
+        srt_res = generate_srt_from_project(proj_data['scenes'], proj_data['whisper_segments'], srt_path)
+        if not srt_res:
+            await status_msg.edit_text("❌ Ошибка при генерации файла субтитров.")
+            return
+            
+        # 2. Вшиваем в видео
+        res_path = await asyncio.to_thread(burn_subtitles, video_path, srt_path, output_path)
+        
+        if res_path and os.path.exists(res_path):
+            meta = proj_data.get('metadata', {})
+            title = meta.get('title', 'Без названия')
+            description = meta.get('description', '')
+            tags_list = meta.get('hashtags', [])
+            hashtags = " ".join([f"#{t}" if not t.startswith("#") else t for t in tags_list])
+
+            caption = (
+                f"✨ **Версия с субтитрами готова!**\n\n"
+                f"📌 **Заголовок:**\n`{title}`\n\n"
+                f"📝 **Описание:**\n`{description[:800]}`\n\n"
+                f"🏷 **Теги:**\n`{hashtags}`"
+            )
+
+            await callback.message.answer_video(
+                types.FSInputFile(res_path),
+                caption=caption,
+                parse_mode="Markdown",
+                reply_to_message_id=callback.message.message_id
+            )
+            await status_msg.delete()
+        else:
+            await status_msg.edit_text("❌ Ошибка при вшивании субтитров через FFmpeg.")
+            
+    except Exception as e:
+        logger.error(f"Subtitle burn error: {e}", exc_info=True)
+        await status_msg.edit_text(f"❌ Критическая ошибка при работе с субтитрами: {e}")
+
+@router.callback_query(F.data.startswith("translate_menu_"))
+async def handle_translate_menu_button(callback: types.CallbackQuery, state: FSMContext):
+    """Вызывает меню перевода по кнопке под видео."""
+    project_id = callback.data.split("_", 2)[2]
+    logger.info(f"Button 'Translate' pressed for project: {project_id}")
+    await callback.answer()
+    await state.update_data(project_id=project_id)
+    
+    from bot.handlers.localization import cmd_translate
+    await cmd_translate(callback, state)
 
 @router.callback_query(F.data == "audio_retry", ProjectStates.approving_audio)
 async def retry_audio(callback: types.CallbackQuery, state: FSMContext):

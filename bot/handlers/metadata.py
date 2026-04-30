@@ -75,11 +75,15 @@ async def run_metadata_generation(message: types.Message, state: FSMContext, ins
         
         await state.update_data(metadata=metadata)
         
+        title = metadata.get('title', '...')
+        description = metadata.get('description', '...')
+        hashtags = " ".join([f"#{t}" if not t.startswith("#") else t for t in metadata.get('hashtags', [])])
+
         res_text = (
             "✅ **SEO-метаданные готовы!**\n\n"
-            f"📌 **Заголовок:** {metadata.get('title', '...')}\n\n"
-            f"📝 **Описание:** {metadata.get('description', '...')}\n\n"
-            f"🏷 **Теги:** {', '.join(metadata.get('hashtags', []))}\n\n"
+            f"📌 **Заголовок:**\n`{title}`\n\n"
+            f"📝 **Описание:**\n`{description}`\n\n"
+            f"🏷 **Теги:**\n`{hashtags}`\n\n"
             "🚀 **Начинаем финальный монтаж?**"
         )
         

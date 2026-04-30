@@ -89,10 +89,11 @@ async def ask_for_tts_preset(message: types.Message, state: FSMContext, engine_i
         for p in engine_data['presets']:
             kb.button(text=p['name'], callback_data=f"ttspreset:{p['id']}")
         kb.adjust(1)
-        await message.edit_text(
-            f"🎯 **{engine_data['name']}**\nВыберите голос и стиль:", 
-            reply_markup=kb.as_markup()
-        )
+        msg = f"🎯 **{engine_data['name']}**\nВыберите голос и стиль:"
+        if message.video or message.photo:
+            await message.edit_caption(caption=msg, reply_markup=kb.as_markup())
+        else:
+            await message.edit_text(msg, reply_markup=kb.as_markup())
         await state.set_state(ProjectStates.choosing_tts_preset)
     except Exception as e:
         logger.error(f"Error in ask_for_tts_preset: {e}")
@@ -112,10 +113,13 @@ async def ask_for_metadata_style(message: types.Message, state: FSMContext):
             "В каком ключе агент должен составить название и описание для вашего видео?"
         )
         
-        if message.text: # Если пришло сообщение
+        if message.text: # Если пришло текстовое сообщение (не callback)
             await message.answer(msg, reply_markup=kb.as_markup())
         else: # Если callback
-            await message.edit_text(msg, reply_markup=kb.as_markup())
+            if message.video or message.photo:
+                await message.edit_caption(caption=msg, reply_markup=kb.as_markup())
+            else:
+                await message.edit_text(msg, reply_markup=kb.as_markup())
             
         await state.set_state(ProjectStates.choosing_metadata_style)
     except Exception as e:

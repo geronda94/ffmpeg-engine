@@ -13,58 +13,105 @@ router = Router()
 pm = ProjectManager()
 
 @router.message(Command("translate"))
-async def cmd_translate(message: types.Message, state: FSMContext):
+async def cmd_translate(event: types.Message | types.CallbackQuery, state: FSMContext):
     """Команда для начала перевода текущего или последнего проекта."""
     data = await state.get_data()
     project_id = data.get('project_id')
     
     if not project_id:
-        await message.answer("❌ Сначала выберите или создайте проект через /start")
+        msg = "❌ Сначала выберите или создайте проект через /start"
+        if isinstance(event, types.Message): await event.answer(msg)
+        else: await event.message.answer(msg)
         return
         
     kb = InlineKeyboardBuilder()
-    kb.button(text="🇺🇸 English", callback_data="trl_English")
-    kb.button(text="🇷🇺 Russian", callback_data="trl_Russian")
-    kb.button(text="🇷🇴 Romanian", callback_data="trl_Romanian")
-    kb.button(text="🇬🇪 Georgian", callback_data="trl_Georgian")
+    # Только языки из конфига
+    langs = {
+        "Russian": "🇷🇺",
+        "English": "🇺🇸",
+        "Romanian": "🇷🇴",
+        "Georgian": "🇬🇪"
+    }
+    
+    # Загружаем проект, чтобы узнать текущий язык и не предлагать его
+    proj_data = pm.load_project(project_id)
+    current_lang = proj_data.get('language', 'Russian')
+    
+    for lang_name, flag in langs.items():
+        if lang_name != current_lang:
+            # ФИКС: Используем ':' как разделитель, чтобы не ломать project_id
+            kb.button(text=f"{flag} {lang_name}", callback_data=f"trl_{lang_name}:{project_id}")
+    
     kb.adjust(2)
     
-    await message.answer("🌍 **Локализация проекта**\n\nНа какой язык перевести текущий ролик?", reply_markup=kb.as_markup())
+    text = f"🌍 **Локализация проекта** `{project_id}`\n\nНа какой язык перевести?"
+    if isinstance(event, types.Message):
+        await event.answer(text, reply_markup=kb.as_markup())
+    else:
+        # ФИКС: Если кнопка под видео/фото, используем edit_caption вместо edit_text
+        if event.message.video or event.message.photo:
+            await event.message.edit_caption(caption=text, reply_markup=kb.as_markup())
+        else:
+            await event.message.edit_text(text, reply_markup=kb.as_markup())
 
 @router.callback_query(F.data.startswith("trl_"))
 async def handle_translation_choice(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    target_lang = callback.data.split("_")[1]
-    data = await state.get_data()
-    source_id = data['project_id']
+    # ФИКС: Разделяем по префиксу и двоеточию
+    data_part = callback.data[4:] # Убираем 'trl_'
+    target_lang, source_id = data_part.split(":", 1)
     
-    status = await callback.message.answer(f"⏳ **Клонирую и перевожу проект на {target_lang}...**")
+    status = await callback.message.answer(f"⏳ **Клонирую и перевожу на {target_lang}...**")
     
-    # 1. Клонируем структуру
-    new_id = pm.clone_project(source_id, target_lang)
-    if not new_id:
-        await status.edit_text("❌ Ошибка при клонировании проекта.")
-        return
-        
-    # 2. Переводим контент через ИИ
-    proj_data = pm.load_project(new_id)
-    trans_res = await translate_project_content(proj_data['script'], proj_data['scenes'], target_lang)
-    
-    if trans_res:
-        proj_data['script'] = trans_res['script']
-        proj_data['scenes'] = trans_res['scenes']
-        proj_data['status'] = "translated"
-        pm.save_project(new_id, proj_data)
-        
-        await state.update_data(project_id=new_id, language=target_lang)
-        
-        await status.edit_text(
-            f"✅ **Проект успешно локализован!**\n\n"
-            f"Новый ID: `{new_id}`\n"
-            f"Язык: {target_lang}\n\n"
-            f"Теперь нужно выбрать голос для новой озвучки."
+    try:
+        source_data = pm.load_project(source_id)
+        if not source_data:
+            await status.edit_text("❌ Исходный проект не найден.")
+            return
+            
+        # 1. Переводим тексты и SEO
+        trans_res = await translate_project_content(
+            source_data['script'], 
+            source_data['scenes'],
+            source_data.get('metadata', {}),
+            target_lang
         )
-        # Переходим сразу к выбору движка озвучки
-        await ask_for_tts_engine(callback.message, state)
-    else:
-        await status.edit_text("❌ Ошибка при переводе текста ИИ-агентом.")
+        
+        # 2. Клонируем проект с новыми данными
+        new_id = pm.clone_project(source_id, target_lang)
+        proj_data = pm.load_project(new_id)
+        if trans_res:
+            proj_data['script'] = trans_res['script']
+            proj_data['scenes'] = trans_res['scenes']
+            proj_data['metadata'] = trans_res['metadata']
+            proj_data['language'] = target_lang
+            proj_data['status'] = "translated"
+            pm.save_project(new_id, proj_data)
+            
+            # Кнопки для продолжения или перевода на ЕЩЕ ОДИН язык
+            kb = InlineKeyboardBuilder()
+            kb.button(text="🎙 Выбрать озвучку", callback_data=f"goto_tts:{new_id}")
+            kb.button(text="🌍 Перевести на другой", callback_data=f"translate_menu_{source_id}")
+            kb.adjust(1)
+            
+            await status.edit_text(
+                f"✅ **Проект локализован!**\n\n"
+                f"Новый ID: `{new_id}`\n"
+                f"Язык: {target_lang}\n\n"
+                f"Что делаем дальше?",
+                reply_markup=kb.as_markup()
+            )
+        else:
+            await status.edit_text("❌ Ошибка при переводе текста ИИ-агентом.")
+            
+    except Exception as e:
+        logger.error(f"Translation flow error: {e}", exc_info=True)
+        await status.edit_text(f"❌ Критическая ошибка при локализации: {e}")
+
+@router.callback_query(F.data.startswith("goto_tts:"))
+async def handle_goto_tts(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    # ФИКС: Используем ':' как разделитель
+    new_id = callback.data.split(":")[1]
+    await state.update_data(project_id=new_id)
+    await ask_for_tts_engine(callback.message, state)
