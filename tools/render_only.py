@@ -11,7 +11,7 @@ from bot.pipeline_manager import render_project_video, pm
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def load_montage_presets():
+def load_montage_presets(): 
     with open("config/montage_presets.json", "r", encoding="utf-8") as f:
         return json.load(f)
 

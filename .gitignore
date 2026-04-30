@@ -9,3 +9,4 @@ tasks/religious_reel.json
 docs/directus_integration_blueprint.md
 .env
 env
+venv
