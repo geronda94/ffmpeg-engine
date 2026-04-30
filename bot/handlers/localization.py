@@ -33,24 +33,28 @@ async def cmd_translate(event: types.Message | types.CallbackQuery, state: FSMCo
         "Georgian": "🇬🇪"
     }
     
-    # Загружаем проект, чтобы узнать текущий язык и не предлагать его
+    # Загружаем проект, чтобы узнать текущий язык
     proj_data = pm.load_project(project_id)
     current_lang = proj_data.get('language', 'Russian')
     
     for lang_name, flag in langs.items():
         if lang_name != current_lang:
-            # ФИКС: Используем ':' как разделитель, чтобы не ломать project_id
             kb.button(text=f"{flag} {lang_name}", callback_data=f"trl_{lang_name}:{project_id}")
     
-    kb.adjust(2)
+    # Сохраняем кнопку субтитров, чтобы она не пропадала!
+    kb.button(text="🎬 Добавить субтитры", callback_data=f"subtitles:{project_id}")
+    kb.adjust(2, 1)
     
-    text = f"🌍 **Локализация проекта** `{project_id}`\n\nНа какой язык перевести?"
+    text = f"🌍 **Выберите язык для перевода проекта** `{project_id}`:"
+    
     if isinstance(event, types.Message):
         await event.answer(text, reply_markup=kb.as_markup())
     else:
-        # ФИКС: Если кнопка под видео/фото, используем edit_caption вместо edit_text
+        # ФИКС: Если это медиа, мы НЕ меняем caption (чтобы SEO не пропало), 
+        # а только меняем кнопки (reply_markup).
         if event.message.video or event.message.photo:
-            await event.message.edit_caption(caption=text, reply_markup=kb.as_markup())
+            await event.message.edit_reply_markup(reply_markup=kb.as_markup())
+            await event.answer("🌍 Выберите язык в меню ниже")
         else:
             await event.message.edit_text(text, reply_markup=kb.as_markup())
 
@@ -91,7 +95,7 @@ async def handle_translation_choice(callback: types.CallbackQuery, state: FSMCon
             # Кнопки для продолжения или перевода на ЕЩЕ ОДИН язык
             kb = InlineKeyboardBuilder()
             kb.button(text="🎙 Выбрать озвучку", callback_data=f"goto_tts:{new_id}")
-            kb.button(text="🌍 Перевести на другой", callback_data=f"translate_menu_{source_id}")
+            kb.button(text="🌍 Перевести на другой", callback_data=f"translate_menu:{source_id}")
             kb.adjust(1)
             
             await status.edit_text(

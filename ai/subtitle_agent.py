@@ -7,9 +7,8 @@ logger = logging.getLogger(__name__)
 
 def generate_srt_from_project(scenes: list, whisper_segments: list, output_path: str) -> str | None:
     """
-    Создает .srt файл субтитров из Whisper-сегментов,
-    ПРОПУСКАЯ сцены с allow_montage_effects=False (динамическая графика).
-    ДРОБИТ длинные сегменты на короткие части.
+    Создает .srt файл субтитров, используя ОРИГИНАЛЬНЫЙ ТЕКСТ из сцен,
+    но ТАЙМИНГИ из Whisper для синхронизации.
     """
     try:
         def format_time(seconds: float) -> str:
@@ -19,63 +18,75 @@ def generate_srt_from_project(scenes: list, whisper_segments: list, output_path:
             ms = int((seconds % 1) * 1000)
             return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
-        # Собираем временные диапазоны сцен, которые нужно СКРЫТЬ
-        blocked_ranges = []
+        final_srt_segments = []
+
         for scene in scenes:
             if not scene.get('allow_montage_effects', True):
-                start = scene.get('start', 0)
-                end = scene.get('end', 0)
-                if end > start:
-                    blocked_ranges.append((start, end))
-
-        def is_blocked(seg_start, seg_end):
-            for b_start, b_end in blocked_ranges:
-                if seg_start < b_end and seg_end > b_start:
-                    return True
-            return False
-
-        # Дробим сегменты
-        fine_segments = []
-        for seg in whisper_segments:
-            text = seg['text'].strip()
-            if not text: continue
-            
-            words = text.split()
-            if len(words) <= 4:
-                fine_segments.append(seg)
-            else:
-                # Дробим на куски по 4 слова
-                num_chunks = (len(words) + 3) // 4
-                dur = seg['end'] - seg['start']
-                chunk_dur = dur / num_chunks
-                for i in range(num_chunks):
-                    chunk_words = words[i*4 : (i+1)*4]
-                    fine_segments.append({
-                        'start': seg['start'] + i * chunk_dur,
-                        'end': seg['start'] + (i+1) * chunk_dur,
-                        'text': " ".join(chunk_words)
-                    })
-
-        lines = []
-        idx = 1
-        for seg in fine_segments:
-            if is_blocked(seg['start'], seg['end']):
                 continue
 
+            scene_start = scene.get('start', 0)
+            scene_end = scene.get('end', 0)
+            original_text = scene.get('text_segment', "").strip()
+            
+            if not original_text:
+                continue
+
+            # Ищем whisper-сегменты, которые попадают в эту сцену
+            scene_whisper_segs = [
+                s for s in whisper_segments 
+                if s['start'] >= scene_start - 0.5 and s['end'] <= scene_end + 0.5
+            ]
+
+            if not scene_whisper_segs:
+                # Если whisper ничего не нашел для этой сцены, просто бьем текст сцены на куски
+                words = original_text.split()
+                num_chunks = (len(words) + 3) // 4
+                dur = scene_end - scene_start
+                chunk_dur = dur / num_chunks if num_chunks > 0 else dur
+                for i in range(num_chunks):
+                    final_srt_segments.append({
+                        'start': scene_start + i * chunk_dur,
+                        'end': scene_start + (i+1) * chunk_dur,
+                        'text': " ".join(words[i*4 : (i+1)*4])
+                    })
+            else:
+                # У нас есть и оригинальный текст, и тайминги whisper
+                # Распределяем оригинальные слова пропорционально whisper-сегментам
+                orig_words = original_text.split()
+                # Сколько слов в среднем на один whisper-сегмент
+                words_per_seg = len(orig_words) / len(scene_whisper_segs)
+                
+                for i, wseg in enumerate(scene_whisper_segs):
+                    w_start = i * words_per_seg
+                    w_end = (i + 1) * words_per_seg
+                    chunk = orig_words[int(w_start) : int(w_end)]
+                    
+                    if chunk:
+                        final_srt_segments.append({
+                            'start': wseg['start'],
+                            'end': wseg['end'],
+                            'text': " ".join(chunk)
+                        })
+
+        # Генерируем финальный SRT
+        lines = []
+        for idx, seg in enumerate(final_srt_segments, 1):
             start = format_time(seg['start'])
             end = format_time(seg['end'])
             text = seg['text'].strip()
             if not text: continue
-
             lines.append(f"{idx}\n{start} --> {end}\n{text}\n")
-            idx += 1
 
         srt_content = "\n".join(lines)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(srt_content)
 
-        logger.info(f"SRT generated: {output_path} ({idx - 1} sub-chunks)")
+        logger.info(f"SRT generated with original text: {output_path}")
         return output_path
+
+    except Exception as e:
+        logger.error(f"SRT generation error: {e}")
+        return None
 
     except Exception as e:
         logger.error(f"SRT generation error: {e}")

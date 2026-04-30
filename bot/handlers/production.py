@@ -69,8 +69,8 @@ async def send_video_result(task: dict):
             
             # Кнопки пост-обработки
             kb = InlineKeyboardBuilder()
-            kb.button(text="🎬 Добавить субтитры", callback_data=f"subtitles_{project_id}")
-            kb.button(text="🌍 Перевести", callback_data=f"translate_menu_{project_id}")
+            kb.button(text="🎬 Добавить субтитры", callback_data=f"subtitles:{project_id}")
+            kb.button(text="🌍 Перевести", callback_data=f"translate_menu:{project_id}")
             kb.adjust(1)
 
             await bot.send_video(
@@ -230,9 +230,9 @@ async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
     
     await state.clear()
 
-@router.callback_query(F.data.startswith("subtitles_"))
+@router.callback_query(F.data.startswith("subtitles:"))
 async def handle_add_subtitles(callback: types.CallbackQuery):
-    project_id = callback.data.split("_", 1)[1]
+    project_id = callback.data.split(":")[1]
     logger.info(f"Button 'Add Subtitles' pressed for project: {project_id}")
     await callback.answer("⏳ Готовлю версию с субтитрами...")
     
@@ -306,10 +306,10 @@ async def handle_add_subtitles(callback: types.CallbackQuery):
         logger.error(f"Subtitle burn error: {e}", exc_info=True)
         await status_msg.edit_text(f"❌ Критическая ошибка при работе с субтитрами: {e}")
 
-@router.callback_query(F.data.startswith("translate_menu_"))
+@router.callback_query(F.data.startswith("translate_menu:"))
 async def handle_translate_menu_button(callback: types.CallbackQuery, state: FSMContext):
     """Вызывает меню перевода по кнопке под видео."""
-    project_id = callback.data.split("_", 2)[2]
+    project_id = callback.data.split(":")[1]
     logger.info(f"Button 'Translate' pressed for project: {project_id}")
     await callback.answer()
     await state.update_data(project_id=project_id)
