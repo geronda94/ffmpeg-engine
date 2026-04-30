@@ -77,9 +77,22 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
         scenes = scenes_data
     else:
         logger.info("Timings missing or incomplete, running Whisper...")
+        from ai.timing_agent import get_model
+        model = get_model()
+        whisper_result = await asyncio.to_thread(
+            model.transcribe, audio_path, verbose=False
+        )
+        whisper_segments = whisper_result.get('segments', [])
+        
+        from ai.timing_agent import align_scenes_with_audio
         scenes = await asyncio.to_thread(align_scenes_with_audio, [s.copy() for s in scenes_data], audio_path)
-        # Сохраняем тайминги в проект
+        
+        # Сохраняем тайминги и Whisper-сегменты в проект (нужны для субтитров)
         proj_data['scenes'] = scenes
+        proj_data['whisper_segments'] = [
+            {'start': s['start'], 'end': s['end'], 'text': s['text']}
+            for s in whisper_segments
+        ]
         pm.save_project(project_id, proj_data)
     
     # 3. ПОДГРУЗКА ПРЕСЕТОВ МОНТАЖА
