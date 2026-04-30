@@ -6,7 +6,7 @@ from pathlib import Path
 from ai.tts_edge import generate_tts
 from ai.timing_agent import align_scenes_with_audio
 from ai.montage_agent import run_montage
-from ai.metadata_agent import generate_video_metadata
+from ai.metadata_agent import generate_metadata
 from core.project_manager import ProjectManager
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ async def render_project_video(data: dict, audio_path: str, progress_callback=No
     # Генерируем SEO-метаданные, если их еще нет
     if 'metadata' not in proj_data:
         logger.info("Generating SEO metadata...")
-        meta = await generate_video_metadata(proj_data.get('script', ''), proj_data.get('language', 'Russian'))
+        meta = await generate_metadata(proj_data.get('script', ''), proj_data.get('language', 'Russian'))
         proj_data['metadata'] = meta
         pm.save_project(project_id, proj_data)
     else:
@@ -112,7 +112,8 @@ async def render_project_video(data: dict, audio_path: str, progress_callback=No
             "asset_path": asset_path,
             "start": scene['start'],
             "end": scene['end'],
-            "text_segment": scene['text_segment']
+            "text_segment": scene['text_segment'],
+            "start_offset": asset_info.get('start_offset', 0)
         })
 
     if not scenes_for_agent: return None

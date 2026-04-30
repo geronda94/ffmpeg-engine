@@ -26,14 +26,18 @@ async def ask_for_asset(message: types.Message, state: FSMContext, scene_idx: in
         await state.update_data(current_scene_idx=scene_idx)
         
         text = scene.get('visual_description', scene.get('text_segment', '...'))
+        est_dur = scene.get('estimated_duration', '...')
+        
         kb = InlineKeyboardBuilder()
         kb.button(text="🤖 Сгенерировать ИИ", callback_data="asset_ai")
+        kb.button(text="🎬 Динамическая сцена", callback_data="asset_dynamic")
         kb.button(text="📁 Загрузить своё", callback_data="asset_manual")
-        kb.adjust(2)
+        kb.adjust(1)
 
         await message.answer(
             f"🎬 **Сцена {scene_idx + 1}/{len(scenes)}**\n\n"
-            f"Запрос: _{text}_\n\n"
+            f"Запрос: _{text}_\n"
+            f"⏱ **Длительность:** ~{est_dur} сек\n\n"
             f"Выберите способ получения визуала:", 
             reply_markup=kb.as_markup()
         )
@@ -74,3 +78,27 @@ async def ask_for_tts_preset(message: types.Message, state: FSMContext, engine_i
         await state.set_state(ProjectStates.choosing_tts_preset)
     except Exception as e:
         logger.error(f"Error in ask_for_tts_preset: {e}")
+
+async def ask_for_metadata_style(message: types.Message, state: FSMContext):
+    """ШАГ 3: Выбор стиля именования и метаданных."""
+    try:
+        kb = InlineKeyboardBuilder()
+        kb.button(text="🚀 Виральный (Кликбейт)", callback_data="metastyle_viral")
+        kb.button(text="🎓 Экспертный (Познавательный)", callback_data="metastyle_edu")
+        kb.button(text="⚡ Емкий (Shorts/TikTok)", callback_data="metastyle_shorts")
+        kb.button(text="✍️ Свой промпт...", callback_data="metastyle_custom")
+        kb.adjust(1)
+        
+        msg = (
+            "📝 **Настройка метаданных**\n\n"
+            "В каком ключе агент должен составить название и описание для вашего видео?"
+        )
+        
+        if message.text: # Если пришло сообщение
+            await message.answer(msg, reply_markup=kb.as_markup())
+        else: # Если callback
+            await message.edit_text(msg, reply_markup=kb.as_markup())
+            
+        await state.set_state(ProjectStates.choosing_metadata_style)
+    except Exception as e:
+        logger.error(f"Error in ask_for_metadata_style: {e}")

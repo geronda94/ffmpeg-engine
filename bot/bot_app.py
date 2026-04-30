@@ -12,7 +12,7 @@ from aiogram.client.session.aiohttp import AiohttpSession
 root_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(root_dir))
 
-from bot.handlers import common, scripting, assets, production
+from bot.handlers import common, scripting, assets, production, metadata
 
 # Загружаем переменные окружения
 load_dotenv(root_dir / ".env")
@@ -41,6 +41,7 @@ async def main():
     dp.include_router(scripting.router)
     dp.include_router(assets.router)
     dp.include_router(production.router)
+    dp.include_router(metadata.router)
 
     logging.info("Starting bot v3.2.3 (Stability-Fix Edition)...")
     await dp.start_polling(bot)

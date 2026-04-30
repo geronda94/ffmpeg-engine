@@ -99,7 +99,12 @@ class BaseMontageEngine:
                     # Последняя сцена длится до конца аудио
                     total_dur = audio.duration - start_time
 
-                clip = self.process_scene_asset(scene['asset_path'], total_dur, preset.get('effects', []))
+                clip = self.process_scene_asset(
+                    scene['asset_path'], 
+                    total_dur, 
+                    preset.get('effects', []),
+                    offset=scene.get('start_offset', 0)
+                )
                 
                 # Устанавливаем абсолютную позицию начала клипа
                 clip = clip.with_start(start_time)
@@ -139,12 +144,19 @@ class BaseMontageEngine:
             return False
 
 class VerticalMontageEngine(BaseMontageEngine):
-    def process_scene_asset(self, asset_path, duration, effects):
+    def process_scene_asset(self, asset_path, duration, effects, offset=0):
         ext = os.path.splitext(asset_path)[1].lower()
         if ext in ['.jpg', '.jpeg', '.png', '.webp']:
             raw = ImageClip(asset_path).with_duration(duration)
         else:
-            raw = VideoFileClip(asset_path).subclipped(0, duration).with_duration(duration).without_audio()
+            raw = VideoFileClip(asset_path).without_audio()
+            # Берем фрагмент, но не выходим за границы файла
+            raw = raw.subclipped(offset, min(offset + duration, raw.duration))
+            # Если видео короче сцены - замедляем
+            if raw.duration < duration:
+                speed_factor = raw.duration / duration
+                raw = raw.with_effects([vfx.MultiplySpeed(speed_factor)])
+            raw = raw.with_duration(duration)
 
         # ФОН: Cover (с запасом 2%) + Blur + Принудительный размер
         bg = self._smart_resize(raw, self.width, self.height, mode="cover")
@@ -160,12 +172,12 @@ class VerticalMontageEngine(BaseMontageEngine):
         return CompositeVideoClip([bg, fg], size=(self.width, self.height)).with_duration(duration)
 
 class WideMontageEngine(BaseMontageEngine):
-    def process_scene_asset(self, asset_path, duration, effects):
+    def process_scene_asset(self, asset_path, duration, effects, offset=0):
         ext = os.path.splitext(asset_path)[1].lower()
         if ext in ['.jpg', '.jpeg', '.png', '.webp']:
             raw = ImageClip(asset_path).with_duration(duration)
         else:
-            raw = VideoFileClip(asset_path).subclipped(0, duration).with_duration(duration).without_audio()
+            raw = VideoFileClip(asset_path).subclipped(offset, offset + duration).with_duration(duration).without_audio()
 
         # ФОН: Cover + Blur + Принудительный размер
         bg = self._smart_resize(raw, self.width, self.height, mode="cover")

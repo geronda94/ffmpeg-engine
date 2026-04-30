@@ -72,11 +72,19 @@ async def approve_audio(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(ProjectStates.choosing_visual_style)
 
 @router.callback_query(F.data.startswith("visstyle_"), ProjectStates.choosing_visual_style)
-async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
+async def handle_visual_style_choice(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     await callback.message.edit_reply_markup(reply_markup=None)
     style_id = callback.data.split("_")[1]
     await state.update_data(visual_style=style_id)
+    
+    from bot.navigation import ask_for_metadata_style
+    await ask_for_metadata_style(callback.message, state)
+
+@router.callback_query(F.data == "start_render", ProjectStates.assembling_video)
+async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await callback.message.edit_reply_markup(reply_markup=None)
     data = await state.get_data()
     
     status = await callback.message.answer("🎬 **Монтаж запущен.**\nПрогресс: [░░░░░░░░░░] 0%")

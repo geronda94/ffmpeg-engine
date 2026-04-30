@@ -36,4 +36,14 @@ def generate_storyboard(script: str, language: str = "Russian"):
         ],
         response_format={'type': 'json_object'}
     )
-    return json.loads(response.choices[0].message.content)
+    data = json.loads(response.choices[0].message.content)
+    
+    # Предварительный расчет длительности для каждой сцены
+    if "scenes" in data:
+        for scene in data["scenes"]:
+            text = scene.get("text_segment", "")
+            # Формула: ~13 символов в секунду (для русского) + 0.5с запас
+            est_dur = max(2.5, round(len(text) / 13.0 + 0.5, 1))
+            scene["estimated_duration"] = est_dur
+            
+    return data

@@ -65,7 +65,11 @@ class ProjectManager:
         if not data or idx1 >= len(data['scenes']) or idx2 >= len(data['scenes']):
             return False
         s1, s2 = data['scenes'][idx1], data['scenes'][idx2]
-        s1['text_segment'] = s1['text_segment'].strip() + " " + s2['text_segment'].strip()
+        new_text = s1['text_segment'].strip() + " " + s2['text_segment'].strip()
+        s1['text_segment'] = new_text
+        # Пересчет длительности
+        s1['estimated_duration'] = max(2.5, round(len(new_text) / 13.0 + 0.5, 1))
+        
         data['scenes'].pop(idx2)
         data['status'] = "needs_retiming"
         self.save_project(project_id, data)
@@ -78,15 +82,20 @@ class ProjectManager:
         scene = data['scenes'][idx]
         text = scene['text_segment']
         t1, t2 = text[:split_point].strip(), text[split_point:].strip()
+        
         scene['text_segment'] = t1
+        scene['estimated_duration'] = max(2.5, round(len(t1) / 13.0 + 0.5, 1))
+        
         new_scene = scene.copy()
         new_scene['text_segment'] = t2
+        new_scene['estimated_duration'] = max(2.5, round(len(t2) / 13.0 + 0.5, 1))
+        
         data['scenes'].insert(idx + 1, new_scene)
         data['status'] = "needs_retiming"
         self.save_project(project_id, data)
         return True
 
-    def update_asset(self, project_id: str, scene_idx: int, asset_path: str):
+    def update_asset(self, project_id: str, scene_idx: int, asset_path: str, offset: float = 0):
         data = self.load_project(project_id)
         if not data:
             data = self.create_project(project_id)
@@ -103,7 +112,8 @@ class ProjectManager:
         data['assets'][str(scene_idx)] = {
             "path": str(new_path),
             "original_path": asset_path,
-            "type": "video" if ext in ['.mp4', '.mov', '.avi'] else "image"
+            "type": "video" if ext in ['.mp4', '.mov', '.avi'] else "image",
+            "start_offset": offset
         }
         self.save_project(project_id, data)
         return True

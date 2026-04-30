@@ -20,11 +20,20 @@ class ProjectStates(StatesGroup):
     approving_scenes = State()
     collecting_assets = State()
     waiting_for_asset = State()
+    selecting_video_offset = State()
     approving_asset = State()
+    
+    # Динамические сцены (Интерактив)
+    choosing_dynamic_preset = State()
+    collecting_dynamic_element = State()
+    approving_dynamic_pre_render = State()
     
     # Финал (Озвучка и Рендер)
     choosing_visual_style = State()
     choosing_tts_engine = State()
     choosing_tts_preset = State()
+    choosing_metadata_style = State()
+    waiting_for_metadata_prompt = State()
+    assembling_video = State()
     approving_audio = State() # Восстановлено!
     rendering = State()
