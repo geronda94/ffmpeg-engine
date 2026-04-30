@@ -76,7 +76,12 @@ async def handle_topic_v4(message: types.Message, state: FSMContext):
     style_prompt = get_script_style_prompt(data.get('script_style', 'narrative'))
     status = await message.answer("✍️ Составляю сценарий...")
     prompt = f"Topic: {message.text}. {style_prompt}"
-    script_data = await asyncio.to_thread(generate_script, prompt, data['language'])
+    
+    project_id = data.get('project_id')
+    proj = pm.load_project(project_id) if project_id else {}
+    lang = proj.get('language') or data.get('language', 'Russian')
+    
+    script_data = await asyncio.to_thread(generate_script, prompt, lang)
     
     # ФИКС: Загружаем текущие данные проекта перед сохранением, чтобы не затереть остальное
     proj = pm.load_project(data['project_id'])
@@ -104,7 +109,11 @@ async def handle_script_refinement(message: types.Message, state: FSMContext):
     data = await state.get_data()
     status = await message.answer("🔄 Обновляю сценарий...")
     try:
-        new_data = await refine_script_ai(data['script_data']['script'], message.text, data['language'], "")
+        project_id = data.get('project_id')
+        proj = pm.load_project(project_id) if project_id else {}
+        lang = proj.get('language') or data.get('language', 'Russian')
+        
+        new_data = await refine_script_ai(data['script_data']['script'], message.text, lang, "")
         
         # ФИКС: Сохраняем полный объект проекта
         proj = pm.load_project(data['project_id'])
@@ -118,7 +127,11 @@ async def handle_script_refinement(message: types.Message, state: FSMContext):
 
 async def show_script_approval(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    script = data['script_data']['script']
+    project_id = data.get('project_id')
+    proj = pm.load_project(project_id) if project_id else {}
+    
+    script_data = data.get('script_data', {})
+    script = script_data.get('script') or proj.get('script', 'Сценарий пуст.')
     
     chunks = split_text(f"📜 **Ваш сценарий:**\n\n{script}")
     for i, chunk in enumerate(chunks):
@@ -139,10 +152,13 @@ async def approve_script_v2(callback: types.CallbackQuery, state: FSMContext):
     kb.button(text="🤖 Авто-раскадровка", callback_data="stmode_auto")
     kb.button(text="💡 Свои идеи", callback_data="stmode_ideas")
     kb.adjust(1)
-    proj = pm.load_project(data['project_id'])
-    if proj:
-        proj['status'] = "script_ready"
-        pm.save_project(data['project_id'], proj)
+    
+    project_id = data.get('project_id')
+    if project_id:
+        proj = pm.load_project(project_id)
+        if proj:
+            proj['status'] = "script_ready"
+            pm.save_project(project_id, proj)
         
     await callback.message.answer("🎭 **Текст одобрен!**\n\nКак подготовим раскадровку?", reply_markup=kb.as_markup())
     await state.set_state(ProjectStates.choosing_storyboard_mode)
@@ -270,9 +286,18 @@ async def show_full_storyboard(message: types.Message, state: FSMContext):
 async def accept_storyboard(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     data = await state.get_data()
-    proj = pm.load_project(data['project_id'])
-    proj['scenes'] = data['scenes']
+    project_id = data.get('project_id')
+    if not project_id:
+        await callback.message.answer("❌ Ошибка: Проект не найден.")
+        return
+        
+    proj = pm.load_project(project_id)
+    if not proj:
+        await callback.message.answer("❌ Ошибка: Проект не найден на диске.")
+        return
+        
+    proj['scenes'] = data.get('scenes') or proj.get('scenes', [])
     proj['status'] = "collecting_assets"
-    pm.save_project(data['project_id'], proj)
+    pm.save_project(project_id, proj)
     await callback.message.answer("🚀 Список утвержден! Начинаем сбор материалов.")
     await ask_for_asset(callback.message, state, 0)
