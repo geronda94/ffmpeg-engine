@@ -1,0 +1,34 @@
+{
+  "vertical": [
+    {
+      "id": "v_smooth_story",
+      "name": "📖 Плавный сторителлинг",
+      "description": "Мягкие переходы и медленный наезд камеры.",
+      "effects": ["ken_burns"],
+      "transition": { "type": "crossfade", "duration": 0.5 }
+    },
+    {
+      "id": "v_dynamic_shorts",
+      "name": "⚡ Динамичный Shorts",
+      "description": "Быстрые переходы, активный зум.",
+      "effects": ["ken_burns_fast"],
+      "transition": { "type": "crossfade", "duration": 0.2 }
+    }
+  ],
+  "wide": [
+    {
+      "id": "w_cinematic",
+      "name": "🎬 Кинематографичный",
+      "description": "Широкий формат, глубокие тени и плавные наезды.",
+      "effects": ["ken_burns"],
+      "transition": { "type": "crossfade", "duration": 1.0 }
+    },
+    {
+      "id": "w_vlog_wide",
+      "name": "📺 Влог / Обзор",
+      "description": "Минимальные эффекты, акцент на контент.",
+      "effects": [],
+      "transition": { "type": "crossfade", "duration": 0.3 }
+    }
+  ]
+}

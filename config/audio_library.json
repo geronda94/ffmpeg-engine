@@ -1,0 +1,118 @@
+{
+    "library_name": "Content Factory Multi-Theme Audio Library",
+    "version": "2.0",
+    "base_path": "assets/audio_library",
+    "categories": {
+        "spiritual_orthodox": {
+            "description": "Духовная и православная тематика. Колокола, хор, атмосфера храма.",
+            "items": [
+                {
+                    "id": "spirit_church_bells_big",
+                    "path": "sfx/spiritual/church_bells_big.ogg",
+                    "tags": ["православие", "церковь", "храм", "колокол", "благовест", "праздник"],
+                    "trigger_keywords": ["церковь", "бог", "храм", "вера", "пасха", "колокола"]
+                },
+                {
+                    "id": "spirit_choral_ambient",
+                    "path": "music/spiritual/choral_ambient.ogg",
+                    "tags": ["хор", "духовность", "спокойствие", "молитва", "фон"],
+                    "mood": "peaceful",
+                    "vibe": "divine"
+                },
+                {
+                    "id": "spirit_bell_small",
+                    "path": "sfx/spiritual/bell_small.ogg",
+                    "tags": ["внимание", "совет", "духовный акцент"],
+                    "trigger_on": "tip_added"
+                }
+            ]
+        },
+        "news_media": {
+            "description": "Новостная стилистика. Динамичные отбивки, студийный шум.",
+            "items": [
+                {
+                    "id": "news_intro_main",
+                    "path": "music/news/news_intro.ogg",
+                    "tags": ["новости", "срочно", "репортаж", "заголовок"],
+                    "trigger_keywords": ["внимание", "срочные новости", "сообщаем", "актуально"]
+                },
+                {
+                    "id": "news_ticker_loop",
+                    "path": "sfx/news/ticker_loop.ogg",
+                    "tags": ["бегущая строка", "факты", "информация"],
+                    "trigger_on": "overlay_added"
+                },
+                {
+                    "id": "news_ping_urgent",
+                    "path": "sfx/news/ping_urgent.ogg",
+                    "tags": ["уведомление", "важно", "факт"],
+                    "trigger_keywords": ["факт", "доказано", "стало известно"]
+                }
+            ]
+        },
+        "industrial_construction": {
+            "description": "Строительная и индустриальная тематика. Звуки инструментов.",
+            "items": [
+                {
+                    "id": "const_power_drill",
+                    "path": "sfx/industrial/power_drill.ogg",
+                    "tags": ["ремонт", "стройка", "дрель", "инструмент", "работа"],
+                    "trigger_keywords": ["ремонт", "сверлить", "монтаж", "стены", "инструменты"]
+                },
+                {
+                    "id": "const_hammer_hit",
+                    "path": "sfx/industrial/hammer_hit.ogg",
+                    "tags": ["удар", "гвоздь", "молоток", "акцент"],
+                    "trigger_keywords": ["строить", "забивать", "крепкий", "надежный"]
+                },
+                {
+                    "id": "const_ambient_site",
+                    "path": "music/industrial/construction_bg.ogg",
+                    "tags": ["фон", "стройка", "площадка", "техника"],
+                    "mood": "busy",
+                    "vibe": "active"
+                }
+            ]
+        },
+        "science_tech": {
+            "description": "Научно-популярный стиль. Футуристика, космос, данные.",
+            "items": [
+                {
+                    "id": "sci_data_processing",
+                    "path": "sfx/science/data_process.ogg",
+                    "tags": ["наука", "компьютер", "данные", "анализ", "космос"],
+                    "trigger_keywords": ["исследование", "ученые", "анализ", "технологии", "мозг"]
+                },
+                {
+                    "id": "sci_futuristic_riser",
+                    "path": "sfx/science/riser.ogg",
+                    "tags": ["нарастание", "открытие", "инсайт", "важно"],
+                    "trigger_on": "scene_change"
+                },
+                {
+                    "id": "sci_space_ambient",
+                    "path": "music/science/space_background.ogg",
+                    "tags": ["вселенная", "космос", "звезды", "глубина", "фон"],
+                    "mood": "mysterious",
+                    "vibe": "deep"
+                }
+            ]
+        },
+        "sfx_standard": {
+            "description": "Стандартные звуки интерфейса и переходов.",
+            "items": [
+                {
+                    "id": "sfx_whoosh_clean",
+                    "path": "sfx/transitions/whoosh_clean.ogg",
+                    "tags": ["переход", "движение"],
+                    "trigger_on": "scene_change"
+                },
+                {
+                    "id": "sfx_pop_clean",
+                    "path": "sfx/ui/pop_clean.ogg",
+                    "tags": ["текст", "иконка"]
+                }
+            ]
+        }
+    }
+}

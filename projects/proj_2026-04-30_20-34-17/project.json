@@ -1,0 +1,80 @@
+{
+  "project_id": "proj_2026-04-30_20-34-17",
+  "user_id": "6857394634",
+  "created_at": "2026-04-30T20:34:17.934411",
+  "status": "completed",
+  "video_format": "vertical",
+  "language": "Russian",
+  "script": "Горы образуются, когда тектонические плиты сталкиваются, поднимая край вверх. Трение накапливает энергию, вызывая землетрясения. На вершинах холодно, и выпавший снег не тает, поэтому горы всегда заснежены.",
+  "scenes": [
+    {
+      "scene_id": 1,
+      "text_segment": "Горы образуются, когда тектонические плиты сталкиваются, поднимая край вверх.",
+      "visual_description": "Две тектонические плиты движутся навстречу друг другу, их края поднимаются, образуя горный хребет. Вид сбоку, земная кора.",
+      "image_prompt": "Two tectonic plates colliding, edges rising to form a mountain range, side view, Earth's crust cross-section, realistic geological illustration, bright colors, dynamic motion lines.",
+      "ui_caption": "Столкновение плит поднимает горы.",
+      "estimated_duration": 6.4,
+      "start": 0.0,
+      "end": 6.0
+    },
+    {
+      "scene_id": 2,
+      "text_segment": "Трение накапливает энергию, вызывая землетрясения.",
+      "visual_description": "Земная кора трескается и вибрирует, показаны линии разломов и сейсмические волны, распространяющиеся от эпицентра.",
+      "image_prompt": "Earthquake: cracked ground, fault lines, seismic waves radiating from epicenter, realistic, intense shaking, dust and debris, dramatic lighting.",
+      "ui_caption": "Трение вызывает землетрясения.",
+      "estimated_duration": 4.3,
+      "start": 6.0,
+      "end": 10.5
+    },
+    {
+      "scene_id": 3,
+      "text_segment": "На вершинах холодно, и выпавший снег не тает, поэтому горы всегда заснежены.",
+      "visual_description": "Вид на заснеженные горные вершины, чистое голубое небо, снег лежит на пиках и склонах, холодная атмосфера.",
+      "image_prompt": "Snow-capped mountain peaks, clear blue sky, sunlight reflecting on snow, cold atmosphere, realistic landscape, high detail, majestic and serene.",
+      "ui_caption": "Холод на вершинах сохраняет снег.",
+      "estimated_duration": 6.3,
+      "start": 10.5,
+      "end": 16.0
+    }
+  ],
+  "assets": {
+    "0": {
+      "path": "projects/proj_2026-04-30_20-34-17/assets/scene_0.mp4",
+      "original_path": "temp/CgACAgQAAxkBAAIN9Gnzks0fiotFR50Rwv9OuCF25F4uAAJpHwACYWahU2VCeVk3KIBQOwQ.mp4",
+      "type": "video",
+      "start_offset": 5.0
+    },
+    "1": {
+      "path": "projects/proj_2026-04-30_20-34-17/assets/scene_1.mp4",
+      "original_path": "projects/proj_2026-04-30_20-34-17/assets/dynamic_1_1777570602.mp4",
+      "type": "video",
+      "start_offset": 0,
+      "allow_montage_effects": false
+    },
+    "2": {
+      "path": "projects/proj_2026-04-30_20-34-17/assets/scene_2.jpg",
+      "original_path": "temp/url_1777570699.jpg",
+      "type": "image",
+      "start_offset": 0
+    }
+  },
+  "visual_style": "v",
+  "history": [],
+  "updated_at": "2026-04-30T20:43:47.962211",
+  "current_audio_path": "projects/proj_2026-04-30_20-34-17/audio/voice_Russian.wav",
+  "metadata": {
+    "title": "Как рождаются горы? 🌍 Интересные факты",
+    "description": "Горы образуются при столкновении тектонических плит — это мощный природный процесс. Узнайте, почему на вершинах всегда лежит снег и как связаны горы и землетрясения. Завораживающая геология простыми словами!",
+    "hashtags": [
+      "#горы",
+      "#наука",
+      "#интересныефакты",
+      "#геология",
+      "#землетрясение",
+      "#природа",
+      "#познавательно"
+    ],
+    "slug": "how-mountains-are-formed"
+  }
+}

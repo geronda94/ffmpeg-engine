@@ -12,7 +12,9 @@ from aiogram.client.session.aiohttp import AiohttpSession
 root_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(root_dir))
 
-from bot.handlers import common, scripting, assets, production, metadata
+from bot.handlers import common, scripting, assets, production, metadata, localization
+from bot.middlewares.errors import ErrorHandlingMiddleware
+from core.task_manager import task_manager
 
 # Загружаем переменные окружения
 load_dotenv(root_dir / ".env")
@@ -28,22 +30,26 @@ async def main():
         logging.error("TELEGRAM_BOT_TOKEN не найден в .env файле!")
         return
 
-    # ФИКС: Используем простое число секунд вместо ClientTimeout
-    # Это позволит aiogram корректно вычислять время опроса (polling)
     session = AiohttpSession()
-    # Устанавливаем таймаут напрямую в секундах, чтобы избежать TypeError
     session.timeout = 900 
     
     bot = Bot(token=API_TOKEN, session=session)
     dp = Dispatcher(storage=MemoryStorage())
+
+    # Регистрируем мидлвари
+    dp.update.outer_middleware(ErrorHandlingMiddleware())
 
     dp.include_router(common.router)
     dp.include_router(scripting.router)
     dp.include_router(assets.router)
     dp.include_router(production.router)
     dp.include_router(metadata.router)
+    dp.include_router(localization.router)
 
-    logging.info("Starting bot v3.2.3 (Stability-Fix Edition)...")
+    # Запускаем менеджер задач
+    task_manager.start(bot)
+
+    logging.info("Starting bot v3.7.0 (Localization & Queue Edition)...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":

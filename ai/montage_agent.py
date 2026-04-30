@@ -3,6 +3,7 @@ import logging
 import moviepy.video.fx as vfx
 from moviepy import ImageClip, VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip
 from proglog import ProgressBarLogger
+from core.media_engine import MediaEngine
 
 logger = logging.getLogger(__name__)
 
@@ -21,17 +22,13 @@ class TelegramProgressLogger(ProgressBarLogger):
         if not self.tg_callback:
             return
             
-        # MoviePy использует 'tqdm' для основного видео-рендеринга. 
-        # Это наш приоритет №1.
         main_bar = self.bars.get('tqdm') or self.bars.get('video')
         
         if main_bar and main_bar.get('total'):
             bar_data = main_bar
         else:
-            # Если главной шкалы нет, ищем любую, которая еще не закончена
             active_bars = [b for b in self.bars.values() if b.get('total', 0) > 0 and b['index'] < b['total']]
             if not active_bars:
-                # Если всё закончено, берем последний из списка
                 active_bars = [b for b in self.bars.values() if b.get('total', 0) > 0]
             
             if not active_bars: return
@@ -39,44 +36,17 @@ class TelegramProgressLogger(ProgressBarLogger):
 
         percent = int((bar_data['index'] / bar_data['total']) * 100)
         
-        # Обновляем только при изменении на 5% или больше
         if percent != self.last_percent and (percent % 5 == 0 or percent == 100):
             self.last_percent = percent
             self.tg_callback(percent)
 
 class BaseMontageEngine:
-    def __init__(self, width, height, fps=30):
+    def __init__(self, width=1080, height=1920, fps=30):
         self.width = width
         self.height = height
         self.fps = fps
+        self.media_engine = MediaEngine(width, height, fps)
         os.makedirs("temp", exist_ok=True)
-
-    def _smart_resize(self, clip, target_w, target_h, mode="cover"):
-        clip_aspect = clip.w / clip.h
-        target_aspect = target_w / target_h
-
-        if mode == "cover":
-            # Для фона делаем запас +2%, чтобы избежать рамок из-за округления
-            work_w, work_h = target_w * 1.02, target_h * 1.02
-            if clip_aspect > target_aspect:
-                new_clip = clip.resized(height=work_h)
-            else:
-                new_clip = clip.resized(width=work_w)
-            return new_clip.cropped(x_center=new_clip.w/2, y_center=new_clip.h/2, width=work_w, height=work_h)
-        else: # mode="fit"
-            if clip_aspect > target_aspect:
-                return clip.resized(width=target_w)
-            else:
-                return clip.resized(height=target_h)
-
-    def apply_preset_effects(self, clip, effects_list):
-        new_effects = []
-        for effect in effects_list:
-            if effect == "soft_zoom":
-                new_effects.append(vfx.Resize(lambda t: 1.05 + 0.04 * t))
-            elif effect == "quick_zoom":
-                new_effects.append(vfx.Resize(lambda t: 1.05 + 0.12 * t))
-        return clip.with_effects(new_effects) if new_effects else clip
 
     def render(self, scenes, audio_path, output_path, preset, progress_callback=None):
         try:
@@ -87,42 +57,37 @@ class BaseMontageEngine:
 
             for i, scene in enumerate(scenes):
                 start_time = scene['start']
-                end_time = scene['end']
                 
-                # РЕШЕНИЕ: Чтобы не было черных дыр, сцена должна длиться как минимум 
-                # до начала следующей сцены + время на переход (cross_dur)
                 if i < len(scenes) - 1:
                     next_start = scenes[i+1]['start']
-                    # Длительность = (время до следующей сцены) + (запас на переход)
                     total_dur = (next_start - start_time) + cross_dur
                 else:
-                    # Последняя сцена длится до конца аудио
                     total_dur = audio.duration - start_time
+                
+                logger.info(f"--- Processing Scene {i} ---")
+                logger.info(f"Asset: {scene['asset_path']} | Duration: {total_dur}s")
 
-                clip = self.process_scene_asset(
+                clip = self.media_engine.process_asset(
                     scene['asset_path'], 
                     total_dur, 
-                    preset.get('effects', []),
-                    offset=scene.get('start_offset', 0)
+                    mode=preset.get("resize_mode", "fit"),
+                    offset=scene.get('start_offset', 0),
+                    allow_effects=scene.get('allow_montage_effects', True),
+                    effects=preset.get('effects', [])
                 )
                 
-                # Устанавливаем абсолютную позицию начала клипа
                 clip = clip.with_start(start_time)
                 
                 if cross_dur > 0 and i > 0:
-                    # Плавное проявление поверх предыдущего кадра
                     clip = clip.with_effects([vfx.CrossFadeIn(cross_dur)])
                 
                 final_clips.append(clip)
+                logger.info(f"Scene {i} added successfully.")
 
-            # Создаем финальную композицию, где каждый клип лежит на своем месте во времени
             video_track = CompositeVideoClip(final_clips, size=(self.width, self.height))
-            
-            # Обрезаем видео точно под длину аудио
             final_video = video_track.with_audio(audio).with_duration(audio.duration)
             
             temp_audio = os.path.join("temp", f"temp_audio_{os.path.basename(output_path)}.m4a")
-            # Определяем логгер: для бота используем кастомный, для консоли - стандартный 'bar'
             render_logger = TelegramProgressLogger(callback=progress_callback) if progress_callback else "bar"
 
             final_video.write_videofile(
@@ -136,61 +101,27 @@ class BaseMontageEngine:
                 preset="veryfast",
                 logger=render_logger
             )
-            audio.close()
-            for c in final_clips: c.close()
             return True
         except Exception as e:
-            logger.error(f"Montage Engine Error: {e}", exc_info=True)
+            logger.error(f"Render failed: {e}", exc_info=True)
             return False
 
 class VerticalMontageEngine(BaseMontageEngine):
-    def process_scene_asset(self, asset_path, duration, effects, offset=0):
-        ext = os.path.splitext(asset_path)[1].lower()
-        if ext in ['.jpg', '.jpeg', '.png', '.webp']:
-            raw = ImageClip(asset_path).with_duration(duration)
-        else:
-            raw = VideoFileClip(asset_path).without_audio()
-            # Берем фрагмент, но не выходим за границы файла
-            raw = raw.subclipped(offset, min(offset + duration, raw.duration))
-            # Если видео короче сцены - замедляем
-            if raw.duration < duration:
-                speed_factor = raw.duration / duration
-                raw = raw.with_effects([vfx.MultiplySpeed(speed_factor)])
-            raw = raw.with_duration(duration)
-
-        # ФОН: Cover (с запасом 2%) + Blur + Принудительный размер
-        bg = self._smart_resize(raw, self.width, self.height, mode="cover")
-        # ФИКС: Принудительно возвращаем точный размер кадра после блюра
-        bg = bg.resized(0.02).resized(50.0).resized(width=self.width, height=self.height)
-        bg = bg.with_effects([vfx.LumContrast(lum=-30)]).with_position("center")
-        
-        # ПЕРЕДНИЙ ПЛАН
-        fg = self._smart_resize(raw, self.width, self.height, mode="fit")
-        fg = self.apply_preset_effects(fg, effects)
-        fg = fg.with_position("center")
-
-        return CompositeVideoClip([bg, fg], size=(self.width, self.height)).with_duration(duration)
+    """Движок для вертикальных видео (TikTok/Reels)"""
+    def __init__(self, fps=30):
+        super().__init__(1080, 1920, fps)
 
 class WideMontageEngine(BaseMontageEngine):
-    def process_scene_asset(self, asset_path, duration, effects, offset=0):
-        ext = os.path.splitext(asset_path)[1].lower()
-        if ext in ['.jpg', '.jpeg', '.png', '.webp']:
-            raw = ImageClip(asset_path).with_duration(duration)
-        else:
-            raw = VideoFileClip(asset_path).subclipped(offset, offset + duration).with_duration(duration).without_audio()
+    """Движок для горизонтальных видео (YouTube)"""
+    def __init__(self, fps=30):
+        super().__init__(1920, 1080, fps)
 
-        # ФОН: Cover + Blur + Принудительный размер
-        bg = self._smart_resize(raw, self.width, self.height, mode="cover")
-        bg = bg.resized(0.02).resized(50.0).resized(width=self.width, height=self.height)
-        bg = bg.with_effects([vfx.LumContrast(lum=-30)]).with_position("center")
+def run_montage(scenes, audio_path, output_path, preset, progress_callback=None, sound_map=None, width=1080, height=1920):
+    """Единая точка входа для запуска монтажа."""
+    if width > height:
+        engine = WideMontageEngine()
+    else:
+        engine = VerticalMontageEngine()
         
-        # ПЕРЕДНИЙ ПЛАН
-        fg = self._smart_resize(raw, self.width, self.height, mode="fit")
-        fg = self.apply_preset_effects(fg, effects)
-        fg = fg.with_position("center")
-
-        return CompositeVideoClip([bg, fg], size=(self.width, self.height)).with_duration(duration)
-
-def run_montage(scenes, audio_path, output_path, preset, progress_callback=None, overlays=None, width=1080, height=1920):
-    engine = WideMontageEngine(width, height) if width > height else VerticalMontageEngine(width, height)
+    # Примечание: sound_map пока просто принимается, интеграция саунд-дизайна будет в Спринте 2
     return engine.render(scenes, audio_path, output_path, preset, progress_callback)

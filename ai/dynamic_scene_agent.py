@@ -2,108 +2,145 @@ import os
 import logging
 from moviepy import VideoFileClip, ImageClip, TextClip, CompositeVideoClip, ColorClip
 import moviepy.video.fx as vfx
+from core.media_engine import MediaEngine
 
 logger = logging.getLogger(__name__)
 
-def render_dynamic_scene(preset_id: str, elements: dict, duration: float, output_path: str, width=1080, height=1920):
-    """
-    Рендерит мини-видео (пре-рендер) на основе пресета и собранных элементов.
-    """
+def create_animation_slide(clip, start_pos, end_pos, duration=1.0):
+    """Анимация вылета (Slide-in) с Ease-out."""
+    def pos_func(t):
+        if t > duration: return end_pos
+        p = t / duration
+        # Ease-out cubic
+        ease = 1 - pow(1 - p, 3)
+        return (
+            start_pos[0] + (end_pos[0] - start_pos[0]) * ease,
+            start_pos[1] + (end_pos[1] - start_pos[1]) * ease
+        )
+    return clip.with_position(pos_func)
+
+def render_dynamic_scene(preset_id, elements, duration, output_path, video_format="vertical"):
+    """Профессиональный рендеринг динамических сцен v3.0 (MediaEngine Unified)."""
     try:
+        if video_format == "horizontal":
+            width, height = 1920, 1080
+        else:
+            width, height = 1080, 1920
+            
+        media_engine = MediaEngine(width, height)
+        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        if not os.path.exists(font_path): font_path = "DejaVu-Sans-Bold"
+
         clips = []
         
+        # 1. ОБРАБОТКА ФОНА
+        bg_path = elements.get('bg') or elements.get('left')
+        if bg_path and os.path.exists(bg_path):
+            # Используем MediaEngine для подготовки фона
+            bg_scene = media_engine.process_asset(
+                bg_path, 
+                duration, 
+                mode="cover", 
+                allow_effects=True, 
+                effects=["ken_burns"]
+            )
+            clips.append(bg_scene)
+        else:
+            clips.append(ColorClip(size=(width, height), color=(20, 20, 25)).with_duration(duration))
+
+        # 2. ПРЕСЕТЫ
         if preset_id == "logo_float":
-            # Elements: bg (media), logo (photo)
-            bg_path = elements['bg']
-            logo_path = elements['logo']
-            
-            # Фоновый клип
-            if bg_path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                bg = ImageClip(bg_path).with_duration(duration).resized(width=width, height=height)
-            else:
-                bg = VideoFileClip(bg_path).without_audio().subclipped(0, duration).resized(width=width, height=height)
-            clips.append(bg)
-            
-            # Логотип с пульсацией
-            logo_w = 300
-            logo = ImageClip(logo_path).with_duration(duration).resized(width=logo_w)
-            # Эффект пульсации через зум
-            logo = logo.with_effects([vfx.Resize(lambda t: 1.0 + 0.05 * (t % 2 if t % 2 < 1 else 2 - t % 2))])
-            # Позиционируем в правый верхний угол с отступом 50px
-            logo = logo.with_position((width - logo_w - 50, 50))
-            clips.append(logo)
+            logo_path = elements.get('logo')
+            if logo_path and os.path.exists(logo_path):
+                logo = ImageClip(logo_path).with_duration(duration)
+                # Ресайз логотипа (макс 40% от ширины)
+                logo = logo.resized(width=width * 0.4)
+                
+                # Эффект пульсации
+                def zoom_func(t):
+                    import math
+                    return 1.0 + 0.1 * math.sin(t * 2)
+                
+                logo = logo.with_effects([vfx.Resize(zoom_func)])
+                logo = logo.with_position("center")
+                clips.append(logo)
 
         elif preset_id == "price_tag":
-            # Elements: bg (media), title (text), price (text)
-            bg_path = elements['bg']
-            title_txt = elements['title']
-            price_txt = elements['price']
-            
-            if bg_path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                bg = ImageClip(bg_path).with_duration(duration).resized(width=width, height=height)
-            else:
-                bg = VideoFileClip(bg_path).without_audio().subclipped(0, duration).resized(width=width, height=height)
-            clips.append(bg)
-            
-            # Плашка под текст
-            box = ColorClip(size=(width - 200, 400), color=(0, 0, 0)).with_opacity(0.6).with_duration(duration)
-            box = box.with_position(("center", 1400))
-            clips.append(box)
-            
-            # Поиск шрифта на Linux
-            font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-            if not os.path.exists(font_path):
-                font_path = "DejaVu-Sans-Bold" # Попытка через ImageMagick/Pillow
+            title_text = elements.get('title', "Product")
+            price_new = elements.get('price_new', "0")
+            price_old = elements.get('price_old', "")
+            discount = elements.get('discount', "")
 
-            # Тексты
-            title_clip = TextClip(
-                text=title_txt, 
-                font_size=70, 
-                color='white', 
-                font=font_path, 
-                method='caption', 
-                size=(width-300, None)
-            ).with_duration(duration)
-            title_clip = title_clip.with_position(("center", 1450))
+            panel_h = int(height * 0.25)
+            panel_y = int(height * 0.7)
             
-            price_clip = TextClip(
-                text=price_txt, 
-                font_size=120, 
-                color='yellow', 
-                font=font_path, 
-                method='caption',
-                size=(width-300, None)
-            ).with_duration(duration)
-            price_clip = price_clip.with_position(("center", 1550))
-            
-            clips.extend([title_clip, price_clip])
+            panel = ColorClip(size=(width - 100, panel_h), color=(0, 0, 0)).with_opacity(0.8).with_duration(duration)
+            panel = panel.with_effects([vfx.FadeIn(0.5)])
+            panel = create_animation_slide(panel, (width, panel_y), (50, panel_y), duration=0.8)
+            clips.append(panel)
+
+            txt_title = TextClip(text=title_text, font_size=70, color='white', font=font_path, 
+                                 method='caption', size=(width-200, None)).with_duration(duration)
+            txt_title = create_animation_slide(txt_title, (width, panel_y + 40), (100, panel_y + 40), duration=1.0)
+            clips.append(txt_title)
+
+            txt_price = TextClip(text=f"{price_new} ₽", font_size=140, color=(255, 215, 0), font=font_path).with_duration(duration)
+            txt_price = create_animation_slide(txt_price, (width, panel_y + 160), (100, panel_y + 160), duration=1.2)
+            clips.append(txt_price)
+
+            if price_old:
+                txt_old = TextClip(text=f"{price_old} ₽", font_size=60, color=(153, 153, 153), font=font_path).with_duration(duration)
+                txt_old = create_animation_slide(txt_old, (width, panel_y + 300), (100, panel_y + 300), duration=1.4)
+                strike = ColorClip(size=(txt_old.w + 10, 4), color=(255, 51, 51)).with_duration(duration)
+                strike = create_animation_slide(strike, (width, panel_y + 335), (100, panel_y + 335), duration=1.4)
+                clips.extend([txt_old, strike])
+
+            if discount:
+                b_w, b_h = 220, 110
+                badge = ColorClip(size=(b_w, b_h), color=(230, 57, 70)).with_duration(duration)
+                badge = create_animation_slide(badge, (width, panel_y + 160), (width - 320, panel_y + 160), duration=1.3)
+                txt_disc = TextClip(text=f"-{discount}%", font_size=55, color='white', font=font_path).with_duration(duration)
+                txt_disc = create_animation_slide(txt_disc, (width, panel_y + 185), (width - 300, panel_y + 185), duration=1.3)
+                clips.extend([badge, txt_disc])
 
         elif preset_id == "split_compare":
-            # Elements: left (media), right (media)
-            l_path = elements['left']
-            r_path = elements['right']
-            
-            def process_side(path):
-                if path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                    return ImageClip(path).with_duration(duration).resized(height=height)
-                return VideoFileClip(path).without_audio().subclipped(0, duration).resized(height=height)
-            
-            left = process_side(l_path).cropped(x1=width//4, x2=3*width//4).resized(width=width//2)
-            right = process_side(r_path).cropped(x1=width//4, x2=3*width//4).resized(width=width//2)
-            
-            left = left.with_position((0, 0))
-            right = right.with_position((width//2, 0))
-            clips.extend([left, right])
+            left_p, right_p = elements.get('left'), elements.get('right')
+            if left_p and right_p:
+                if video_format == "vertical":
+                    part_w, part_h = width, height // 2
+                    # Используем MediaEngine для подготовки половинок
+                    engine_part = MediaEngine(part_w, part_h)
+                    left = engine_part.process_asset(left_p, duration, mode="cover")
+                    right = engine_part.process_asset(right_p, duration, mode="cover")
+                    
+                    left = create_animation_slide(left.with_position((0, 0)), (0, -part_h), (0, 0), duration=1.0)
+                    right = create_animation_slide(right.with_position((0, part_h)), (0, height), (0, part_h), duration=1.0)
+                else:
+                    part_w, part_h = width // 2, height
+                    engine_part = MediaEngine(part_w, part_h)
+                    left = engine_part.process_asset(left_p, duration, mode="cover")
+                    right = engine_part.process_asset(right_p, duration, mode="cover")
+                    
+                    left = create_animation_slide(left.with_position((0, 0)), (-part_w, 0), (0, 0), duration=1.0)
+                    right = create_animation_slide(right.with_position((part_w, 0)), (width, 0), (part_w, 0), duration=1.0)
+                
+                clips.extend([left, right])
 
-        if not clips:
-            return None
-            
-        final = CompositeVideoClip(clips, size=(width, height)).with_duration(duration)
-        final.write_videofile(output_path, fps=24, codec="libx264", audio=False, logger=None)
+        # СБОРКА
+        final = CompositeVideoClip(clips, size=(width, height))
         
-        for c in clips: c.close()
+        final.write_videofile(
+            output_path, 
+            fps=30, 
+            codec="libx264", 
+            audio=False, 
+            threads=4, 
+            preset="ultrafast",
+            bitrate="2000k",
+            logger=None
+        )
         return output_path
-        
+
     except Exception as e:
-        logger.error(f"Dynamic Scene Render Error: {e}")
+        logger.error(f"Dynamic Render Error: {e}", exc_info=True)
         return None

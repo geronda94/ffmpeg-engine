@@ -4,6 +4,7 @@
             "id": "logo_float",
             "name": "🚀 Плавающий логотип",
             "description": "Ваш логотип плавно пульсирует поверх фонового видео.",
+            "allow_montage_effects": false,
             "elements": [
                 {"id": "bg", "name": "Фоновое видео или фото", "type": "media"},
                 {"id": "logo", "name": "Логотип (желательно PNG)", "type": "photo"}
@@ -11,18 +12,22 @@
         },
         {
             "id": "price_tag",
-            "name": "💎 Акцент на цену",
-            "description": "Анимированная плашка с названием и ценой поверх фона.",
+            "name": "💎 Акцент на цену (Premium)",
+            "description": "Профессиональная карточка товара: название, новая цена, зачеркнутая старая цена и бейдж скидки.",
+            "allow_montage_effects": false,
             "elements": [
                 {"id": "bg", "name": "Фоновый материал", "type": "media"},
-                {"id": "title", "name": "Название товара/услуги", "type": "text"},
-                {"id": "price", "name": "Цена или Скидка", "type": "text"}
+                {"id": "title", "name": "Название товара", "type": "text"},
+                {"id": "price_new", "name": "Новая цена", "type": "text"},
+                {"id": "price_old", "name": "Старая цена (опционально)", "type": "text"},
+                {"id": "discount", "name": "Скидка % (например, 50)", "type": "text"}
             ]
         },
         {
             "id": "split_compare",
             "name": "🌓 Сравнение (Split)",
             "description": "Два материала разделены пополам (До / После).",
+            "allow_montage_effects": false,
             "elements": [
                 {"id": "left", "name": "Левая часть", "type": "media"},
                 {"id": "right", "name": "Правая часть", "type": "media"}

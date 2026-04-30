@@ -78,7 +78,11 @@ async def handle_topic_v4(message: types.Message, state: FSMContext):
     prompt = f"Topic: {message.text}. {style_prompt}"
     script_data = await asyncio.to_thread(generate_script, prompt, data['language'])
     
-    pm.save_project(data['project_id'], {"script": script_data['script']})
+    # ФИКС: Загружаем текущие данные проекта перед сохранением, чтобы не затереть остальное
+    proj = pm.load_project(data['project_id'])
+    proj['script'] = script_data['script']
+    pm.save_project(data['project_id'], proj)
+    
     await state.update_data(script_data=script_data)
     await status.delete()
     await show_script_approval(message, state)
@@ -101,7 +105,12 @@ async def handle_script_refinement(message: types.Message, state: FSMContext):
     status = await message.answer("🔄 Обновляю сценарий...")
     try:
         new_data = await refine_script_ai(data['script_data']['script'], message.text, data['language'], "")
-        pm.save_project(data['project_id'], {"script": new_data['script']})
+        
+        # ФИКС: Сохраняем полный объект проекта
+        proj = pm.load_project(data['project_id'])
+        proj['script'] = new_data['script']
+        pm.save_project(data['project_id'], proj)
+        
         await state.update_data(script_data=new_data)
         await status.delete()
         await show_script_approval(message, state)
@@ -125,10 +134,16 @@ async def show_script_approval(message: types.Message, state: FSMContext):
 @router.callback_query(F.data == "approve_script", ProjectStates.approving_script)
 async def approve_script_v2(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
+    data = await state.get_data()
     kb = InlineKeyboardBuilder()
     kb.button(text="🤖 Авто-раскадровка", callback_data="stmode_auto")
     kb.button(text="💡 Свои идеи", callback_data="stmode_ideas")
     kb.adjust(1)
+    proj = pm.load_project(data['project_id'])
+    if proj:
+        proj['status'] = "script_ready"
+        pm.save_project(data['project_id'], proj)
+        
     await callback.message.answer("🎭 **Текст одобрен!**\n\nКак подготовим раскадровку?", reply_markup=kb.as_markup())
     await state.set_state(ProjectStates.choosing_storyboard_mode)
 
@@ -144,17 +159,60 @@ async def start_storyboard(callback: types.CallbackQuery, state: FSMContext):
     else:
         status = await callback.message.answer("🤖 Генерирую раскадровку...")
         data = await state.get_data()
-        res = await asyncio.to_thread(generate_storyboard, data['script_data']['script'], data['language'])
-        await state.update_data(scenes=res['scenes'])
-        await status.delete()
-        await show_full_storyboard(callback.message, state)
+        project_id = data.get('project_id')
+        
+        # ФИКС: Берем данные из файла, если в стейте пусто
+        proj_data = pm.load_project(project_id)
+        if not proj_data:
+            await status.edit_text("❌ Ошибка: Проект не найден на диске.")
+            return
+            
+        script = proj_data.get('script') or data.get('script_data', {}).get('script')
+        lang = proj_data.get('language') or data.get('language', 'Russian')
+        
+        if not script:
+            await status.edit_text("❌ Ошибка: Сценарий пуст. Попробуйте сначала создать текст.")
+            return
+
+        try:
+            res = await asyncio.to_thread(generate_storyboard, script, lang)
+            new_scenes = res.get('scenes', [])
+            
+            if not new_scenes:
+                await status.edit_text("❌ ИИ не смог сгенерировать сцены. Попробуйте еще раз с другим описанием.")
+                return
+
+            # ФИКС: Сохраняем сцены на диск ПЕРЕД показом, чтобы show_full_storyboard их увидел
+            proj_data = pm.load_project(project_id)
+            if proj_data:
+                proj_data['scenes'] = new_scenes
+                pm.save_project(project_id, proj_data)
+            
+            await state.update_data(scenes=new_scenes)
+            await status.delete()
+            await show_full_storyboard(callback.message, state)
+        except Exception as e:
+            logger.error(f"Storyboard Generation Error: {e}")
+            await status.edit_text(f"⚠️ Ошибка при генерации раскадровки: {e}")
 
 @router.message(ProjectStates.refining_storyboard)
 async def handle_storyboard_refinement(message: types.Message, state: FSMContext):
     data = await state.get_data()
+    project_id = data.get('project_id')
+    
+    # Загружаем актуальные данные с диска
+    proj_data = pm.load_project(project_id)
+    if not proj_data:
+        await message.answer("❌ Проект не найден.")
+        return
+        
+    script = proj_data.get('script') or data.get('script_data', {}).get('script')
+    lang = proj_data.get('language') or data.get('language', 'Russian')
+    scenes = proj_data.get('scenes') or data.get('scenes', [])
+
     status = await message.answer("🧠 Агент сцен анализирует...")
     try:
-        res = await refine_storyboard_ai(data['script_data']['script'], data.get('scenes', []), message.text, data['language'])
+        res = await refine_storyboard_ai(script, scenes, message.text, lang)
         
         # ГИБКАЯ ПРОВЕРКА: ИИ может вернуть {"scenes": [...]} или просто [...]
         if isinstance(res, list):
@@ -168,6 +226,12 @@ async def handle_storyboard_refinement(message: types.Message, state: FSMContext
         if not new_scenes:
             raise Exception("ИИ не вернул список сцен")
 
+        # ФИКС: Сохраняем обновленные сцены на диск
+        proj_data = pm.load_project(project_id)
+        if proj_data:
+            proj_data['scenes'] = new_scenes
+            pm.save_project(project_id, proj_data)
+
         await state.update_data(scenes=new_scenes)
         await status.delete()
         await show_full_storyboard(message, state)
@@ -177,8 +241,15 @@ async def handle_storyboard_refinement(message: types.Message, state: FSMContext
 
 async def show_full_storyboard(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    scenes = data['scenes']
+    project_id = data.get('project_id')
     
+    proj_data = pm.load_project(project_id)
+    scenes = proj_data.get('scenes') if proj_data else data.get('scenes', [])
+    
+    if not scenes:
+        await message.answer("⚠️ Список сцен пуст. Попробуйте сгенерировать его снова.")
+        return
+
     full_text = "📋 **Текущий план сцен:**\n\n"
     for i, s in enumerate(scenes):
         full_text += f"{i+1}. **{s.get('ui_caption', 'Сцена')}**\n"
@@ -201,6 +272,7 @@ async def accept_storyboard(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     proj = pm.load_project(data['project_id'])
     proj['scenes'] = data['scenes']
+    proj['status'] = "collecting_assets"
     pm.save_project(data['project_id'], proj)
     await callback.message.answer("🚀 Список утвержден! Начинаем сбор материалов.")
     await ask_for_asset(callback.message, state, 0)

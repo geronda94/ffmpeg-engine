@@ -13,29 +13,33 @@ logger = logging.getLogger(__name__)
 # Инициализируем менеджер один раз
 pm = ProjectManager()
 
-async def generate_project_audio(data: dict, tts_preset: dict) -> str:
-    """Генерация аудио с сохранением в структуру проекта."""
-    project_id = data.get('project_id')
-    if not project_id:
-        raise ValueError("Project ID must be provided in data")
+async def generate_project_audio(project_id: str, tts_preset: dict) -> str:
+    """Генерация аудио с сохранением в структуру проекта (v3.0 Disk-First)."""
+    proj_data = pm.load_project(project_id)
+    if not proj_data:
+        raise ValueError(f"Project {project_id} not found on disk")
         
     project_path = pm.get_project_path(project_id)
-    
-    audio_filename = f"voice_{data.get('language', 'Russian')}.wav"
+    audio_filename = f"voice_{proj_data.get('language', 'Russian')}.wav"
     audio_path = str(project_path / "audio" / audio_filename)
 
-    scenes_data = data.get('scenes', [])
-    full_text = " ".join([s['text_segment'] for s in scenes_data])
+    scenes_data = proj_data.get('scenes', [])
+    if not scenes_data:
+        # Если сцен еще нет (например, скрипт только что написан), берем из скрипта
+        full_text = proj_data.get('script', '')
+    else:
+        full_text = " ".join([s['text_segment'] for s in scenes_data])
     
+    if not full_text:
+        raise ValueError("Cannot generate audio: no script or scenes found")
+
     try:
-        await generate_tts(full_text, audio_path, data['language'], 
+        await generate_tts(full_text, audio_path, proj_data['language'], 
                            voice=tts_preset.get('voice'), 
                            rate=tts_preset.get('rate', '+0%'), 
                            pitch=tts_preset.get('pitch', '+0Hz'))
         
         # Обновляем JSON проекта
-        proj_data = pm.load_project(project_id)
-        proj_data['language'] = data['language']
         proj_data['current_audio_path'] = audio_path
         pm.save_project(project_id, proj_data)
         
@@ -44,17 +48,14 @@ async def generate_project_audio(data: dict, tts_preset: dict) -> str:
         logger.error(f"TTS Error: {e}")
         return None
 
-async def render_project_video(data: dict, audio_path: str, progress_callback=None) -> str:
-    """Универсальный рендер: работает и для бота, и для внешних вызовов."""
-    project_id = data.get('project_id', Path(audio_path).parent.parent.name)
-    user_id = str(data.get('user_id', 'default'))
-    
+async def render_project_video(project_id: str, audio_path: str, progress_callback=None) -> str:
+    """Универсальный рендер (v3.0 Disk-First). Источник правды — только project.json."""
     proj_data = pm.load_project(project_id)
     if not proj_data:
-        pm.create_project(project_id, user_id)
-        proj_data = pm.load_project(project_id)
+        logger.error(f"Render failed: Project {project_id} not found on disk")
+        return None
 
-    # Генерируем SEO-метаданные, если их еще нет
+    # 1. СЕО-МЕТАДАННЫЕ
     if 'metadata' not in proj_data:
         logger.info("Generating SEO metadata...")
         meta = await generate_metadata(proj_data.get('script', ''), proj_data.get('language', 'Russian'))
@@ -67,10 +68,8 @@ async def render_project_video(data: dict, audio_path: str, progress_callback=No
     slug = meta.get('slug', project_id)
     output_path = str(pm.get_project_path(project_id) / f"{slug}.mp4")
 
-    # Синхронизация (Whisper)
-    scenes_data = data.get('scenes', [])
-    
-    # Проверяем, есть ли уже тайминги во всех сценах
+    # 2. ТАЙМИНГИ (Whisper)
+    scenes_data = proj_data.get('scenes', [])
     has_timing = all('start' in s and 'end' in s for s in scenes_data)
     
     if has_timing:
@@ -83,52 +82,72 @@ async def render_project_video(data: dict, audio_path: str, progress_callback=No
         proj_data['scenes'] = scenes
         pm.save_project(project_id, proj_data)
     
-    # Подгрузка пресетов
-    with open("config/montage_presets.json", "r", encoding="utf-8") as f:
+    # 3. ПОДГРУЗКА ПРЕСЕТОВ МОНТАЖА
+    with open("config/rendering_presets.json", "r", encoding="utf-8") as f:
         m_config = json.load(f)
     
-    v_format = data.get('video_format', proj_data.get('video_format', 'vertical'))
-    style_id = data.get('visual_style', proj_data.get('visual_style'))
+    v_format = proj_data.get('video_format', 'vertical')
+    style_id = proj_data.get('visual_style', 'v_smooth_story')
     
     format_styles = m_config.get(v_format, m_config['vertical'])
     preset = next((s for s in format_styles if s['id'] == style_id), format_styles[0])
     
     w, h = (1920, 1080) if v_format == 'wide' else (1080, 1920)
 
-    # Подготовка сцен для MontageAgent
-    assets = data.get('assets', {})
+    # 4. ПОДГОТОВКА СЦЕН (СТРОГАЯ ПРОВЕРКА)
+    project_assets = proj_data.get('assets', {})
     scenes_for_agent = []
-    for i, scene in enumerate(scenes):
-        asset_info = assets.get(str(i)) or assets.get(i)
-        if not asset_info: continue
-        
-        # Автоматически копируем ассет в проект, если он еще не там
-        asset_path = asset_info['path']
-        if "projects" not in asset_path:
-            pm.update_asset(project_id, i, asset_path)
-            asset_path = pm.load_project(project_id)['assets'][str(i)]['path']
+    logger.info(f"Preparing scenes for agent. Total assets found: {len(project_assets)}")
 
+    for i, scene in enumerate(scenes):
+        # Гарантируем строковый ключ для поиска в JSON
+        asset_info = project_assets.get(str(i))
+        if not asset_info or not asset_info.get('path'):
+            logger.warning(f"Scene {i} skipped: No asset registered in project.json")
+            continue
+            
+        asset_path = asset_info['path']
+        if not os.path.exists(asset_path):
+            logger.error(f"Scene {i} asset file missing on disk: {asset_path}")
+            continue
+
+        logger.info(f"Adding Scene {i} to montage: {asset_path}")
         scenes_for_agent.append({
             "asset_path": asset_path,
             "start": scene['start'],
             "end": scene['end'],
             "text_segment": scene['text_segment'],
-            "start_offset": asset_info.get('start_offset', 0)
+            "start_offset": asset_info.get('start_offset', 0),
+            "allow_montage_effects": asset_info.get('allow_montage_effects', True)
         })
 
-    if not scenes_for_agent: return None
+    logger.info(f"Total scenes for agent: {len(scenes_for_agent)}/{len(scenes)}")
+    if not scenes_for_agent:
+        logger.error("No scenes were added to agent! Rendering aborted.")
+        return None
 
+    # 5. САУНД-ДИЗАЙН
+    from ai.sound_design_agent import SoundDesignAgent
+    sound_agent = SoundDesignAgent()
+    sound_map = await sound_agent.generate_sound_map(proj_data.get('script', ''), scenes)
+    if sound_map:
+        logger.info(f"Sound Map generated: {len(sound_map.get('sfx_placements', []))} effects added.")
+    else:
+        logger.warning("Sound Design Agent failed to generate sound map. Proceeding without SFX.")
+
+    # 6. ФИНАЛЬНЫЙ МОНТАЖ
     try:
         success = await asyncio.to_thread(
             run_montage, scenes_for_agent, audio_path, output_path, preset, 
-            progress_callback, None, width=w, height=h
+            progress_callback, sound_map, width=w, height=h
         )
         
         if success:
             proj_data['status'] = "completed"
             pm.save_project(project_id, proj_data)
+            logger.info(f"PROJECT {project_id} RENDERED SUCCESSFULLY: {output_path}")
             return output_path
         return None
     except Exception as e:
-        logger.error(f"Montage Agent Failure: {e}")
+        logger.error(f"Montage Agent Failure: {e}", exc_info=True)
         return None

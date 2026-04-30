@@ -48,9 +48,20 @@ async def process_custom_metadata_prompt(message: types.Message, state: FSMConte
 async def run_metadata_generation(message: types.Message, state: FSMContext, instruction: str):
     data = await state.get_data()
     project_id = data.get('project_id')
-    script = data.get('script', "")
     lang = data.get('language', 'Russian')
     
+    # ПРИНУДИТЕЛЬНО берем сценарий из файла проекта для точности
+    script = data.get('script', "")
+    if project_id:
+        project_data = pm.load_project(project_id)
+        if project_data and project_data.get('script'):
+            script = project_data['script']
+            logger.info(f"Loaded script from project.json for SEO: {script[:50]}...")
+    
+    if not script:
+        logger.warning("SEO Agent: Script is empty! Using fallback.")
+        script = "General interesting facts and stories."
+
     try:
         # Вызываем асинхронный агент
         metadata = await generate_metadata(script, lang, user_instruction=instruction)

@@ -1,5 +1,8 @@
 import json
 import time
+import logging
+import os
+from datetime import datetime
 from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -7,6 +10,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.states import ProjectStates
 from core.project_manager import ProjectManager
 
+logger = logging.getLogger(__name__)
 router = Router()
 pm = ProjectManager()
 
@@ -16,10 +20,103 @@ def load_json(path):
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
+    user_id = str(message.from_user.id)
+    
+    # Ищем последний незавершенный проект пользователя
+    last_proj = None
+    if os.path.exists("projects"):
+        all_projs = []
+        for p_dir in os.listdir("projects"):
+            proj = pm.load_project(p_dir)
+            if proj and str(proj.get('user_id')) == user_id:
+                all_projs.append(proj)
+        
+        if all_projs:
+            all_projs.sort(key=lambda x: x.get('updated_at', x.get('created_at', '')), reverse=True)
+            # Если проект не завершен (статус не completed)
+            if all_projs[0].get('status') != "completed":
+                last_proj = all_projs[0]
+
+    if last_proj:
+        kb = InlineKeyboardBuilder()
+        kb.button(text="✅ Продолжить старый", callback_data=f"resume_{last_proj['project_id']}")
+        kb.button(text="🆕 Создать новый", callback_data="start_new")
+        kb.adjust(1)
+        
+        await message.answer(
+            f"👋 **С возвращением!**\n\nУ вас есть незавершенный проект: `{last_proj['project_id']}`\n"
+            f"Статус: `{last_proj.get('status', 'в процессе')}`\n\n"
+            f"Что будем делать?",
+            reply_markup=kb.as_markup()
+        )
+        return
+
+    await start_new_project(message, state)
+
+@router.callback_query(F.data == "start_new")
+async def handle_start_new(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await start_new_project(callback.message, state)
+
+@router.callback_query(F.data.startswith("resume_"))
+async def handle_resume_project(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    project_id = callback.data.replace("resume_", "")
+    proj = pm.load_project(project_id)
+    
+    if not proj:
+        await callback.message.answer("❌ Проект не найден. Начнем новый.")
+        await start_new_project(callback.message, state)
+        return
+        
+    await state.update_data(
+        project_id=project_id,
+        user_id=str(callback.from_user.id),
+        language=proj.get('language', 'Russian'),
+        video_format=proj.get('video_format', 'vertical')
+    )
+    
+    # Навигация в зависимости от статуса проекта
+    status = proj.get('status')
+    from bot.navigation import ask_for_asset, ask_for_tts_engine
+    
+    if status == "created":
+        await callback.message.answer("🔄 Восстанавливаю: выбор параметров...")
+        await start_new_project(callback.message, state) 
+    elif status == "script_ready" or not proj.get('scenes'):
+        # Если текст готов, но сцен нет — идем к выбору режима раскадровки
+        await state.update_data(script_data={"script": proj.get('script', '')})
+        kb = InlineKeyboardBuilder()
+        kb.button(text="🤖 Авто-раскадровка", callback_data="stmode_auto")
+        kb.button(text="💡 Свои идеи", callback_data="stmode_ideas")
+        kb.adjust(1)
+        await callback.message.answer("🔄 Восстанавливаю: создание раскадровки...\n\nКак подготовим сцены?", reply_markup=kb.as_markup())
+        await state.set_state(ProjectStates.choosing_storyboard_mode)
+    elif status == "collecting_assets":
+        # Ищем первую сцену без ассета
+        scenes = proj.get('scenes', [])
+        assets = proj.get('assets', {})
+        next_idx = 0
+        for i in range(len(scenes)):
+            if str(i) not in assets:
+                next_idx = i
+                break
+        else:
+            next_idx = len(scenes) # Все собраны
+            
+        await callback.message.answer(f"🔄 Восстанавливаю: сбор материалов (сцена {next_idx + 1})...")
+        await ask_for_asset(callback.message, state, next_idx)
+    else:
+        await callback.message.answer("🔄 Восстанавливаю: переход к озвучке...")
+        await ask_for_tts_engine(callback.message, state)
+
+async def start_new_project(message: types.Message, state: FSMContext):
     await state.clear()
     
-    project_id = f"p_{int(time.time())}_{message.from_user.id % 1000}"
-    user_id = str(message.from_user.id)
+    # ФИКС: Человекочитаемый формат названия проекта
+    dt_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    project_id = f"proj_{dt_str}"
+    user_id = str(message.chat.id)
     
     pm.create_project(project_id, user_id)
     await state.update_data(project_id=project_id, user_id=user_id)
@@ -30,7 +127,8 @@ async def cmd_start(message: types.Message, state: FSMContext):
     kb.button(text="🇷🇴 Română", callback_data="lang_Romanian")
     kb.button(text="🇬🇪 ქართული", callback_data="lang_Georgian")
     kb.adjust(2)
-    await message.answer("👋 **Контент-Завод v9.5 (Persist Edition)**\n\nВыберите язык ролика:", reply_markup=kb.as_markup())
+    
+    await message.answer("👋 **Контент-Завод v10.0 (Persistence Edition)**\n\nВыберите язык ролика:", reply_markup=kb.as_markup())
     await state.set_state(ProjectStates.choosing_language)
 
 @router.callback_query(F.data.startswith("lang_"), ProjectStates.choosing_language)
@@ -41,7 +139,6 @@ async def choose_lang(callback: types.CallbackQuery, state: FSMContext):
     proj = pm.load_project(data['project_id'])
     proj['language'] = lang
     pm.save_project(data['project_id'], proj)
-    await state.update_data(language=lang)
     
     kb = InlineKeyboardBuilder()
     kb.button(text="📱 Вертикальное (9:16)", callback_data="format_vertical")
@@ -57,7 +154,6 @@ async def choose_format(callback: types.CallbackQuery, state: FSMContext):
     proj = pm.load_project(data['project_id'])
     proj['video_format'] = fmt
     pm.save_project(data['project_id'], proj)
-    await state.update_data(video_format=fmt)
     
     presets = load_json("config/script_presets.json")
     kb = InlineKeyboardBuilder()

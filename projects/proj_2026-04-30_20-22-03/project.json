@@ -1,0 +1,47 @@
+{
+  "project_id": "proj_2026-04-30_20-22-03",
+  "user_id": "6857394634",
+  "created_at": "2026-04-30T20:22:03.416650",
+  "status": "created",
+  "video_format": "vertical",
+  "language": "Russian",
+  "script": "Горы образуются, когда тектонические плиты сталкиваются, поднимая край вверх. Трение накапливает энергию, вызывая землетрясения. На вершинах холодно, и выпавший снег не тает, поэтому горы всегда заснежены.",
+  "scenes": [
+    {
+      "scene_id": 1,
+      "text_segment": "Горы образуются, когда тектонические плиты сталкиваются, поднимая край вверх.",
+      "visual_description": "Две тектонические плиты медленно сталкиваются, поднимая земную кору вверх, формируя горный хребет. Вид сбоку, показывающий движение плит и образование гор.",
+      "image_prompt": "Two tectonic plates colliding, pushing up the Earth's crust to form a mountain range, side view, realistic, detailed, natural colors, animation style.",
+      "ui_caption": "Столкновение плит поднимает горы",
+      "estimated_duration": 6.4
+    },
+    {
+      "scene_id": 2,
+      "text_segment": "Трение накапливает энергию, вызывая землетрясения.",
+      "visual_description": "Крупный план трущихся горных пород, искры и вибрации. Затем переход к изображению сейсмографа или дрожащей земли.",
+      "image_prompt": "Close-up of rocks grinding with sparks, seismic waves, earthquake effect, realistic, dramatic, energy release.",
+      "ui_caption": "Трение вызывает землетрясения",
+      "estimated_duration": 4.3
+    },
+    {
+      "scene_id": 3,
+      "text_segment": "На вершинах холодно, и выпавший снег не тает, поэтому горы всегда заснежены.",
+      "visual_description": "Вершина горы с белым снегом, голубое небо, облака, холодная атмосфера. Снег лежит на пиках.",
+      "image_prompt": "Snow-capped mountain peaks, clear blue sky, cold atmosphere, snow covering the tops, photorealistic, majestic.",
+      "ui_caption": "На вершинах всегда лежит снег",
+      "estimated_duration": 6.3
+    }
+  ],
+  "assets": {
+    "0": {
+      "path": "projects/proj_2026-04-30_20-22-03/assets/scene_0.mp4",
+      "original_path": "projects/proj_2026-04-30_20-22-03/assets/dynamic_0_1777569792.mp4",
+      "type": "video",
+      "start_offset": 0,
+      "allow_montage_effects": false
+    }
+  },
+  "visual_style": "v_smooth_story",
+  "history": [],
+  "updated_at": "2026-04-30T20:24:40.411497"
+}

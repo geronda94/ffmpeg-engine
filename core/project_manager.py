@@ -53,6 +53,45 @@ class ProjectManager:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
 
+    def clone_project(self, source_id: str, target_lang: str) -> str:
+        """Создает копию проекта для перевода на другой язык."""
+        import shutil
+        import time
+        
+        source_path = self.get_project_path(source_id)
+        if not source_path.exists():
+            return None
+            
+        new_id = f"{source_id}_{target_lang.lower()[:2]}_{int(time.time()) % 100}"
+        new_path = self.get_project_path(new_id)
+        
+        # Копируем всю структуру проекта
+        shutil.copytree(source_path, new_path)
+        
+        # Обновляем JSON в новом проекте
+        proj_data = self.load_project(new_id)
+        proj_data['project_id'] = new_id
+        proj_data['language'] = target_lang
+        proj_data['status'] = "cloned"
+        proj_data['parent_project_id'] = source_id
+        
+        # Очищаем результаты предыдущего рендера
+        proj_data.pop('current_audio_path', None)
+        proj_data.pop('metadata', None)
+        
+        # Обновляем пути к ассетам в новом JSON
+        assets = proj_data.get('assets', {})
+        for a_idx, a_info in assets.items():
+            if 'path' in a_info:
+                # Путь остается внутри папки проекта, так как мы скопировали всё дерево
+                # Но если путь был абсолютным или указывал на старый ID, надо поправить
+                old_rel = f"projects/{source_id}/"
+                new_rel = f"projects/{new_id}/"
+                a_info['path'] = a_info['path'].replace(old_rel, new_rel)
+                
+        self.save_project(new_id, proj_data)
+        return new_id
+
     def save_project(self, project_id: str, data: dict):
         path = self.get_project_path(project_id) / "project.json"
         data["updated_at"] = datetime.now().isoformat()

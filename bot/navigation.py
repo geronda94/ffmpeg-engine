@@ -4,21 +4,36 @@ from aiogram import types
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.states import ProjectStates
+from core.project_manager import ProjectManager
 
 logger = logging.getLogger(__name__)
+pm = ProjectManager()
 
 def load_presets():
     with open("config/audio_presets.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 async def ask_for_asset(message: types.Message, state: FSMContext, scene_idx: int = 0):
-    """Переход к сбору материалов (v9.6 Project-Aware)."""
+    """Переход к сбору материалов (v10.0 Disk-First)."""
     try:
         data = await state.get_data()
-        scenes = data.get('scenes', [])
+        project_id = data.get('project_id')
+        if not project_id:
+            logger.error("ask_for_asset: project_id not found in FSM!")
+            await message.answer("❌ Ошибка: Сессия потеряна. Начните с /start")
+            return
+
+        # Источник правды — только диск!
+        proj_data = pm.load_project(project_id)
+        if not proj_data:
+            await message.answer("❌ Ошибка: Проект не найден на диске.")
+            return
+            
+        scenes = proj_data.get('scenes', [])
+        logger.info(f"ask_for_asset: project={project_id}, idx={scene_idx}, total={len(scenes)}")
         
         if scene_idx >= len(scenes):
-            # Все ассеты собраны, идем к озвучке
+            logger.info("All assets collected! Proceeding to TTS engine choice.")
             await ask_for_tts_engine(message, state)
             return
 
@@ -47,6 +62,7 @@ async def ask_for_asset(message: types.Message, state: FSMContext, scene_idx: in
 
 async def ask_for_tts_engine(message: types.Message, state: FSMContext):
     """ШАГ 1: Выбор метода озвучки."""
+    logger.info(">>> ask_for_tts_engine triggered")
     try:
         presets = load_presets()
         kb = InlineKeyboardBuilder()
@@ -58,8 +74,10 @@ async def ask_for_tts_engine(message: types.Message, state: FSMContext):
             reply_markup=kb.as_markup()
         )
         await state.set_state(ProjectStates.choosing_tts_engine)
+        logger.info("TTS engine choice menu sent.")
     except Exception as e:
-        logger.error(f"Error in ask_for_tts_engine: {e}")
+        logger.error(f"Error in ask_for_tts_engine: {e}", exc_info=True)
+        await message.answer(f"❌ Ошибка при переходе к озвучке: {e}")
 
 async def ask_for_tts_preset(message: types.Message, state: FSMContext, engine_id: str):
     """ШАГ 2: Выбор пресета голоса."""
