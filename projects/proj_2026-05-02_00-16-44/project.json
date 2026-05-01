@@ -1,0 +1,74 @@
+{
+  "project_id": "proj_2026-05-02_00-16-44",
+  "user_id": "6857394634",
+  "created_at": "2026-05-02T00:16:44.678703",
+  "status": "rendering",
+  "video_format": "vertical",
+  "language": "Russian",
+  "script": "Горы образуются, когда тектонические плиты сталкиваются, поднимая край вверх. Трение накапливает энергию, вызывая землетрясения. На вершинах холодно, и выпавший снег не тает, поэтому горы всегда заснежены.",
+  "scenes": [
+    {
+      "scene_id": 1,
+      "text_segment": "Горы образуются, когда тектонические плиты сталкиваются, поднимая край вверх.",
+      "visual_description": "Две тектонические плиты под землей медленно движутся навстречу друг другу, их края начинают подниматься, образуя горный хребет. Камера показывает поперечный разрез земли с корой и мантией.",
+      "image_prompt": "cinematic 3D render, cross-section of Earth showing two tectonic plates colliding, crust lifting upward to form a mountain range, soft morning sun lighting from above, warm earth tones (#8B4513, #D2691E) for rock layers, cool blues (#4A90D9) for sky background, smooth dramatic motion lines",
+      "ui_caption": "Столкновение плит",
+      "estimated_duration": 6.4
+    },
+    {
+      "scene_id": 2,
+      "text_segment": "Трение накапливает энергию, вызывая землетрясения.",
+      "visual_description": "Крупный план стыка плит: трение создает искры и вибрации, земля дрожит, камни осыпаются. Камера приближается к трещине.",
+      "image_prompt": "cinematic 3D render, close-up of tectonic plate boundary with friction sparks, ground shaking, rocks falling, warm earth tones (#8B4513) for rocks, glowing orange (#FF4500) for friction energy, soft morning sun lighting from above, subtle motion blur to show vibration",
+      "ui_caption": "Накопление энергии",
+      "estimated_duration": 4.3
+    },
+    {
+      "scene_id": 3,
+      "text_segment": "На вершинах холодно, и выпавший снег не тает, поэтому горы всегда заснежены.",
+      "visual_description": "Вид на заснеженные горные вершины, чистое голубое небо, снег лежит на гребнях. Камера медленно поднимается вверх, показывая снежную шапку.",
+      "image_prompt": "cinematic 3D render, view of snow-capped mountain peaks, crisp white (#F5F5DC) snow on ridges, cool blue (#4A90D9) sky, soft morning sun lighting casting long shadows, minimal clouds, photorealistic textures",
+      "ui_caption": "Вечная зима на вершинах",
+      "estimated_duration": 6.3
+    }
+  ],
+  "assets": {
+    "0": {
+      "path": "projects/proj_2026-05-02_00-16-44/assets/scene_0.jpg",
+      "original_path": "temp/AgACAgQAAxkBAAIPw2n09r3WEKEGj5c0D5IrRBZ-9ertAAKBDGsbHsSpU-ZCBrk_uKmaAQADAgADeQADOwQ.jpg",
+      "type": "image",
+      "start_offset": 0
+    },
+    "1": {
+      "path": "projects/proj_2026-05-02_00-16-44/assets/scene_1.jpg",
+      "original_path": "temp/AgACAgQAAxkBAAIPx2n09sphDtibt898KYkhneCEp-kZAAKCDGsbHsSpU__-ZuwU3qh6AQADAgADeQADOwQ.jpg",
+      "type": "image",
+      "start_offset": 0
+    },
+    "2": {
+      "path": "projects/proj_2026-05-02_00-16-44/assets/scene_2.jpg",
+      "original_path": "temp/AgACAgQAAxkBAAIPy2n09tRhib57w-hMPeXJLzhBqmXMAAKDDGsbHsSpU_6y1EED6onGAQADAgADeQADOwQ.jpg",
+      "type": "image",
+      "start_offset": 0
+    }
+  },
+  "visual_style": "v_smooth_story",
+  "history": [],
+  "updated_at": "2026-05-02T00:18:14.624396",
+  "current_audio_path": "projects/proj_2026-05-02_00-16-44/audio/voice_Russian.wav",
+  "metadata": {
+    "title": "❄️ КАК РОЖДАЮТСЯ ГОРЫ? 🌄 ЗАГАДКА ЗЕМЛИ",
+    "description": "Горы — это не просто красивые пейзажи, а результат столкновения тектонических плит! Узнайте, как трение вызывает землетрясения, а холод на вершинах создаёт вечные снега. Потрясающие факты о формировании рельефа! 🌋🧊",
+    "hashtags": [
+      "#горы",
+      "#наука",
+      "#интересныефакты",
+      "#геология",
+      "#земля",
+      "#познавательно",
+      "#природа"
+    ],
+    "slug": "how-mountains-are-born-geology-facts"
+  },
+  "burn_subtitles": true
+}

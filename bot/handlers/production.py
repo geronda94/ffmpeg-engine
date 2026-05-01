@@ -69,6 +69,8 @@ async def send_video_result(task: dict):
             
             # Кнопки пост-обработки
             kb = InlineKeyboardBuilder()
+            if not proj_data.get('burn_subtitles'):
+                kb.button(text="🔥 Сделать версию с субтитрами", callback_data=f"subtitles:{project_id}")
             kb.button(text="🌍 Перевести", callback_data=f"translate_menu:{project_id}")
             kb.adjust(1)
 
@@ -79,6 +81,7 @@ async def send_video_result(task: dict):
                 parse_mode="Markdown",
                 reply_to_message_id=reply_id,
                 reply_markup=kb.as_markup()
+            )
             # Отправляем JSON конфиг
             json_path = pm.get_project_path(project_id) / "project.json"
             if os.path.exists(json_path):
@@ -158,6 +161,7 @@ async def handle_preset_choice(callback: types.CallbackQuery, state: FSMContext)
         kb = InlineKeyboardBuilder()
         kb.button(text="✅ Одобрить", callback_data="audio_ok")
         kb.button(text="🔄 Переделать", callback_data="audio_retry")
+        kb.adjust(2)
         await callback.message.answer_audio(types.FSInputFile(audio_path), caption="🎧 Одобряем озвучку?", reply_markup=kb.as_markup())
         await state.set_state(ProjectStates.approving_audio)
 
@@ -267,8 +271,8 @@ async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
         if not flow_start:
             flow_start = current_msg_id
             
-        # Защита от бесконечного цикла, удаляем максимум 30 сообщений
-        start_id = max(flow_start, current_msg_id - 30)
+        # Защита от бесконечного цикла, удаляем максимум 100 сообщений (хватит для любой сессии)
+        start_id = max(flow_start, current_msg_id - 100)
         
         for msg_id in range(current_msg_id, start_id - 1, -1):
             try:

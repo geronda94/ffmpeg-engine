@@ -110,6 +110,7 @@ async def run_metadata_generation(message: types.Message, state: FSMContext, ins
         kb = InlineKeyboardBuilder()
         kb.button(text="🎬 Монтаж (Без субтитров)", callback_data="start_render:nosubs")
         kb.button(text="🎬 Монтаж (+Субтитры)", callback_data="start_render:withsubs")
+        kb.button(text="🌍 Перевести", callback_data=f"translate_menu:{project_id}")
         kb.button(text="🔄 Переделать (другой стиль)", callback_data="ask_metadata_style")
         kb.adjust(1)
         
