@@ -19,9 +19,11 @@ async def cmd_translate(event: types.Message | types.CallbackQuery, state: FSMCo
     project_id = data.get('project_id')
     
     if not project_id:
-        msg = "❌ Сначала выберите или создайте проект через /start"
-        if isinstance(event, types.Message): await event.answer(msg)
-        else: await event.message.answer(msg)
+        text_err = "❌ Сначала создайте или выберите проект: /start"
+        if isinstance(event, types.Message):
+            await event.answer(text_err)
+        else:
+            await event.answer(text_err)
         return
         
     kb = InlineKeyboardBuilder()
@@ -50,13 +52,17 @@ async def cmd_translate(event: types.Message | types.CallbackQuery, state: FSMCo
     if isinstance(event, types.Message):
         await event.answer(text, reply_markup=kb.as_markup())
     else:
-        # ФИКС: Если это медиа, мы НЕ меняем caption (чтобы SEO не пропало), 
-        # а только меняем кнопки (reply_markup).
-        if event.message.video or event.message.photo:
+        # Если это нажатие кнопки (CallbackQuery), мы оставляем оригинальный текст/медиа (например, сообщение об очереди) 
+        # и меняем ТОЛЬКО кнопки под ним.
+        try:
             await event.message.edit_reply_markup(reply_markup=kb.as_markup())
+        except Exception as e:
+            logger.warning(f"Ignored edit_reply_markup error (likely double-click): {e}")
+            
+        try:
             await event.answer("🌍 Выберите язык в меню ниже")
-        else:
-            await event.message.edit_text(text, reply_markup=kb.as_markup())
+        except Exception:
+            pass
 
 @router.callback_query(F.data.startswith("trl_"))
 async def handle_translation_choice(callback: types.CallbackQuery, state: FSMContext):
@@ -66,6 +72,9 @@ async def handle_translation_choice(callback: types.CallbackQuery, state: FSMCon
     target_lang, source_id = data_part.split(":", 1)
     
     status = await callback.message.answer(f"⏳ **Клонирую и перевожу на {target_lang}...**")
+    
+    # ФИКС: Запоминаем старт именно ЭТОГО потока перевода, чтобы удалять мусор только для него
+    await state.update_data(flow_start_msg_id=status.message_id)
     
     try:
         source_data = pm.load_project(source_id)
@@ -90,6 +99,12 @@ async def handle_translation_choice(callback: types.CallbackQuery, state: FSMCon
             proj_data['metadata'] = trans_res['metadata']
             proj_data['language'] = target_lang
             proj_data['status'] = "translated"
+            
+            # ВАЖНО: Удаляем старые тайминги Whisper, так как новая озвучка
+            # будет иметь другую длительность. Бот сгенерирует новые при добавлении субтитров.
+            if 'whisper_segments' in proj_data:
+                del proj_data['whisper_segments']
+                
             pm.save_project(new_id, proj_data)
             
             # Кнопки для продолжения или перевода на ЕЩЕ ОДИН язык

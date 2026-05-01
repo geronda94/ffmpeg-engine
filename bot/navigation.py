@@ -113,10 +113,10 @@ async def ask_for_metadata_style(message: types.Message, state: FSMContext):
             "В каком ключе агент должен составить название и описание для вашего видео?"
         )
         
-        if message.text: # Если пришло текстовое сообщение (не callback)
+        if message.text: # Если пришло обычное текстовое сообщение
             await message.answer(msg, reply_markup=kb.as_markup())
-        else: # Если callback
-            if message.video or message.photo:
+        else: # Если это медиа (картинка, видео, аудио)
+            if message.video or message.photo or message.audio or message.voice or message.document:
                 await message.edit_caption(caption=msg, reply_markup=kb.as_markup())
             else:
                 await message.edit_text(msg, reply_markup=kb.as_markup())

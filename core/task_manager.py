@@ -63,6 +63,38 @@ class RenderTaskManager:
                 video_path = await render_project_video(project_id, audio_path)
                 
                 if video_path:
+                    from core.project_manager import ProjectManager
+                    import os
+                    pm_local = ProjectManager()
+                    proj_data = pm_local.load_project(project_id)
+                    
+                    if proj_data and proj_data.get('burn_subtitles', False):
+                        logger.info(f"Worker: Burning subtitles for {project_id}...")
+                        from ai.subtitle_agent import generate_srt_from_project, burn_subtitles
+                        
+                        if 'whisper_segments' not in proj_data:
+                            logger.info("Worker: Generating missing Whisper segments...")
+                            from ai.timing_agent import get_model
+                            model = get_model()
+                            whisper_res = await asyncio.to_thread(model.transcribe, audio_path, verbose=False)
+                            proj_data['whisper_segments'] = whisper_res.get('segments', [])
+                            pm_local.save_project(project_id, proj_data)
+                            
+                        project_path = pm_local.get_project_path(project_id)
+                        srt_path = str(project_path / "subtitles.srt")
+                        output_path = str(project_path / "video_with_subtitles.mp4")
+                        
+                        srt_res = generate_srt_from_project(proj_data['scenes'], proj_data['whisper_segments'], srt_path)
+                        if srt_res:
+                            res_path = await asyncio.to_thread(burn_subtitles, video_path, srt_path, output_path)
+                            if res_path and os.path.exists(res_path):
+                                video_path = res_path
+                                logger.info(f"Worker: Subtitles burned successfully: {res_path}")
+                            else:
+                                logger.error("Worker: Failed to burn subtitles")
+                        else:
+                            logger.error("Worker: Failed to generate SRT")
+
                     task['status'] = "completed"
                     task['video_path'] = video_path
                     logger.info(f"Worker: Render success for {project_id}")

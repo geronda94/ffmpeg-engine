@@ -156,3 +156,24 @@ class ProjectManager:
         }
         self.save_project(project_id, data)
         return True
+
+    def add_protected_message(self, message_id: int):
+        path = self.base_path / "protected_messages.json"
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            data = []
+        if message_id not in data:
+            data.append(message_id)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+            
+    def get_protected_messages(self) -> set:
+        path = self.base_path / "protected_messages.json"
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return set(data)
+        except Exception:
+            return set()

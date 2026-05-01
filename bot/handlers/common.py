@@ -5,6 +5,8 @@ import os
 from datetime import datetime
 from aiogram import Router, types, F
 from aiogram.filters import Command
+import asyncio
+import shutil
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.states import ProjectStates
@@ -17,6 +19,73 @@ pm = ProjectManager()
 def load_json(path):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+@router.message(Command("clean"))
+async def cmd_clean(message: types.Message):
+    """Принудительная очистка старого мусора. Оставляет только видео."""
+    status_msg = await message.answer("🧹 Сканирую базу и очищаю чат от промежуточных сообщений...")
+    
+    # 1. Собираем ID всех важных видеосообщений из глобального реестра
+    protected_msg_ids = pm.get_protected_messages()
+                
+    # Добавляем ID сообщения-статуса и самой команды, чтобы их тоже потом грохнуть
+    protected_msg_ids.add(status_msg.message_id)
+    
+    current_msg_id = message.message_id
+    start_id = max(0, current_msg_id - 1500) # Проверяем последние 1500 сообщений
+    
+    deleted_count = 0
+    # Пытаемся удалить саму команду /clean
+    try: await message.delete()
+    except Exception: pass
+    
+    # Идем от старых к новым
+    for msg_id in range(current_msg_id, start_id - 1, -1):
+        if msg_id in protected_msg_ids:
+            continue
+            
+        try:
+            await message.bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
+            deleted_count += 1
+            await asyncio.sleep(0.02) # Уменьшенная пауза для ускорения
+            
+            # Обновляем статус каждые 20 удаленных сообщений
+            if deleted_count % 20 == 0:
+                try: await status_msg.edit_text(f"🧹 Сканирую базу и очищаю чат...\nУдалено: {deleted_count}")
+                except Exception: pass
+        except Exception:
+            pass
+            
+    # Удаляем сообщение статуса
+    try:
+        await status_msg.delete()
+    except Exception:
+        pass
+        
+    # Отправляем уведомление об успехе (оставляем его, чтобы юзер видел результат)
+    await message.answer(f"✨ Чат очищен! Удалено старых сообщений: {deleted_count}.")
+
+@router.message(Command("clear_projects"))
+async def cmd_clear_projects(message: types.Message):
+    """Принудительная очистка всех проектов с диска."""
+    projects_dir = "projects"
+    if not os.path.exists(projects_dir):
+        await message.answer("📁 Папка проектов пуста.")
+        return
+        
+    count = 0
+    status_msg = await message.answer("🗑 Удаляю все проекты с диска...")
+    
+    for p_dir in os.listdir(projects_dir):
+        p_path = os.path.join(projects_dir, p_dir)
+        if os.path.isdir(p_path):
+            try:
+                shutil.rmtree(p_path)
+                count += 1
+            except Exception as e:
+                logger.error(f"Failed to delete {p_path}: {e}")
+                
+    await status_msg.edit_text(f"✅ База полностью очищена!\nУдалено папок с проектами: **{count}**", parse_mode="Markdown")
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
@@ -129,6 +198,7 @@ async def start_new_project(message: types.Message, state: FSMContext):
     kb.button(text="🇬🇪 ქართული", callback_data="lang_Georgian")
     kb.adjust(2)
     
+    await state.update_data(flow_start_msg_id=message.message_id)
     await message.answer("👋 **Контент-Завод v10.0 (Persistence Edition)**\n\nВыберите язык ролика:", reply_markup=kb.as_markup())
     await state.set_state(ProjectStates.choosing_language)
 

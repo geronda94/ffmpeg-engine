@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
+from aiogram.types import BotCommand
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.client.session.aiohttp import AiohttpSession
 
@@ -49,7 +50,18 @@ async def main():
     # Запускаем менеджер задач
     task_manager.start(bot)
 
-    logging.info("Starting bot v3.7.0 (Localization & Queue Edition)...")
+    # Устанавливаем команды в меню бота
+    commands = [
+        BotCommand(command="start", description="Начать новый проект"),
+        BotCommand(command="clean", description="Очистить старый мусор в чате"),
+        BotCommand(command="clear_projects", description="Удалить все проекты с диска")
+    ]
+    try:
+        await bot.set_my_commands(commands)
+    except Exception as e:
+        logging.warning(f"Failed to set bot commands: {e}")
+
+    logging.info("Starting bot v3.7.1 (Localization & Queue Edition)...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":

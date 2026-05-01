@@ -21,7 +21,11 @@ async def process_metadata_style(callback: types.CallbackQuery, state: FSMContex
     style = callback.data.split("_")[-1]
     
     if style == "custom":
-        await callback.message.edit_text("✍️ **Введите ваш промпт или пожелания к названию и описанию видео:**")
+        msg_text = "✍️ **Введите ваш промпт или пожелания к названию и описанию видео:**"
+        if callback.message.video or callback.message.photo or callback.message.audio or callback.message.voice or callback.message.document:
+            await callback.message.edit_caption(caption=msg_text)
+        else:
+            await callback.message.edit_text(msg_text)
         await state.set_state(ProjectStates.waiting_for_metadata_prompt)
         return
 
@@ -32,7 +36,19 @@ async def process_metadata_style(callback: types.CallbackQuery, state: FSMContex
     }
     
     instruction = style_map.get(style, "Standard SEO style")
-    await callback.message.edit_text("🧠 **Агент метаданных генерирует SEO-пакет...** Пожалуйста, подождите.")
+    wait_msg = "🧠 **Агент метаданных генерирует SEO-пакет...** Пожалуйста, подождите."
+    
+    if callback.message.video or callback.message.photo or callback.message.audio or callback.message.voice or callback.message.document:
+        try:
+            await callback.message.edit_caption(caption=wait_msg)
+        except Exception:
+            pass
+    else:
+        try:
+            await callback.message.edit_text(wait_msg)
+        except Exception:
+            pass
+            
     await run_metadata_generation(callback.message, state, instruction)
 
 @router.message(ProjectStates.waiting_for_metadata_prompt)
@@ -54,9 +70,13 @@ async def run_metadata_generation(message: types.Message, state: FSMContext, ins
     script = data.get('script', "")
     if project_id:
         project_data = pm.load_project(project_id)
-        if project_data and project_data.get('script'):
-            script = project_data['script']
-            logger.info(f"Loaded script from project.json for SEO: {script[:50]}...")
+        if project_data:
+            if project_data.get('script'):
+                script = project_data['script']
+                logger.info(f"Loaded script from project.json for SEO: {script[:50]}...")
+            if project_data.get('language'):
+                lang = project_data['language']
+                logger.info(f"Loaded language from project.json for SEO: {lang}")
     
     if not script:
         logger.warning("SEO Agent: Script is empty! Using fallback.")
@@ -88,15 +108,19 @@ async def run_metadata_generation(message: types.Message, state: FSMContext, ins
         )
         
         kb = InlineKeyboardBuilder()
-        kb.button(text="🎬 Да, запускай монтаж!", callback_data="start_render")
+        kb.button(text="🎬 Монтаж (Без субтитров)", callback_data="start_render:nosubs")
+        kb.button(text="🎬 Монтаж (+Субтитры)", callback_data="start_render:withsubs")
         kb.button(text="🔄 Переделать (другой стиль)", callback_data="ask_metadata_style")
         kb.adjust(1)
         
-        # Если сообщение можно редактировать - редактируем, если нет - пишем новое
+        # Всегда отправляем новым сообщением, так как SEO может быть длинным
+        # и не помещаться в подпись (caption) к аудио.
         try:
-            await message.edit_text(res_text, reply_markup=kb.as_markup())
-        except:
-            await message.answer(res_text, reply_markup=kb.as_markup())
+            await message.delete()
+        except Exception:
+            pass
+            
+        await message.answer(res_text, reply_markup=kb.as_markup())
             
         await state.set_state(ProjectStates.assembling_video)
         

@@ -69,19 +69,31 @@ async def send_video_result(task: dict):
             
             # Кнопки пост-обработки
             kb = InlineKeyboardBuilder()
-            kb.button(text="🎬 Добавить субтитры", callback_data=f"subtitles:{project_id}")
             kb.button(text="🌍 Перевести", callback_data=f"translate_menu:{project_id}")
             kb.adjust(1)
 
-            await bot.send_video(
+            msg = await bot.send_video(
                 user_id, 
                 FSInputFile(video_path), 
                 caption=caption[:1024], 
                 parse_mode="Markdown",
                 reply_to_message_id=reply_id,
                 reply_markup=kb.as_markup()
-            )
-            logger.info(f"Video sent successfully to {user_id} (as reply: {reply_id})")
+            # Отправляем JSON конфиг
+            json_path = pm.get_project_path(project_id) / "project.json"
+            if os.path.exists(json_path):
+                doc_msg = await bot.send_document(
+                    user_id,
+                    FSInputFile(str(json_path)),
+                    reply_to_message_id=msg.message_id,
+                    caption="📄 Конфиг проекта"
+                )
+                pm.add_protected_message(doc_msg.message_id)
+
+            # Сохраняем в глобальный реестр
+            pm.add_protected_message(msg.message_id)
+            pm.save_project(project_id, proj_data)
+            
         except Exception as e:
             logger.error(f"Failed to send video to user {user_id}: {e}")
             await bot.send_message(user_id, f"❌ Ролик `{project_id}` готов, но не удалось отправить файл. Он сохранен на сервере.")
@@ -160,6 +172,14 @@ async def approve_audio(event: types.CallbackQuery | types.Message, state: FSMCo
     
     data = await state.get_data()
     proj_data = pm.load_project(data['project_id'])
+    
+    # ФИКС: Если стиль монтажа уже унаследован (например, при переводе проекта),
+    # мы пропускаем этот шаг и сразу переходим к генерации SEO/метаданных.
+    if proj_data.get('visual_style'):
+        from bot.navigation import ask_for_metadata_style
+        await ask_for_metadata_style(message, state)
+        return
+        
     v_format = proj_data.get('video_format', 'vertical')
     
     v_config = load_json("config/rendering_presets.json")
@@ -186,9 +206,10 @@ async def handle_visual_style_choice(callback: types.CallbackQuery, state: FSMCo
     from bot.navigation import ask_for_metadata_style
     await ask_for_metadata_style(callback.message, state)
 
-@router.callback_query(F.data == "start_render")
+@router.callback_query(F.data.startswith("start_render:"))
 async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
+    subs_choice = callback.data.split(":")[1]
     data = await state.get_data()
     project_id = data.get('project_id')
     user_id = str(callback.from_user.id)
@@ -208,14 +229,54 @@ async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
     
     # ДОБАВЛЯЕМ В ОЧЕРЕДЬ
     proj_data['status'] = "rendering"
+    proj_data['burn_subtitles'] = (subs_choice == "withsubs")
     pm.save_project(project_id, proj_data)
     
+    lang = proj_data.get('language', 'Russian')
+    title = proj_data.get('metadata', {}).get('title', 'Без названия')
+    langs_flags = {
+        "Russian": "🇷🇺",
+        "English": "🇺🇸",
+        "Romanian": "🇷🇴",
+        "Georgian": "🇬🇪"
+    }
+    flag = langs_flags.get(lang, "🌍")
+    
     q_pos = task_manager.queue.qsize()
+    
+    kb = InlineKeyboardBuilder()
+    kb.button(text="🌍 Перевести", callback_data=f"translate_menu:{project_id}")
+    kb.adjust(1)
+    
     msg = await callback.message.answer(
-        f"⏳ **Проект `{project_id}` добавлен в очередь на монтаж!**\n"
-        f"Ваша позиция: {q_pos}\n\n"
-        f"Вы можете начать новый проект через /start, бот пришлет готовое видео сюда, когда оно будет готово. 🚀"
+        f"⏳ **Проект в очереди на монтаж!**\n\n"
+        f"🗣 **Язык**: {flag} **{lang}**\n"
+        f"📌 **Название**: **{title}**\n"
+        f"🆔 ID: `{project_id}`\n"
+        f"📍 Очередь: {q_pos}\n\n"
+        f"Можете создавать новый проект через /start, видео придет сюда.",
+        reply_markup=kb.as_markup()
     )
+    
+    # Очистка чата от мусора по точным ID
+    try:
+        current_msg_id = callback.message.message_id
+        flow_start = data.get('flow_start_msg_id')
+        
+        # Если flow_start не задан, удаляем только текущее сообщение как fallback
+        if not flow_start:
+            flow_start = current_msg_id
+            
+        # Защита от бесконечного цикла, удаляем максимум 30 сообщений
+        start_id = max(flow_start, current_msg_id - 30)
+        
+        for msg_id in range(current_msg_id, start_id - 1, -1):
+            try:
+                await callback.bot.delete_message(chat_id=callback.message.chat.id, message_id=msg_id)
+            except Exception:
+                pass # Сообщение уже удалено, или это сообщение юзера и у бота нет прав
+    except Exception as e:
+        logger.warning(f"Error clearing chat by ID: {e}")
     
     try:
         await callback.bot.pin_chat_message(chat_id=callback.message.chat.id, message_id=msg.message_id)
@@ -292,13 +353,28 @@ async def handle_add_subtitles(callback: types.CallbackQuery):
                 f"🏷 **Теги:**\n`{hashtags}`"
             )
 
-            await callback.message.answer_video(
+            msg = await callback.message.answer_video(
                 types.FSInputFile(res_path),
                 caption=caption,
                 parse_mode="Markdown",
                 reply_to_message_id=callback.message.message_id
             )
             await status_msg.delete()
+            
+            # Отправляем JSON конфиг
+            json_path = pm.get_project_path(project_id) / "project.json"
+            if os.path.exists(json_path):
+                doc_msg = await callback.message.answer_document(
+                    types.FSInputFile(str(json_path)),
+                    reply_to_message_id=msg.message_id,
+                    caption="📄 Конфиг проекта"
+                )
+                pm.add_protected_message(doc_msg.message_id)
+
+            # Сохраняем в глобальный реестр
+            pm.add_protected_message(msg.message_id)
+            pm.save_project(project_id, proj_data)
+            
         else:
             await status_msg.edit_text("❌ Ошибка при вшивании субтитров через FFmpeg.")
             
@@ -311,7 +387,6 @@ async def handle_translate_menu_button(callback: types.CallbackQuery, state: FSM
     """Вызывает меню перевода по кнопке под видео."""
     project_id = callback.data.split(":")[1]
     logger.info(f"Button 'Translate' pressed for project: {project_id}")
-    await callback.answer()
     await state.update_data(project_id=project_id)
     
     from bot.handlers.localization import cmd_translate
