@@ -1,0 +1,11 @@
+{
+    "plates": [
+        {"id": "plate_anthracite", "name": "🖤 Антрацит", "path": "local_assets/ui/plate_anthracite_noise.png"},
+        {"id": "plate_gold", "name": "🥇 Золотая", "path": "local_assets/ui/plate_gold_noise.png"},
+        {"id": "plate_red_sale", "name": "🔥 Красная (Акция)", "path": "local_assets/ui/plate_red_sale_noise.png"},
+        {"id": "plate_blue_night", "name": "🌙 Ночная синяя", "path": "local_assets/ui/plate_blue_night_noise.png"},
+        {"id": "plate_glass", "name": "🫧 Стеклянная", "path": "local_assets/ui/plate_glass_noise.png"},
+        {"id": "plate_minimal", "name": "⬛ Минимал", "path": "local_assets/ui/plate_minimal_noise.png"},
+        {"id": "plate_green_premium", "name": "💚 Зелёный премиум", "path": "local_assets/ui/plate_green_premium_noise.png"}
+    ]
+}

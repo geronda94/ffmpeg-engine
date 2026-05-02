@@ -40,7 +40,6 @@ class ProjectManager:
             "script": "",
             "scenes": [],
             "assets": {},
-            "visual_style": "v_smooth_story",
             "history": []
         }
         self.save_project(project_id, initial_data)

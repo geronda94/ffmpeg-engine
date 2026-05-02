@@ -19,22 +19,49 @@ class MediaEngine:
         self.DEFAULT_LUM = -50
 
     def smart_resize_stable(self, clip, mode="fit"):
+        import math
         target_w, target_h = self.width, self.height
         
         if mode == "cover":
+            # ceil() вместо int() — никогда не усекаем вниз, всегда перекрываем
             ratio = max(target_w / clip.w, target_h / clip.h)
-            new_w, new_h = int(clip.w * ratio), int(clip.h * ratio)
+            new_w = math.ceil(clip.w * ratio) + 2  # +2px запас на субпиксельные ошибки
+            new_h = math.ceil(clip.h * ratio) + 2
+            
             resized = clip.resized(width=new_w, height=new_h)
-            return resized.cropped(x_center=resized.w/2, y_center=resized.h/2, width=target_w, height=target_h)
+            
+            # Точный кроп через x1/y1/x2/y2 — нет плавающих центров
+            x1 = (new_w - target_w) // 2
+            y1 = (new_h - target_h) // 2
+            return resized.cropped(
+                x1=x1, y1=y1,
+                x2=x1 + target_w, y2=y1 + target_h
+            ).with_position((0, 0))
             
         else:
+            # 1. Получаем основу cover (гарантированно target_w x target_h)
             bg = self.smart_resize_stable(clip, mode="cover")
-            bg = bg.resized(self.BLUR_RESIZE_FACTOR).resized(self.BLUR_UPSCALER)
-            bg = bg.resized(width=target_w, height=target_h)
+            
+            # 2. Размываем: сжать до крошечного → растянуть с запасом
+            bg = bg.resized(self.BLUR_RESIZE_FACTOR)
+            
+            # Растягиваем чуть больше target, кропаем через точные координаты
+            over_w = target_w + 60
+            over_h = target_h + 60
+            bg = bg.resized(width=over_w, height=over_h)
+            x1 = (over_w - target_w) // 2
+            y1 = (over_h - target_h) // 2
+            bg = bg.cropped(
+                x1=x1, y1=y1,
+                x2=x1 + target_w, y2=y1 + target_h
+            ).with_position((0, 0))
+            
             bg = bg.with_effects([vfx.LumContrast(lum=self.DEFAULT_LUM)])
             
+            # 3. Передний план (fit — вписываем без обрезки)
             ratio = min(target_w / clip.w, target_h / clip.h)
-            new_w, new_h = int(clip.w * ratio), int(clip.h * ratio)
+            new_w = math.ceil(clip.w * ratio)
+            new_h = math.ceil(clip.h * ratio)
             fg = clip.resized(width=new_w, height=new_h).with_position("center")
             
             return CompositeVideoClip([bg, fg], size=(target_w, target_h))
@@ -124,16 +151,18 @@ class MediaEngine:
             else:
                 raw = ImageClip(asset_path).with_duration(duration)
 
-            base = ColorClip(size=(self.width, self.height), color=(0,0,0)).with_duration(duration)
-            
+            # ФИКС: убираем двойную обёртку в черный ColorClip.
+            # smart_resize_stable уже возвращает клип точного размера экрана.
+            # Лишний CompositeVideoClip([base, processed]) создаёт пиксельные зазоры.
             processed = self.smart_resize_stable(raw, mode=mode)
             processed = processed.with_duration(duration)
             
             if allow_effects and effects:
                 processed = self.apply_preset_effects(processed, effects)
             
-            return CompositeVideoClip([base, processed], size=(self.width, self.height)).with_duration(duration)
+            return processed
             
         except Exception as e:
             logger.error(f"Error processing asset {asset_path}: {e}")
             return ColorClip(size=(self.width, self.height), color=(0,0,0)).with_duration(duration)
+

@@ -82,6 +82,21 @@
                 {"element": "logo", "type": "overlay_with_bg", "scale": 0.30, "bg_color": "#000000", "bg_opacity": 0.55, "position": "center", "animation": {"type": "scale_in", "duration": 0.8, "start_scale": 0.3}},
                 {"element": "headline", "type": "text", "font_size": 64, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.72"}, "animation": {"type": "fade_in_up", "duration": 1.2}}
             ]
+        },
+        {
+            "id": "product_card",
+            "name": "🛍 Карточка товара",
+            "description": "Картинка товара по центру. Заголовок выезжает справа. Плашка с ценой и скидкой снизу.",
+            "allow_montage_effects": false,
+            "elements": [
+                {"id": "bg", "name": "Фоновый материал", "type": "media"},
+                {"id": "product", "name": "Картинка товара (PNG/JPG)", "type": "photo"},
+                {"id": "title", "name": "Название товара", "type": "text"},
+                {"id": "desc", "name": "Краткое описание (опционально, '-' чтобы пропустить)", "type": "text"},
+                {"id": "price_new", "name": "Новая цена (только число)", "type": "text"},
+                {"id": "discount", "name": "Процент скидки (опционально, число без %)", "type": "text"},
+                {"id": "plate", "name": "Плашка для цены", "type": "plate_select"}
+            ]
         }
     ]
 }

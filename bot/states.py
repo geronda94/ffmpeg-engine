@@ -28,6 +28,12 @@ class ProjectStates(StatesGroup):
     collecting_dynamic_element = State()
     approving_dynamic_pre_render = State()
     
+    # Standalone: создание динамической сцены отдельной командой
+    standalone_choosing_format = State()
+    standalone_choosing_preset = State()
+    standalone_collecting_element = State()
+    standalone_approving = State()
+    
     # Финал (Озвучка и Рендер)
     choosing_visual_style = State()
     choosing_tts_engine = State()

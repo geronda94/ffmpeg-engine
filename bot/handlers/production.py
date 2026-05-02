@@ -174,6 +174,11 @@ async def approve_audio(event: types.CallbackQuery | types.Message, state: FSMCo
     data = await state.get_data()
     proj_data = pm.load_project(data['project_id'])
     
+    if proj_data.get('visual_style'):
+        from bot.navigation import ask_for_metadata_style
+        await ask_for_metadata_style(message, state)
+        return
+        
     v_format = proj_data.get('video_format', 'vertical')
     
     v_config = get_config("rendering_presets")
@@ -190,7 +195,7 @@ async def approve_audio(event: types.CallbackQuery | types.Message, state: FSMCo
 async def handle_visual_style_choice(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     await callback.message.edit_reply_markup(reply_markup=None)
-    style_id = callback.data.split("_")[1]
+    style_id = callback.data.split("_", 1)[1]  # ФИКС: split("_")[1] обрезал "v_smooth_story" до "v"
     
     data = await state.get_data()
     proj_data = pm.load_project(data['project_id'])

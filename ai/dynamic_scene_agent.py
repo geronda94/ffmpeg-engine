@@ -37,7 +37,7 @@ def render_dynamic_scene(preset_id, elements, duration, output_path, video_forma
             width, height = 1080, 1920
 
         media_engine = MediaEngine(width, height)
-        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        font_path = "assets/fonts/DejaVuSans-Bold.ttf"
         if not os.path.exists(font_path):
             font_path = "DejaVu-Sans-Bold"
 

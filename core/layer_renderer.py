@@ -7,7 +7,7 @@ from core.animation_utils import ease_out_cubic, ease_in_out_cubic, lerp
 
 logger = logging.getLogger(__name__)
 
-FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+FONT_PATH = "assets/fonts/DejaVuSans-Bold.ttf"
 
 
 def _resolve_font():
@@ -179,8 +179,11 @@ def render_layer(preset_layer: dict, elements: dict, duration: float, width: int
 
     elif layer_type == "text":
         text_val = elements.get(element_id, preset_layer.get("default", ""))
+        if not text_val or str(text_val).strip() == "-":
+            return clips  # Пропускаем опциональные пустые элементы
         font_size = preset_layer.get("font_size", 60)
-        color_hex = preset_layer.get("color", "#FFFFFF")
+        # ФИКС: MoviePy 2.x принимает color как строку, а не как tuple
+        color_str = preset_layer.get("color", "#FFFFFF")
         font = preset_layer.get("font", _resolve_font())
         method = preset_layer.get("method", "caption")
         size_w = int(width * 0.9)
@@ -189,7 +192,7 @@ def render_layer(preset_layer: dict, elements: dict, duration: float, width: int
         clip = TextClip(
             text=str(text_val),
             font_size=font_size,
-            color=_parse_color(color_hex),
+            color=color_str,  # Передаём как hex-строку напрямую
             font=font,
             method=method,
             size=size_tuple
@@ -219,7 +222,7 @@ def render_layer(preset_layer: dict, elements: dict, duration: float, width: int
             else:
                 raw = ImageClip(path).with_duration(duration)
             scale = preset_layer.get("scale", 0.5)
-            raw = raw.resized(width=int(screen_w * scale))
+            raw = raw.resized(width=int(width * scale))
             bg_color = _parse_color(preset_layer.get("bg_color", "#000000"))
             bg_opacity = preset_layer.get("bg_opacity", 0.6)
             raw_w, raw_h = raw.w, raw.h
@@ -236,17 +239,27 @@ def render_layer(preset_layer: dict, elements: dict, duration: float, width: int
     animations = preset_layer.get("animations") or preset_layer.get("animation")
     static_pos = preset_layer.get("static", True)
 
+    # ФИКС: проверяем has_slide и для dict, и для list
+    SLIDE_TYPES = ("slide_up", "slide_down", "slide_left", "slide_right")
+    POSITION_ANIM_TYPES = ("slide_up", "slide_down", "slide_left", "slide_right", "fade_in_up", "reveal_from_top")
     has_slide = False
+    has_position_anim = False
     anims_list = animations if isinstance(animations, list) else ([animations] if animations else [])
     for a in anims_list:
-        if isinstance(a, dict) and a.get("type", "") in ("slide_up", "slide_down", "slide_left", "slide_right"):
-            has_slide = True
-            break
+        if isinstance(a, dict):
+            a_type = a.get("type", "")
+            if a_type in SLIDE_TYPES:
+                has_slide = True
+                has_position_anim = True
+            elif a_type in POSITION_ANIM_TYPES:
+                has_position_anim = True
 
     if animations:
         clip = _apply_animations(clip, animations, duration, end_pos_raw, width, height)
 
-    if not has_slide and static_pos:
+    # ФИКС: статическую позицию применяем ТОЛЬКО если нет анимации позиции.
+    # Для слайдов и fade_in_up позиция управляется функцией внутри анимации.
+    if not has_position_anim and static_pos:
         cw = clip.w if hasattr(clip, 'w') else width
         ch = clip.h if hasattr(clip, 'h') else height
         end_x, end_y = _pos_to_pixels(end_pos_raw, cw, ch, width, height)

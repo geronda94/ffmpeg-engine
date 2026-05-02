@@ -14,6 +14,7 @@ root_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(root_dir))
 
 from bot.handlers import common, scripting, assets, production, metadata, localization
+from bot.handlers import scene_builder
 from bot.middlewares.errors import ErrorHandlingMiddleware
 from core.task_manager import task_manager
 
@@ -46,14 +47,17 @@ async def main():
     dp.include_router(production.router)
     dp.include_router(metadata.router)
     dp.include_router(localization.router)
+    dp.include_router(scene_builder.router)
 
     # Запускаем менеджер задач
     task_manager.start(bot)
 
     # Устанавливаем команды в меню бота
     commands = [
-        BotCommand(command="start", description="Начать новый проект"),
-        BotCommand(command="clean", description="Очистить старый мусор в чате"),
+        BotCommand(command="start",         description="Начать новый видеопроект"),
+        BotCommand(command="scene",          description="Создать динамическую сцену"),
+        BotCommand(command="render",         description="Повторить рендер текущего проекта"),
+        BotCommand(command="clean",          description="Очистить старый мусор в чате"),
         BotCommand(command="clear_projects", description="Удалить все проекты с диска")
     ]
     try:

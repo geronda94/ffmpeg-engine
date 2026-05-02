@@ -52,7 +52,7 @@ def _apply_transition(clip, transition_cfg, is_first: bool, engine_width: int, e
 
     elif trans_type == 'blur_dissolve':
         blur_strength = transition_cfg.get('blur_strength', 15)
-        fade_in = clip.with_effects([vfx.FadeIn(duration / 2)])
+        fade_in = clip.with_effects([vfx.CrossFadeIn(duration)])
         def _blur_ramp(t):
             if t > duration:
                 return 0
@@ -126,7 +126,7 @@ class BaseMontageEngine:
                 else:
                     total_dur = audio.duration - start_time
                 
-                overhang = trans_cfg.get('duration', 0) if trans_cfg.get('type') == 'crossfade' else 0
+                overhang = trans_cfg.get('duration', 0)
                 total_dur += overhang
 
                 logger.info(f"--- Processing Scene {i} ---")
@@ -147,7 +147,15 @@ class BaseMontageEngine:
                 final_clips.append(clip)
                 logger.info(f"Scene {i} added successfully.")
 
-            video_track = CompositeVideoClip(final_clips, size=(self.width, self.height))
+            # Явный чёрный фон на всё время видео.
+            # После удаления base-слоя из process_asset, нужно гарантировать
+            # что CompositeVideoClip имеет полное покрытие без прозрачных зон.
+            from moviepy import ColorClip
+            bg_base = ColorClip(
+                size=(self.width, self.height), color=(0, 0, 0)
+            ).with_duration(audio.duration)
+            
+            video_track = CompositeVideoClip([bg_base] + final_clips, size=(self.width, self.height))
             final_video = video_track.with_audio(audio).with_duration(audio.duration)
             
             temp_audio = os.path.join("temp", f"temp_audio_{os.path.basename(output_path)}.m4a")
@@ -168,6 +176,13 @@ class BaseMontageEngine:
         except Exception as e:
             logger.error(f"Render failed: {e}", exc_info=True)
             return False
+        finally:
+            if 'audio' in locals() and hasattr(audio, 'close'): audio.close()
+            if 'final_video' in locals() and hasattr(final_video, 'close'): final_video.close()
+            if 'video_track' in locals() and hasattr(video_track, 'close'): video_track.close()
+            if 'final_clips' in locals():
+                for c in final_clips:
+                    if hasattr(c, 'close'): c.close()
 
 
 class VerticalMontageEngine(BaseMontageEngine):
