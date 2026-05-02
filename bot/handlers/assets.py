@@ -37,11 +37,14 @@ async def handle_dynamic_asset_start(event: types.CallbackQuery | types.Message,
     kb = InlineKeyboardBuilder()
     for p in config['presets']:
         kb.button(text=p['name'], callback_data=f"dynpre_{p['id']}")
+    # Кнопка загрузки готовой сцены без пресета
+    kb.button(text="📤 Загрузить свою сцену", callback_data="asset_upload_scene")
     kb.adjust(1)
     
     text = (
         "🎭 **Выберите пресет динамической сцены:**\n\n"
-        "Это позволит собрать сложную сцену из нескольких элементов (лого, текст, фон)."
+        "Это позволит собрать сложную сцену из нескольких элементов (лого, текст, фон).\n"
+        "Или загрузите готовый видеофайл без эффектов."
     )
     
     if isinstance(event, types.CallbackQuery):
@@ -94,6 +97,21 @@ async def ask_next_dynamic_element(message: types.Message, state: FSMContext):
         return
         
     element = preset['elements'][idx]
+    
+    # НОВОЕ: выбор плашки через кнопки
+    if element.get("type") == "plate_select":
+        from bot.handlers.scene_builder import _plates_keyboard
+        kb = _plates_keyboard("dyn_plate_")
+        msg_text = (
+            f"🎨 **Сборка сцены: {preset['name']}**\n"
+            f"Шаг {idx+1}/{len(preset['elements'])}\n\n"
+            f"Выберите **{element['name']}**:"
+        )
+        new_msg = await message.answer(msg_text, reply_markup=kb.as_markup())
+        await state.update_data(last_dynamic_msg_id=new_msg.message_id)
+        # Состояние остается то же, но мы будем ждать callback
+        return
+
     type_map = {"media": "фото или видео", "photo": "фото (PNG)", "video": "видео", "text": "текст"}
     
     msg_text = (
@@ -126,9 +144,10 @@ async def handle_dynamic_element_input(message: types.Message, state: FSMContext
         ext = ".jpg"
         if message.photo: file_id = message.photo[-1].file_id
         elif message.video: file_id = message.video.file_id; ext = ".mp4"
+        elif message.animation: file_id = message.animation.file_id; ext = ".mp4"
         elif message.document: 
             file_id = message.document.file_id
-            ext = os.path.splitext(message.document.file_name)[1]
+            ext = os.path.splitext(message.document.file_name or "")[1] or ".bin"
         
         if not file_id:
             await message.answer(f"❌ Ожидается {element['name']}. Пришлите файл.")
@@ -163,6 +182,31 @@ async def handle_dynamic_element_input(message: types.Message, state: FSMContext
     logger.info(f"Updated state for element {element['id']}. Next idx: {idx + 1}")
     
     await ask_next_dynamic_element(message, state)
+
+@router.callback_query(F.data.startswith("dyn_plate_"), ProjectStates.collecting_dynamic_element)
+async def handle_dynamic_plate_choice(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    plate_id = callback.data.replace("dyn_plate_", "")
+    from bot.handlers.scene_builder import _plate_path_by_id
+    plate_path = _plate_path_by_id(plate_id)
+    
+    data = await state.get_data()
+    preset = data['dynamic_preset']
+    idx = data['current_element_idx']
+    element = preset['elements'][idx]
+    
+    collected = data.get('dynamic_elements_collected', {})
+    collected[element['id']] = plate_path
+    
+    await state.update_data(
+        dynamic_elements_collected=collected,
+        current_element_idx=idx + 1
+    )
+    
+    try: await callback.message.edit_reply_markup(reply_markup=None)
+    except: pass
+    
+    await ask_next_dynamic_element(callback.message, state)
 
 async def start_dynamic_pre_render(message: types.Message, state: FSMContext):
     data = await state.get_data()
@@ -428,7 +472,10 @@ async def process_offset_selection(callback: types.CallbackQuery, state: FSMCont
         return
     
     # Теперь сохраняем ассет с оффсетом
-    pm.update_asset(project_id, scene_idx, video_path, offset=offset)
+    no_fx = data.get('next_asset_no_effects', False)
+    pm.update_asset(project_id, scene_idx, video_path, offset=offset, allow_montage_effects=(not no_fx))
+    if no_fx:
+        await state.update_data(next_asset_no_effects=False)
     
     # Генерируем превью-кадр для подтверждения
     preview_path = f"temp/preview_{int(time.time())}.jpg"
@@ -447,9 +494,10 @@ async def process_offset_selection(callback: types.CallbackQuery, state: FSMCont
     
     await callback.message.delete()
     if os.path.exists(preview_path):
+        no_fx_note = " 🔕 Эффекты отключены" if no_fx else ""
         await callback.message.answer_photo(
             types.FSInputFile(preview_path), 
-            caption=f"✅ Момент выбран: {int(offset // 60):02d}:{int(offset % 60):02d}\nПодтверждаем?", 
+            caption=f"✅ Момент выбран: {int(offset // 60):02d}:{int(offset % 60):02d}{no_fx_note}\nПодтверждаем?", 
             reply_markup=kb.as_markup()
         )
         os.remove(preview_path)
@@ -571,14 +619,19 @@ async def handle_manual_asset(message: types.Message, state: FSMContext):
                     target_dur = scene['end'] - scene['start']
             
             if video_dur > 0 and video_dur <= target_dur + 0.5:
-                pm.update_asset(project_id, scene_idx, temp_path, offset=0)
+                no_fx = data.get('next_asset_no_effects', False)
+                pm.update_asset(project_id, scene_idx, temp_path, offset=0, allow_montage_effects=(not no_fx))
                 if os.path.exists(temp_path): os.remove(temp_path)
+                
+                if no_fx:
+                    await state.update_data(next_asset_no_effects=False)
                 
                 proj_data = pm.load_project(project_id)
                 new_path = proj_data['assets'][str(scene_idx)]['path']
                 
                 kb = InlineKeyboardBuilder().button(text="✅ Подтвердить", callback_data="asset_confirm").button(text="🔄 Другой", callback_data="asset_manual").adjust(1)
-                await message.answer_video(types.FSInputFile(new_path), caption=f"⚡ Видео короткое ({video_dur}с), выбрано целиком.\nПодтверждаем?", reply_markup=kb.as_markup())
+                no_fx_note = " 🔕 Эффекты отключены" if no_fx else ""
+                await message.answer_video(types.FSInputFile(new_path), caption=f"⚡ Видео короткое ({video_dur}с), выбрано целиком.{no_fx_note}\nПодтверждаем?", reply_markup=kb.as_markup())
                 await state.set_state(ProjectStates.approving_asset)
                 return
 
@@ -588,8 +641,12 @@ async def handle_manual_asset(message: types.Message, state: FSMContext):
 
         # Если фото — сохраняем как обычно
         logger.info("Processing image asset...")
-        pm.update_asset(project_id, scene_idx, temp_path)
+        no_fx = data.get('next_asset_no_effects', False)
+        pm.update_asset(project_id, scene_idx, temp_path, allow_montage_effects=(not no_fx))
         if os.path.exists(temp_path): os.remove(temp_path)
+        
+        if no_fx:
+            await state.update_data(next_asset_no_effects=False)
         
         proj = pm.load_project(project_id)
         new_asset_path = proj['assets'][str(scene_idx)]['path']
@@ -606,6 +663,33 @@ async def handle_manual_asset(message: types.Message, state: FSMContext):
     except Exception as e:
         logger.error(f"CRITICAL ERROR in handle_manual_asset: {e}", exc_info=True)
         await message.answer(f"❌ Ошибка обработки файла: {e}")
+
+@router.callback_query(F.data == "asset_upload_scene", StateFilter(ProjectStates.collecting_assets, ProjectStates.approving_asset, ProjectStates.choosing_dynamic_preset))
+async def upload_own_scene(callback: types.CallbackQuery, state: FSMContext):
+    """Загрузить готовый видеофайл как сцену (allow_montage_effects=False)."""
+    await callback.answer()
+    data = await state.get_data()
+    idx = data.get('current_scene_idx', 0)
+    proj_data = pm.load_project(data.get('project_id'))
+    scene_desc = ""
+    if proj_data:
+        scenes = proj_data.get('scenes', [])
+        if idx < len(scenes):
+            scene_desc = f"\n\n🎬 **Что нужно:** {scenes[idx].get('visual_description', '')[:120]}"
+    
+    try: await callback.message.delete()
+    except: pass
+    
+    await callback.message.answer(
+        f"📤 **Загрузка сцены {idx + 1}**{scene_desc}\n\n"
+        "Пришлите **.mp4** видеофайл. \n"
+        "⚡ Сцена будет вставлена **как есть** \u2014 эффекты монтажа применяться не будут.",
+        parse_mode="Markdown"
+    )
+    # Устанавливаем флаг — следующее видео будет сохранено с allow_montage_effects=False
+    await state.update_data(next_asset_no_effects=True)
+    await state.set_state(ProjectStates.waiting_for_asset)
+
 
 @router.callback_query(F.data == "asset_confirm", ProjectStates.approving_asset)
 async def confirm_asset(callback: types.CallbackQuery, state: FSMContext):

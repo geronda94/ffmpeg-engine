@@ -9,7 +9,7 @@ import logging
 import time
 
 from aiogram import Router, types, F
-from aiogram.filters import Command, StateFilter
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -18,6 +18,44 @@ from core.config_loader import get_config
 
 logger = logging.getLogger(__name__)
 router = Router()
+
+
+# ─────────────────────────────────────────────
+# Вспомогательные функции
+# ─────────────────────────────────────────────
+
+def _plates_keyboard(prefix: str) -> InlineKeyboardBuilder:
+    """Клавиатура выбора плашки с кнопкой 'Без плашки'."""
+    config = get_config("ui_plates")
+    kb = InlineKeyboardBuilder()
+    kb.button(text="🚫 Без плашки", callback_data=f"{prefix}none")
+    for plate in config.get("plates", []):
+        kb.button(text=plate["name"], callback_data=f"{prefix}{plate['id']}")
+    kb.adjust(1)
+    return kb
+
+
+def _plate_path_by_id(plate_id: str) -> str | None:
+    """Возвращает путь к файлу плашки по ID, или None."""
+    if plate_id == "none":
+        return None
+    config = get_config("ui_plates")
+    plate = next((p for p in config.get("plates", []) if p["id"] == plate_id), None)
+    return plate["path"] if plate else None
+
+
+async def _cleanup_flow(bot, chat_id: int, from_msg_id: int, to_msg_id: int):
+    """Удаляет сообщения потока сборки сцены."""
+    try:
+        start = max(from_msg_id, to_msg_id - 120)
+        for msg_id in range(to_msg_id, start - 1, -1):
+            try:
+                await bot.delete_message(chat_id=chat_id, message_id=msg_id)
+            except Exception:
+                pass
+    except Exception as e:
+        logger.warning(f"Cleanup error: {e}")
+
 
 # ─────────────────────────────────────────────
 # /scene — точка входа
@@ -33,12 +71,16 @@ async def cmd_scene(message: types.Message, state: FSMContext):
     kb.button(text="📺 Широкое (16:9)",      callback_data="sc_fmt_wide")
     kb.adjust(1)
 
-    await message.answer(
+    msg = await message.answer(
         "🎬 **Конструктор динамической сцены**\n\n"
-        "Вы можете собрать готовую сцену (видео-файл) с анимацией, текстом и эффектами — "
-        "без создания полноценного видеопроекта.\n\n"
+        "Соберите готовую сцену с анимацией, текстом и эффектами.\n\n"
         "📐 **Выберите формат сцены:**",
         reply_markup=kb.as_markup()
+    )
+    # Запоминаем стартовое сообщение для последующей очистки
+    await state.update_data(
+        sc_flow_start_msg_id=message.message_id,
+        sc_bot_msgs=[msg.message_id]
     )
     await state.set_state(ProjectStates.standalone_choosing_format)
 
@@ -50,9 +92,8 @@ async def cmd_scene(message: types.Message, state: FSMContext):
 @router.callback_query(F.data.startswith("sc_fmt_"), ProjectStates.standalone_choosing_format)
 async def sc_choose_format(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    fmt = callback.data.split("sc_fmt_")[1]  # "vertical" | "wide"
+    fmt = callback.data.split("sc_fmt_")[1]
     await state.update_data(sc_format=fmt, sc_elements={}, sc_element_idx=0)
-
     await _ask_preset(callback.message, state, edit=True)
 
 
@@ -62,7 +103,6 @@ async def sc_choose_format(callback: types.CallbackQuery, state: FSMContext):
 
 async def _ask_preset(message: types.Message, state: FSMContext, edit=False):
     config = get_config("dynamic_scenes")
-
     kb = InlineKeyboardBuilder()
     for p in config["presets"]:
         kb.button(text=p["name"], callback_data=f"sc_pre_{p['id']}")
@@ -70,18 +110,19 @@ async def _ask_preset(message: types.Message, state: FSMContext, edit=False):
 
     text = (
         "🎭 **Выберите пресет динамической сцены:**\n\n"
-        "Каждый пресет — это готовый шаблон с анимацией. "
-        "Вам нужно будет предоставить только контент (фото, текст и т.д.)."
+        "Каждый пресет — готовый шаблон с анимацией."
     )
-
     try:
         if edit:
             await message.edit_text(text, reply_markup=kb.as_markup())
-        else:
-            await message.answer(text, reply_markup=kb.as_markup())
+            return
     except Exception:
-        await message.answer(text, reply_markup=kb.as_markup())
-
+        pass
+    msg = await message.answer(text, reply_markup=kb.as_markup())
+    data = await state.get_data()
+    msgs = data.get("sc_bot_msgs", [])
+    msgs.append(msg.message_id)
+    await state.update_data(sc_bot_msgs=msgs)
     await state.set_state(ProjectStates.standalone_choosing_preset)
 
 
@@ -108,9 +149,9 @@ async def _ask_next_element(message: types.Message, state: FSMContext):
     data = await state.get_data()
     preset = data["sc_preset"]
     idx = data.get("sc_element_idx", 0)
-    elements = preset.get("elements", [])
+    elements_cfg = preset.get("elements", [])
 
-    # Удаляем предыдущий вопрос
+    # Удаляем предыдущий вопрос бота
     last_msg_id = data.get("sc_last_msg_id")
     if last_msg_id:
         try:
@@ -118,20 +159,55 @@ async def _ask_next_element(message: types.Message, state: FSMContext):
         except Exception:
             pass
 
-    if idx >= len(elements):
-        # Все элементы собраны — запускаем рендер
+    if idx >= len(elements_cfg):
         await _render_standalone_scene(message, state)
         return
 
-    el = elements[idx]
-    type_map = {"media": "фото или видео", "photo": "фото (PNG)", "video": "видео", "text": "текст"}
+    el = elements_cfg[idx]
 
+    # Элемент plate_select — показываем клавиатуру плашек
+    if el["type"] == "plate_select":
+        kb = _plates_keyboard("sc_plate_")
+        msg = await message.answer(
+            f"🎨 **Шаг {idx + 1}/{len(elements_cfg)}: {el['name']}**\n\n"
+            "Выберите текстуру фоновой плашки под текст, или пропустите:",
+            reply_markup=kb.as_markup()
+        )
+        await state.update_data(sc_last_msg_id=msg.message_id)
+        await state.set_state(ProjectStates.standalone_choosing_plate)
+        return
+
+    type_map = {"media": "фото или видео", "photo": "фото (PNG)", "video": "видео", "text": "текст"}
     msg = await message.answer(
-        f"📥 **{preset['name']}** | Шаг {idx + 1}/{len(elements)}\n\n"
+        f"📥 **{preset['name']}** | Шаг {idx + 1}/{len(elements_cfg)}\n\n"
         f"Пришлите **{el['name']}** ({type_map.get(el['type'], 'файл')}):"
     )
     await state.update_data(sc_last_msg_id=msg.message_id)
     await state.set_state(ProjectStates.standalone_collecting_element)
+
+
+@router.callback_query(F.data.startswith("sc_plate_"), ProjectStates.standalone_choosing_plate)
+async def sc_choose_plate(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    plate_id = callback.data.split("sc_plate_")[1]
+    plate_path = _plate_path_by_id(plate_id)
+
+    data = await state.get_data()
+    preset = data["sc_preset"]
+    idx = data.get("sc_element_idx", 0)
+    elements_cfg = preset.get("elements", [])
+    el = elements_cfg[idx]
+
+    collected = data.get("sc_elements", {})
+    collected[el["id"]] = plate_path  # None если "без плашки"
+    await state.update_data(sc_elements=collected, sc_element_idx=idx + 1)
+
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+    await _ask_next_element(callback.message, state)
 
 
 @router.message(
@@ -142,12 +218,12 @@ async def sc_collect_element(message: types.Message, state: FSMContext):
     data = await state.get_data()
     preset = data["sc_preset"]
     idx = data.get("sc_element_idx", 0)
-    elements = preset.get("elements", [])
+    elements_cfg = preset.get("elements", [])
 
-    if idx >= len(elements):
+    if idx >= len(elements_cfg):
         return
 
-    el = elements[idx]
+    el = elements_cfg[idx]
     val = None
 
     if el["type"] == "text":
@@ -185,7 +261,6 @@ async def sc_collect_element(message: types.Message, state: FSMContext):
             await message.answer("❌ Ошибка загрузки файла.")
             return
 
-    # Удаляем сообщение пользователя для чистоты
     try:
         await message.delete()
     except Exception:
@@ -194,7 +269,6 @@ async def sc_collect_element(message: types.Message, state: FSMContext):
     collected = data.get("sc_elements", {})
     collected[el["id"]] = val
     await state.update_data(sc_elements=collected, sc_element_idx=idx + 1)
-
     await _ask_next_element(message, state)
 
 
@@ -207,12 +281,12 @@ async def _render_standalone_scene(message: types.Message, state: FSMContext):
     preset = data["sc_preset"]
     elements = data.get("sc_elements", {})
     fmt = data.get("sc_format", "vertical")
-    duration = 6.0  # Стандартная длительность standalone-сцены
+    duration = 6.0
 
     status = await message.answer(
         f"⚙️ **Рендерю сцену: {preset['name']}**\n"
-        f"Формат: {'📱 Вертикальный' if fmt == 'vertical' else '📺 Широкий'}\n"
-        "Это займет несколько секунд..."
+        f"Формат: {'📱 9:16' if fmt == 'vertical' else '📺 16:9'}\n"
+        "Это займёт несколько секунд..."
     )
 
     os.makedirs("temp/sc_output", exist_ok=True)
@@ -228,11 +302,11 @@ async def _render_standalone_scene(message: types.Message, state: FSMContext):
     if res and os.path.exists(res):
         kb = InlineKeyboardBuilder()
         kb.button(text="🔄 Создать ещё", callback_data="sc_restart")
-        kb.button(text="🔄 Другой пресет", callback_data="sc_change_preset")
+        kb.button(text="↩️ Другой пресет", callback_data="sc_change_preset")
         kb.adjust(1)
 
         try:
-            await message.answer_video(
+            result_msg = await message.answer_video(
                 types.FSInputFile(res),
                 caption=(
                     f"✅ **Сцена готова!**\n"
@@ -242,15 +316,23 @@ async def _render_standalone_scene(message: types.Message, state: FSMContext):
                 reply_markup=kb.as_markup()
             )
         except Exception:
-            await message.answer_document(
+            result_msg = await message.answer_document(
                 types.FSInputFile(res),
-                caption=f"📦 Сцена готова (отправлена как файл)\nПресет: {preset['name']}",
+                caption=f"📦 Сцена готова\nПресет: {preset['name']}",
                 reply_markup=kb.as_markup()
             )
 
-        # Сохраняем путь в state для возможного повтора
-        await state.update_data(sc_last_output=res)
+        await state.update_data(sc_last_output=res, sc_result_msg_id=result_msg.message_id)
         await state.set_state(ProjectStates.standalone_approving)
+
+        # ── ОЧИСТКА: удаляем весь поток сборки до результата ──
+        flow_start = data.get("sc_flow_start_msg_id", result_msg.message_id - 100)
+        await _cleanup_flow(
+            message.bot,
+            message.chat.id,
+            from_msg_id=flow_start,
+            to_msg_id=result_msg.message_id - 1
+        )
     else:
         kb = InlineKeyboardBuilder()
         kb.button(text="🔄 Попробовать снова", callback_data="sc_restart")
@@ -259,12 +341,11 @@ async def _render_standalone_scene(message: types.Message, state: FSMContext):
 
 
 # ─────────────────────────────────────────────
-# Шаг 5 — действия после рендера
+# Шаг 5 — после рендера
 # ─────────────────────────────────────────────
 
 @router.callback_query(F.data == "sc_restart", ProjectStates.standalone_approving)
 async def sc_restart(callback: types.CallbackQuery, state: FSMContext):
-    """Начать с нуля — снова выбор формата."""
     await callback.answer()
     await callback.message.edit_reply_markup(reply_markup=None)
     await state.clear()
@@ -274,19 +355,21 @@ async def sc_restart(callback: types.CallbackQuery, state: FSMContext):
     kb.button(text="📺 Широкое (16:9)",      callback_data="sc_fmt_wide")
     kb.adjust(1)
 
-    await callback.message.answer(
+    msg = await callback.message.answer(
         "🎬 **Создаём новую сцену!**\n\n📐 Выберите формат:",
         reply_markup=kb.as_markup()
+    )
+    await state.update_data(
+        sc_flow_start_msg_id=callback.message.message_id,
+        sc_bot_msgs=[msg.message_id]
     )
     await state.set_state(ProjectStates.standalone_choosing_format)
 
 
 @router.callback_query(F.data == "sc_change_preset", ProjectStates.standalone_approving)
 async def sc_change_preset(callback: types.CallbackQuery, state: FSMContext):
-    """Сменить пресет, оставив тот же формат."""
     await callback.answer()
     await callback.message.edit_reply_markup(reply_markup=None)
-
-    data = await state.get_data()
     await state.update_data(sc_elements={}, sc_element_idx=0)
     await _ask_preset(callback.message, state, edit=False)
+    await state.set_state(ProjectStates.standalone_choosing_preset)

@@ -117,7 +117,7 @@ def burn_subtitles(video_path: str, srt_path: str, output_path: str) -> str | No
         subtitle_filter = (
             f"subtitles='{srt_escaped}':"
             f"force_style='"
-            f"FontName=Arial,"
+            f"FontName=DejaVu Sans,"
             f"FontSize=14,"
             f"Bold=1,"
             f"PrimaryColour=&H00FFFFFF,"

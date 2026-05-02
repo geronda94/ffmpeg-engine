@@ -11,8 +11,23 @@ FONT_PATH = "assets/fonts/DejaVuSans-Bold.ttf"
 
 
 def _resolve_font():
-    if os.path.exists(FONT_PATH):
-        return FONT_PATH
+    """Находит путь к шрифту для TextClip (Pillow в MoviePy 2.x требует полный путь)."""
+    candidates = [
+        FONT_PATH,
+        # Ubuntu/Debian paths
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+        # Arch/Fedora paths
+        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/liberation-sans/LiberationSans-Bold.ttf"
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    
+    # Крайний случай - возвращаем имя, надеясь на ImageMagick (если Pillow не справится)
+    logger.warning("No system font path found, falling back to name 'DejaVu-Sans-Bold'")
     return "DejaVu-Sans-Bold"
 
 
@@ -34,6 +49,10 @@ def _pos_to_pixels(pos, clip_w, clip_h, screen_w, screen_h):
         return (_resolve_axis(pos, clip_w, screen_w), _resolve_axis(pos, clip_h, screen_h))
     if isinstance(pos, tuple):
         return (_resolve_axis(pos[0], clip_w, screen_w), _resolve_axis(pos[1], clip_h, screen_h))
+    if isinstance(pos, dict):
+        x = pos.get('x', 'center')
+        y = pos.get('y', 'center')
+        return (_resolve_axis(x, clip_w, screen_w), _resolve_axis(y, clip_h, screen_h))
     return ((screen_w - clip_w) / 2, (screen_h - clip_h) / 2)
 
 
@@ -44,14 +63,18 @@ def _resolve_axis(val, clip_dim, screen_dim):
         val = val.strip().lower()
         if val == "center":
             return (screen_dim - clip_dim) / 2
-        if val.startswith("h*"):
+        if val == "right" or val == "bottom":
+            return screen_dim - clip_dim
+        if val == "left" or val == "top":
+            return 0
+        if val.startswith("h*") or val.startswith("w*") or val.startswith("f*"):
             try:
                 return screen_dim * float(val[2:])
             except ValueError:
                 pass
-        if val.startswith("w*"):
+        if val.startswith("w-") or val.startswith("h-"):
             try:
-                return screen_dim * float(val[2:])
+                return screen_dim - float(val[2:])
             except ValueError:
                 pass
         if val.endswith("%"):
@@ -127,6 +150,23 @@ def _animate_position(clip, animation, duration, end_pos_raw, screen_w, screen_h
             d = math.exp(-t * decay)
             return 1.0 + strength * d * math.sin(t * freq)
         return clip.with_effects([vfx.Resize(_pulse_func)])
+
+    elif anim_type == "zoom_in_out":
+        zoom_strength = animation.get("zoom_strength", 0.2)
+        def _zoom_func(t):
+            if t > duration:
+                return 1.0
+            p = t / duration
+            from core.animation_utils import ease_in_out_cubic, lerp
+            e = ease_in_out_cubic(p)
+            return lerp(1.0 + zoom_strength, 1.0, e)
+        
+        zoomed = clip.with_effects([vfx.Resize(_zoom_func)])
+        # Регулируем позицию, чтобы зум шел в центр
+        def _center_pos(t):
+            z = _zoom_func(t)
+            return (end_x - (cw * z - cw) / 2, end_y - (ch * z - ch) / 2)
+        return zoomed.with_position(_center_pos)
 
     if anim_type == "slide_up":
         start_x, start_y = end_x, float(screen_h)
@@ -231,6 +271,16 @@ def render_layer(preset_layer: dict, elements: dict, duration: float, width: int
             clip = comp
         else:
             return clips
+
+    elif layer_type == "plate_image":
+        path = elements.get(element_id)
+        # Если плашка не выбрана (None или пустая строка) — пропускаем слой
+        if not path or not os.path.exists(str(path)):
+            return clips
+        height_pct = preset_layer.get("height_pct", 0.35)
+        plate_h = int(height * height_pct)
+        raw = ImageClip(str(path)).with_duration(duration)
+        clip = raw.resized(width=width, height=plate_h)
 
     else:
         return clips

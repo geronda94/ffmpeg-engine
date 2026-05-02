@@ -133,11 +133,11 @@ class ProjectManager:
         self.save_project(project_id, data)
         return True
 
-    def update_asset(self, project_id: str, scene_idx: int, asset_path: str, offset: float = 0):
+    def update_asset(self, project_id: str, scene_idx: int, asset_path: str, offset: float = 0, allow_montage_effects: bool = True):
         data = self.load_project(project_id)
         if not data:
             data = self.create_project(project_id)
-            
+        
         if 'assets' not in data: data['assets'] = {}
         
         dest_dir = self.get_project_path(project_id) / "assets"
@@ -151,7 +151,8 @@ class ProjectManager:
             "path": str(new_path),
             "original_path": asset_path,
             "type": "video" if ext in ['.mp4', '.mov', '.avi'] else "image",
-            "start_offset": offset
+            "start_offset": offset,
+            "allow_montage_effects": allow_montage_effects
         }
         self.save_project(project_id, data)
         return True

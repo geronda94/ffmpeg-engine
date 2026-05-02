@@ -37,9 +37,8 @@ def render_dynamic_scene(preset_id, elements, duration, output_path, video_forma
             width, height = 1080, 1920
 
         media_engine = MediaEngine(width, height)
-        font_path = "assets/fonts/DejaVuSans-Bold.ttf"
-        if not os.path.exists(font_path):
-            font_path = "DejaVu-Sans-Bold"
+        from core.layer_renderer import _resolve_font
+        font_path = _resolve_font()
 
         clips = []
 

@@ -154,7 +154,13 @@ class MediaEngine:
             # ФИКС: убираем двойную обёртку в черный ColorClip.
             # smart_resize_stable уже возвращает клип точного размера экрана.
             # Лишний CompositeVideoClip([base, processed]) создаёт пиксельные зазоры.
-            processed = self.smart_resize_stable(raw, mode=mode)
+            # Если эффекты отключены, принудительно используем cover (чтобы не было размытия фона)
+            # или можно было бы добавить режим 'fit_black'
+            current_mode = mode
+            if not allow_effects and current_mode == "fit":
+                current_mode = "cover" # Для "своих сцен" cover обычно лучше, чем блюр
+            
+            processed = self.smart_resize_stable(raw, mode=current_mode)
             processed = processed.with_duration(duration)
             
             if allow_effects and effects:

@@ -51,13 +51,8 @@ def _apply_transition(clip, transition_cfg, is_first: bool, engine_width: int, e
         return clip.with_effects([vfx.FadeIn(duration)])
 
     elif trans_type == 'blur_dissolve':
-        blur_strength = transition_cfg.get('blur_strength', 15)
-        fade_in = clip.with_effects([vfx.CrossFadeIn(duration)])
-        def _blur_ramp(t):
-            if t > duration:
-                return 0
-            return max(0, blur_strength * (1 - t / duration))
-        return fade_in.with_effects([vfx.Blur(sigma=_blur_ramp)])
+        # В MoviePy 2.x vfx.Blur отсутствует. Используем обычный кроссфейд.
+        return clip.with_effects([vfx.CrossFadeIn(duration)])
 
     elif trans_type == 'slide_left':
         center_x = (engine_width - clip.w) / 2

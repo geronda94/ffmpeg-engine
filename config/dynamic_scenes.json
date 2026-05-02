@@ -8,19 +8,32 @@
             "elements": [
                 {"id": "bg", "name": "Фоновое видео или фото", "type": "media"},
                 {"id": "logo", "name": "Логотип (желательно PNG)", "type": "photo"}
+            ],
+            "layers": [
+                {"element": "bg", "type": "media", "mode": "cover", "effects": ["ken_burns"]},
+                {"element": "logo", "type": "overlay", "scale": 0.45, "position": "center", "animation": {"type": "pulse", "duration": 2.0}}
             ]
         },
         {
             "id": "price_tag",
             "name": "💎 Акцент на цену (Premium)",
-            "description": "Профессиональная карточка товара: название, новая цена, зачеркнутая старая цена и бейдж скидки.",
+            "description": "Профессиональная карточка товара: название, новая цена, зачёркнутая старая цена и бейдж скидки.",
             "allow_montage_effects": false,
             "elements": [
                 {"id": "bg", "name": "Фоновый материал", "type": "media"},
                 {"id": "title", "name": "Название товара", "type": "text"},
-                {"id": "price_new", "name": "Новая цена", "type": "text"},
-                {"id": "price_old", "name": "Старая цена (опционально)", "type": "text"},
-                {"id": "discount", "name": "Скидка % (например, 50)", "type": "text"}
+                {"id": "price_new", "name": "Новая цена (только число)", "type": "text"},
+                {"id": "price_old", "name": "Старая цена (опционально, '-' чтобы пропустить)", "type": "text"},
+                {"id": "discount", "name": "Скидка % (опционально, '-' чтобы пропустить)", "type": "text"},
+                {"id": "plate", "name": "Плашка под ценовой блок", "type": "plate_select"}
+            ],
+            "layers": [
+                {"element": "bg", "type": "media", "mode": "cover", "effects": ["ken_burns"]},
+                {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.68"}, "height_pct": 0.32},
+                {"element": "title", "type": "text", "font_size": 60, "color": "#FFFFFF", "position": {"x": 100, "y": "h*0.72"}, "animation": {"type": "slide_left", "duration": 0.8}, "static": false},
+                {"element": "price_new", "type": "text", "font_size": 130, "color": "#FFD700", "position": {"x": 100, "y": "h*0.80"}, "animation": {"type": "slide_up", "duration": 1.0}, "static": false},
+                {"element": "price_old", "type": "text", "font_size": 50, "color": "#999999", "position": {"x": 100, "y": "h*0.90"}, "animation": {"type": "fade_in", "duration": 1.2}, "static": false},
+                {"element": "discount", "type": "text", "font_size": 60, "color": "#FF4444", "position": {"x": "w-320", "y": "h*0.80"}, "animation": {"type": "scale_in", "duration": 0.8}, "static": false}
             ]
         },
         {
@@ -29,8 +42,8 @@
             "description": "Два материала разделены пополам (До / После).",
             "allow_montage_effects": false,
             "elements": [
-                {"id": "left", "name": "Левая часть", "type": "media"},
-                {"id": "right", "name": "Правая часть", "type": "media"}
+                {"id": "left", "name": "Левая / верхняя часть", "type": "media"},
+                {"id": "right", "name": "Правая / нижняя часть", "type": "media"}
             ]
         },
         {
@@ -41,12 +54,14 @@
             "elements": [
                 {"id": "bg", "name": "Фоновый материал", "type": "media"},
                 {"id": "title", "name": "Заголовок", "type": "text"},
-                {"id": "subtitle", "name": "Подзаголовок (опционально)", "type": "text"}
+                {"id": "subtitle", "name": "Подзаголовок (опционально, '-' чтобы пропустить)", "type": "text"},
+                {"id": "plate", "name": "Плашка под текст", "type": "plate_select"}
             ],
             "layers": [
                 {"element": "bg", "type": "media", "mode": "cover", "effects": ["ken_burns"]},
-                {"element": "title", "type": "text", "font_size": 72, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.32"}, "animation": {"type": "slide_up", "duration": 0.8, "easing": "ease_out_cubic"}},
-                {"element": "subtitle", "type": "text", "font_size": 46, "color": "#CCCCCC", "position": {"x": "center", "y": "h*0.58"}, "animation": {"type": "slide_up", "duration": 1.0, "easing": "ease_out_cubic"}}
+                {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.26"}, "height_pct": 0.48},
+                {"element": "title", "type": "text", "font_size": 68, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.32"}, "animation": {"type": "slide_up", "duration": 0.8}},
+                {"element": "subtitle", "type": "text", "font_size": 44, "color": "#DDDDDD", "position": {"x": "center", "y": "h*0.56"}, "animation": {"type": "slide_up", "duration": 1.0}}
             ]
         },
         {
@@ -58,13 +73,15 @@
                 {"id": "bg", "name": "Фоновый материал", "type": "media"},
                 {"id": "icon", "name": "Икона/изображение (PNG)", "type": "photo"},
                 {"id": "title", "name": "Заголовок", "type": "text"},
-                {"id": "description", "name": "Описание", "type": "text"}
+                {"id": "description", "name": "Описание (опционально, '-' чтобы пропустить)", "type": "text"},
+                {"id": "plate", "name": "Плашка под текст", "type": "plate_select"}
             ],
             "layers": [
                 {"element": "bg", "type": "media", "mode": "cover", "effects": ["ken_burns"]},
-                {"element": "icon", "type": "overlay", "scale": 0.35, "position": {"x": "center", "y": "h*0.30"}, "animation": {"type": "reveal_from_top", "duration": 1.3, "start_scale": 1.5, "end_scale": 1.0}},
-                {"element": "title", "type": "text", "font_size": 55, "color": "#FFD700", "position": {"x": "center", "y": "h*0.62"}, "animation": {"type": "fade_in_up", "duration": 0.8, "easing": "ease_out_cubic"}},
-                {"element": "description", "type": "text", "font_size": 34, "color": "#DDDDDD", "position": {"x": "center", "y": "h*0.76"}, "animation": {"type": "fade_in_up", "duration": 1.0, "easing": "ease_out_cubic"}}
+                {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.56"}, "height_pct": 0.38},
+                {"element": "icon", "type": "overlay", "scale": 0.35, "position": {"x": "center", "y": "h*0.20"}, "animation": {"type": "reveal_from_top", "duration": 1.3, "start_scale": 1.5, "end_scale": 1.0}},
+                {"element": "title", "type": "text", "font_size": 55, "color": "#FFD700", "position": {"x": "center", "y": "h*0.60"}, "animation": {"type": "fade_in_up", "duration": 0.8}},
+                {"element": "description", "type": "text", "font_size": 34, "color": "#EEEEEE", "position": {"x": "center", "y": "h*0.76"}, "animation": {"type": "fade_in_up", "duration": 1.0}}
             ]
         },
         {
@@ -75,18 +92,20 @@
             "elements": [
                 {"id": "bg", "name": "Фоновый футаж/видео", "type": "media"},
                 {"id": "logo", "name": "Логотип/иконка (PNG)", "type": "photo"},
-                {"id": "headline", "name": "Заголовок", "type": "text"}
+                {"id": "headline", "name": "Заголовок", "type": "text"},
+                {"id": "plate", "name": "Плашка под заголовок", "type": "plate_select"}
             ],
             "layers": [
                 {"element": "bg", "type": "media", "mode": "cover", "effects": [{"type": "ken_burns", "zoom_from": 1.0, "zoom_to": 1.10, "start_frac": 0.0, "end_frac": 1.0}]},
+                {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.65"}, "height_pct": 0.25},
                 {"element": "logo", "type": "overlay_with_bg", "scale": 0.30, "bg_color": "#000000", "bg_opacity": 0.55, "position": "center", "animation": {"type": "scale_in", "duration": 0.8, "start_scale": 0.3}},
-                {"element": "headline", "type": "text", "font_size": 64, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.72"}, "animation": {"type": "fade_in_up", "duration": 1.2}}
+                {"element": "headline", "type": "text", "font_size": 60, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.69"}, "animation": {"type": "fade_in_up", "duration": 1.2}}
             ]
         },
         {
             "id": "product_card",
             "name": "🛍 Карточка товара",
-            "description": "Картинка товара по центру. Заголовок выезжает справа. Плашка с ценой и скидкой снизу.",
+            "description": "Картинка товара по центру. Заголовок выезжает справа. Плашка с ценой снизу.",
             "allow_montage_effects": false,
             "elements": [
                 {"id": "bg", "name": "Фоновый материал", "type": "media"},
@@ -94,8 +113,17 @@
                 {"id": "title", "name": "Название товара", "type": "text"},
                 {"id": "desc", "name": "Краткое описание (опционально, '-' чтобы пропустить)", "type": "text"},
                 {"id": "price_new", "name": "Новая цена (только число)", "type": "text"},
-                {"id": "discount", "name": "Процент скидки (опционально, число без %)", "type": "text"},
-                {"id": "plate", "name": "Плашка для цены", "type": "plate_select"}
+                {"id": "discount", "name": "Процент скидки (опционально, '-' чтобы пропустить)", "type": "text"},
+                {"id": "plate", "name": "Плашка под цену", "type": "plate_select"}
+            ],
+            "layers": [
+                {"element": "bg", "type": "media", "mode": "cover", "effects": []},
+                {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.60"}, "height_pct": 0.38},
+                {"element": "product", "type": "overlay", "scale": 0.55, "position": {"x": "center", "y": "h*0.15"}, "animation": {"type": "scale_in", "duration": 0.7, "start_scale": 0.5}},
+                {"element": "title", "type": "text", "font_size": 52, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.63"}, "animation": {"type": "slide_left", "duration": 0.8}},
+                {"element": "desc", "type": "text", "font_size": 36, "color": "#CCCCCC", "position": {"x": "center", "y": "h*0.74"}, "animation": {"type": "fade_in_up", "duration": 1.0}},
+                {"element": "price_new", "type": "text", "font_size": 80, "color": "#FFD700", "position": {"x": "center", "y": "h*0.82"}, "animation": {"type": "slide_up", "duration": 1.2}},
+                {"element": "discount", "type": "text", "font_size": 46, "color": "#FF4444", "position": {"x": "center", "y": "h*0.91"}, "animation": {"type": "fade_in_up", "duration": 1.4}}
             ]
         }
     ]

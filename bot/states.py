@@ -32,6 +32,7 @@ class ProjectStates(StatesGroup):
     standalone_choosing_format = State()
     standalone_choosing_preset = State()
     standalone_collecting_element = State()
+    standalone_choosing_plate = State()
     standalone_approving = State()
     
     # Финал (Озвучка и Рендер)
