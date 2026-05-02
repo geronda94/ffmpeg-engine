@@ -1,9 +1,5 @@
-import os
-import json
-from openai import OpenAI
-from dotenv import load_dotenv
-
-load_dotenv()
+from ai.llm_client import chat_json
+from core.config_loader import get_config
 
 SYSTEM_PROMPT = """
 You are a Professional Scriptwriter for Short-form video (Reels/TikTok).
@@ -22,17 +18,18 @@ JSON with:
 - If topic is 'Mars', write about Mars.
 """
 
+
 def generate_script(topic: str, language: str = "Russian", duration: int = 60):
-    # Загружаем контекст канала
     context = {
         "channel_topic": "General",
         "tone_of_voice": "Engaging",
         "target_platform": "Short-form (Reels/TikTok)"
     }
-    ctx_path = "config/channel_context.json"
-    if os.path.exists(ctx_path):
-        with open(ctx_path, "r", encoding="utf-8") as f:
-            context.update(json.load(f))
+    try:
+        channel = get_config("channel_context")
+        context.update(channel)
+    except Exception:
+        pass
 
     dynamic_system_prompt = (
         f"You are a Professional Scriptwriter for {context['target_platform']}.\n"
@@ -49,15 +46,7 @@ def generate_script(topic: str, language: str = "Russian", duration: int = 60):
         f"- Language: {language}."
     )
 
-    client = OpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com")
-    user_prompt = f"Topic: {topic}. Target Duration: {duration} seconds."
-    
-    response = client.chat.completions.create(
-        model="deepseek-chat",
-        messages=[
-            {"role": "system", "content": dynamic_system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        response_format={'type': 'json_object'}
+    return chat_json(
+        system_prompt=dynamic_system_prompt,
+        user_prompt=f"Topic: {topic}. Target Duration: {duration} seconds."
     )
-    return json.loads(response.choices[0].message.content)

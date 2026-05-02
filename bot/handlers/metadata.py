@@ -95,9 +95,10 @@ async def run_metadata_generation(message: types.Message, state: FSMContext, ins
         
         await state.update_data(metadata=metadata)
         
+        from ai.metadata_agent import format_hashtags
         title = metadata.get('title', '...')
         description = metadata.get('description', '...')
-        hashtags = " ".join([f"#{t}" if not t.startswith("#") else t for t in metadata.get('hashtags', [])])
+        hashtags = format_hashtags(metadata.get('hashtags', []))
 
         res_text = (
             "✅ **SEO-метаданные готовы!**\n\n"

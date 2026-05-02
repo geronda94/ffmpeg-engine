@@ -3,46 +3,51 @@ import logging
 from moviepy import VideoFileClip, ImageClip, TextClip, CompositeVideoClip, ColorClip
 import moviepy.video.fx as vfx
 from core.media_engine import MediaEngine
+from core.animation_utils import ease_out_cubic, slide_in_position, logo_pulse_zoom
 
 logger = logging.getLogger(__name__)
 
+
 def create_animation_slide(clip, start_pos, end_pos, duration=1.0):
-    """Анимация вылета (Slide-in) с Ease-out."""
     def pos_func(t):
-        if t > duration: return end_pos
+        if t > duration:
+            return end_pos
         p = t / duration
-        # Ease-out cubic
-        ease = 1 - pow(1 - p, 3)
+        eased = ease_out_cubic(p)
         return (
-            start_pos[0] + (end_pos[0] - start_pos[0]) * ease,
-            start_pos[1] + (end_pos[1] - start_pos[1]) * ease
+            start_pos[0] + (end_pos[0] - start_pos[0]) * eased,
+            start_pos[1] + (end_pos[1] - start_pos[1]) * eased
         )
     return clip.with_position(pos_func)
 
+
 def render_dynamic_scene(preset_id, elements, duration, output_path, video_format="vertical"):
-    """Профессиональный рендеринг динамических сцен v3.0 (MediaEngine Unified)."""
+    from core.config_loader import get_config
+    config = get_config("dynamic_scenes")
+    preset = next((p for p in config.get("presets", []) if p.get("id") == preset_id), None)
+
+    if preset and preset.get("layers"):
+        from core.layer_renderer import render_from_layers
+        return render_from_layers(preset, elements, duration, output_path, video_format)
+
     try:
         if video_format == "horizontal":
             width, height = 1920, 1080
         else:
             width, height = 1080, 1920
-            
+
         media_engine = MediaEngine(width, height)
         font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-        if not os.path.exists(font_path): font_path = "DejaVu-Sans-Bold"
+        if not os.path.exists(font_path):
+            font_path = "DejaVu-Sans-Bold"
 
         clips = []
-        
-        # 1. ОБРАБОТКА ФОНА
+
+        # 1. ФОН
         bg_path = elements.get('bg') or elements.get('left')
         if bg_path and os.path.exists(bg_path):
-            # Используем MediaEngine для подготовки фона
             bg_scene = media_engine.process_asset(
-                bg_path, 
-                duration, 
-                mode="cover", 
-                allow_effects=True, 
-                effects=["ken_burns"]
+                bg_path, duration, mode="cover", allow_effects=True, effects=["ken_burns"]
             )
             clips.append(bg_scene)
         else:
@@ -53,15 +58,11 @@ def render_dynamic_scene(preset_id, elements, duration, output_path, video_forma
             logo_path = elements.get('logo')
             if logo_path and os.path.exists(logo_path):
                 logo = ImageClip(logo_path).with_duration(duration)
-                # Ресайз логотипа (макс 40% от ширины)
                 logo = logo.resized(width=width * 0.4)
-                
-                # Эффект пульсации
-                def zoom_func(t):
-                    import math
-                    return 1.0 + 0.1 * math.sin(t * 2)
-                
-                logo = logo.with_effects([vfx.Resize(zoom_func)])
+
+                def _logo_zoom(t):
+                    return logo_pulse_zoom(t, duration)
+                logo = logo.with_effects([vfx.Resize(_logo_zoom)])
                 logo = logo.with_position("center")
                 clips.append(logo)
 
@@ -73,13 +74,13 @@ def render_dynamic_scene(preset_id, elements, duration, output_path, video_forma
 
             panel_h = int(height * 0.25)
             panel_y = int(height * 0.7)
-            
+
             panel = ColorClip(size=(width - 100, panel_h), color=(0, 0, 0)).with_opacity(0.8).with_duration(duration)
             panel = panel.with_effects([vfx.FadeIn(0.5)])
             panel = create_animation_slide(panel, (width, panel_y), (50, panel_y), duration=0.8)
             clips.append(panel)
 
-            txt_title = TextClip(text=title_text, font_size=70, color='white', font=font_path, 
+            txt_title = TextClip(text=title_text, font_size=70, color='white', font=font_path,
                                  method='caption', size=(width-200, None)).with_duration(duration)
             txt_title = create_animation_slide(txt_title, (width, panel_y + 40), (100, panel_y + 40), duration=1.0)
             clips.append(txt_title)
@@ -108,11 +109,10 @@ def render_dynamic_scene(preset_id, elements, duration, output_path, video_forma
             if left_p and right_p:
                 if video_format == "vertical":
                     part_w, part_h = width, height // 2
-                    # Используем MediaEngine для подготовки половинок
                     engine_part = MediaEngine(part_w, part_h)
                     left = engine_part.process_asset(left_p, duration, mode="cover")
                     right = engine_part.process_asset(right_p, duration, mode="cover")
-                    
+
                     left = create_animation_slide(left.with_position((0, 0)), (0, -part_h), (0, 0), duration=1.0)
                     right = create_animation_slide(right.with_position((0, part_h)), (0, height), (0, part_h), duration=1.0)
                 else:
@@ -120,24 +120,16 @@ def render_dynamic_scene(preset_id, elements, duration, output_path, video_forma
                     engine_part = MediaEngine(part_w, part_h)
                     left = engine_part.process_asset(left_p, duration, mode="cover")
                     right = engine_part.process_asset(right_p, duration, mode="cover")
-                    
+
                     left = create_animation_slide(left.with_position((0, 0)), (-part_w, 0), (0, 0), duration=1.0)
                     right = create_animation_slide(right.with_position((part_w, 0)), (width, 0), (part_w, 0), duration=1.0)
-                
+
                 clips.extend([left, right])
 
-        # СБОРКА
         final = CompositeVideoClip(clips, size=(width, height))
-        
         final.write_videofile(
-            output_path, 
-            fps=30, 
-            codec="libx264", 
-            audio=False, 
-            threads=4, 
-            preset="ultrafast",
-            bitrate="2000k",
-            logger=None
+            output_path, fps=30, codec="libx264", audio=False,
+            threads=4, preset="ultrafast", bitrate="2000k", logger=None
         )
         return output_path
 

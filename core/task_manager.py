@@ -1,10 +1,15 @@
 import asyncio
 import logging
+import os
 import time
+import multiprocessing
 from typing import Callable, Any, Dict
 from bot.pipeline_manager import render_project_video
 
 logger = logging.getLogger(__name__)
+
+CPU_COUNT = multiprocessing.cpu_count()
+MAX_RENDER_THREADS = min(max(2, int(CPU_COUNT * 0.5)), 4)
 
 class RenderTaskManager:
     """Менеджер фоновых задач рендеринга (Singleton)."""
@@ -59,8 +64,8 @@ class RenderTaskManager:
             task['started_at'] = time.time()
             
             try:
-                # Вызываем рендер из pipeline_manager
-                video_path = await render_project_video(project_id, audio_path)
+                logger.info(f"Worker: Starting render for {project_id} (threads={MAX_RENDER_THREADS})")
+                video_path = await render_project_video(project_id, audio_path, render_threads=MAX_RENDER_THREADS)
                 
                 if video_path:
                     from core.project_manager import ProjectManager
@@ -84,7 +89,12 @@ class RenderTaskManager:
                         srt_path = str(project_path / "subtitles.srt")
                         output_path = str(project_path / "video_with_subtitles.mp4")
                         
-                        srt_res = generate_srt_from_project(proj_data['scenes'], proj_data['whisper_segments'], srt_path)
+                        scenes_for_srt = proj_data['scenes']
+                        assets = proj_data.get('assets', {})
+                        for i, s in enumerate(scenes_for_srt):
+                            s['allow_montage_effects'] = assets.get(str(i), {}).get('allow_montage_effects', True)
+                        
+                        srt_res = generate_srt_from_project(scenes_for_srt, proj_data['whisper_segments'], srt_path)
                         if srt_res:
                             res_path = await asyncio.to_thread(burn_subtitles, video_path, srt_path, output_path)
                             if res_path and os.path.exists(res_path):

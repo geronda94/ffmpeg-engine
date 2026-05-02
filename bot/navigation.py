@@ -1,17 +1,16 @@
 import logging
-import json
 from aiogram import types
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.states import ProjectStates
 from core.project_manager import ProjectManager
+from core.config_loader import get_config
 
 logger = logging.getLogger(__name__)
 pm = ProjectManager()
 
 def load_presets():
-    with open("config/audio_presets.json", "r", encoding="utf-8") as f:
-        return json.load(f)
+    return get_config("audio_presets")
 
 async def ask_for_asset(message: types.Message, state: FSMContext, scene_idx: int = 0):
     """Переход к сбору материалов (v10.0 Disk-First)."""

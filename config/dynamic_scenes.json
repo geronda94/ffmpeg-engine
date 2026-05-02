@@ -32,6 +32,56 @@
                 {"id": "left", "name": "Левая часть", "type": "media"},
                 {"id": "right", "name": "Правая часть", "type": "media"}
             ]
+        },
+        {
+            "id": "text_reveal",
+            "name": "🔤 Текстовое раскрытие",
+            "description": "Заголовок и подзаголовок выезжают снизу поверх фона.",
+            "allow_montage_effects": false,
+            "elements": [
+                {"id": "bg", "name": "Фоновый материал", "type": "media"},
+                {"id": "title", "name": "Заголовок", "type": "text"},
+                {"id": "subtitle", "name": "Подзаголовок (опционально)", "type": "text"}
+            ],
+            "layers": [
+                {"element": "bg", "type": "media", "mode": "cover", "effects": ["ken_burns"]},
+                {"element": "title", "type": "text", "font_size": 72, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.32"}, "animation": {"type": "slide_up", "duration": 0.8, "easing": "ease_out_cubic"}},
+                {"element": "subtitle", "type": "text", "font_size": 46, "color": "#CCCCCC", "position": {"x": "center", "y": "h*0.58"}, "animation": {"type": "slide_up", "duration": 1.0, "easing": "ease_out_cubic"}}
+            ]
+        },
+        {
+            "id": "icon_presentation",
+            "name": "🕊 Иконная презентация",
+            "description": "Икона/изображение спускается сверху с уменьшением. Заголовок и описание раскрываются снизу.",
+            "allow_montage_effects": false,
+            "elements": [
+                {"id": "bg", "name": "Фоновый материал", "type": "media"},
+                {"id": "icon", "name": "Икона/изображение (PNG)", "type": "photo"},
+                {"id": "title", "name": "Заголовок", "type": "text"},
+                {"id": "description", "name": "Описание", "type": "text"}
+            ],
+            "layers": [
+                {"element": "bg", "type": "media", "mode": "cover", "effects": ["ken_burns"]},
+                {"element": "icon", "type": "overlay", "scale": 0.35, "position": {"x": "center", "y": "h*0.30"}, "animation": {"type": "reveal_from_top", "duration": 1.3, "start_scale": 1.5, "end_scale": 1.0}},
+                {"element": "title", "type": "text", "font_size": 55, "color": "#FFD700", "position": {"x": "center", "y": "h*0.62"}, "animation": {"type": "fade_in_up", "duration": 0.8, "easing": "ease_out_cubic"}},
+                {"element": "description", "type": "text", "font_size": 34, "color": "#DDDDDD", "position": {"x": "center", "y": "h*0.76"}, "animation": {"type": "fade_in_up", "duration": 1.0, "easing": "ease_out_cubic"}}
+            ]
+        },
+        {
+            "id": "footage_intro",
+            "name": "🎬 Футажное интро",
+            "description": "Фоновый футаж с виньеткой. Логотип и заголовок проявляются через fade-in.",
+            "allow_montage_effects": false,
+            "elements": [
+                {"id": "bg", "name": "Фоновый футаж/видео", "type": "media"},
+                {"id": "logo", "name": "Логотип/иконка (PNG)", "type": "photo"},
+                {"id": "headline", "name": "Заголовок", "type": "text"}
+            ],
+            "layers": [
+                {"element": "bg", "type": "media", "mode": "cover", "effects": [{"type": "ken_burns", "zoom_from": 1.0, "zoom_to": 1.10, "start_frac": 0.0, "end_frac": 1.0}]},
+                {"element": "logo", "type": "overlay_with_bg", "scale": 0.30, "bg_color": "#000000", "bg_opacity": 0.55, "position": "center", "animation": {"type": "scale_in", "duration": 0.8, "start_scale": 0.3}},
+                {"element": "headline", "type": "text", "font_size": 64, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.72"}, "animation": {"type": "fade_in_up", "duration": 1.2}}
+            ]
         }
     ]
 }

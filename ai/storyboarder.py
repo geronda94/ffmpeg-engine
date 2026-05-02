@@ -1,9 +1,5 @@
-import os
 import json
-from openai import OpenAI
-from dotenv import load_dotenv
-
-load_dotenv()
+from ai.llm_client import chat_json
 
 SYSTEM_PROMPT = """
 You are an AI Storyboard Artist. Your task is to break down a video script into logical scenes while ensuring high VISUAL HARMONY and COLOR CONSISTENCY.
@@ -30,27 +26,17 @@ JSON with:
 - Ensure objects or characters appearing in multiple scenes look the same.
 """
 
+
 def generate_storyboard(script: str, language: str = "Russian"):
-    client = OpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com")
-    
-    user_prompt = f"Script: {script}\nLanguage: {language}"
-    
-    response = client.chat.completions.create(
-        model="deepseek-chat",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt}
-        ],
-        response_format={'type': 'json_object'}
+    data = chat_json(
+        system_prompt=SYSTEM_PROMPT,
+        user_prompt=f"Script: {script}\nLanguage: {language}"
     )
-    data = json.loads(response.choices[0].message.content)
-    
-    # Предварительный расчет длительности для каждой сцены
+
     if "scenes" in data:
         for scene in data["scenes"]:
             text = scene.get("text_segment", "")
-            # Формула: ~13 символов в секунду (для русского) + 0.5с запас
             est_dur = max(2.5, round(len(text) / 13.0 + 0.5, 1))
             scene["estimated_duration"] = est_dur
-            
+
     return data

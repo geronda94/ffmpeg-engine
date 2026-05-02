@@ -16,6 +16,7 @@ from ai.image_generator import generate_image
 from ai.dynamic_scene_agent import render_dynamic_scene
 
 from core.video_utils import get_video_info, generate_storyboard, extract_single_frame
+from core.config_loader import get_config
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -31,8 +32,7 @@ async def handle_dynamic_asset_start(event: types.CallbackQuery | types.Message,
     else:
         message = event
         
-    with open("config/dynamic_scenes.json", "r", encoding="utf-8") as f:
-        config = json.load(f)
+    config = get_config("dynamic_scenes")
         
     kb = InlineKeyboardBuilder()
     for p in config['presets']:
@@ -65,8 +65,7 @@ async def handle_dynamic_preset_choice(callback: types.CallbackQuery, state: FSM
     await callback.answer()
     preset_id = callback.data.replace("dynpre_", "")
     
-    with open("config/dynamic_scenes.json", "r", encoding="utf-8") as f:
-        config = json.load(f)
+    config = get_config("dynamic_scenes")
     
     preset = next((p for p in config['presets'] if p['id'] == preset_id), None)
     if not preset: return
@@ -243,8 +242,7 @@ async def handle_dynamic_approval(callback: types.CallbackQuery, state: FSMConte
     pm.update_asset(project_id, scene_idx, video_path)
     
     # ФИКС: Проверяем, можно ли применять эффекты монтажа к этому пресету
-    from bot.handlers.production import load_json
-    dynamic_config = load_json("config/dynamic_scenes.json")
+    dynamic_config = get_config("dynamic_scenes")
     preset_id = data.get('dynamic_preset', {}).get('id')
     preset = next((p for p in dynamic_config['presets'] if p['id'] == preset_id), {})
     allow_effects = preset.get("allow_montage_effects", True)

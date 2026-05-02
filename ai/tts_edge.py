@@ -2,35 +2,37 @@ import edge_tts
 import logging
 import os
 import asyncio
-from openai import OpenAI
-from dotenv import load_dotenv
+from ai.llm_client import get_client
 
-# Загружаем переменные окружения из корня проекта
 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from dotenv import load_dotenv
 load_dotenv(os.path.join(root_dir, ".env"))
 
 logger = logging.getLogger(__name__)
 
+
 async def optimize_text_for_tts(text: str, lang: str, rate: str = "+0%"):
-    """Оптимизация текста через ИИ с учетом темпа речи."""
     try:
         api_key = os.getenv("DEEPSEEK_API_KEY")
         if not api_key:
             logger.warning("DEEPSEEK_API_KEY not found. Skipping AI optimization.")
             return text
-            
-        client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
-        
-        # Определяем характер темпа для ИИ
+
+        client = get_client()
+
         speed_info = "normal"
         if "+" in rate:
             val = int(rate.replace("+", "").replace("%", ""))
-            if val > 15: speed_info = "very fast and energetic"
-            elif val > 5: speed_info = "fast"
+            if val > 15:
+                speed_info = "very fast and energetic"
+            elif val > 5:
+                speed_info = "fast"
         elif "-" in rate:
             val = int(rate.replace("-", "").replace("%", ""))
-            if val > 15: speed_info = "very slow and dramatic"
-            elif val > 5: speed_info = "slow"
+            if val > 15:
+                speed_info = "very slow and dramatic"
+            elif val > 5:
+                speed_info = "slow"
 
         prompt = (
             f"You are a professional voiceover director. Optimize this text for Microsoft Edge TTS.\n"
@@ -44,28 +46,27 @@ async def optimize_text_for_tts(text: str, lang: str, rate: str = "+0%"):
             f"5. NO QUOTES: Return ONLY the optimized text.\n\n"
             f"TEXT: {text}"
         )
-        
+
         res = client.chat.completions.create(
-            model="deepseek-chat", 
-            messages=[{"role":"user", "content":prompt}]
+            model="deepseek-chat",
+            messages=[{"role": "user", "content": prompt}]
         )
-        optimized = res.choices[0].message.content.strip().replace('"', '')
+        optimized = res.choices[0].message.content.strip().replace('"', "")
         logger.info(f"TTS Optimized Text ({speed_info}): {optimized}")
         return optimized
     except Exception as e:
         logger.error(f"TTS Optimization Error: {e}")
         return text
 
+
 async def generate_tts(text: str, output_path: str, lang: str = "Russian", voice: str = None, rate: str = "+0%", pitch: str = "+0Hz"):
     """
     Генерация озвучки через Microsoft Edge TTS (бесплатно).
     """
     try:
-        # Оптимизируем текст с учетом ТЕМПА (rate)
         optimized_text = await optimize_text_for_tts(text, lang, rate)
-        
+
         if not voice:
-            # Дефолтные голоса, если не переданы
             voices = {
                 "Russian": "ru-RU-DmitryNeural",
                 "English": "en-US-AndrewNeural",

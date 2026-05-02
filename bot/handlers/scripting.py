@@ -1,7 +1,6 @@
 import json
 import asyncio
 import logging
-import os
 from aiogram import Router, types, F
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
@@ -9,44 +8,39 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.states import ProjectStates
 from ai.script_writer import generate_script
 from ai.storyboarder import generate_storyboard
+from ai.llm_client import chat_json
 from bot.navigation import ask_for_asset
 from core.project_manager import ProjectManager
+from core.config_loader import get_config
 
 logger = logging.getLogger(__name__)
 router = Router()
 pm = ProjectManager()
 
-# --- Вспомогательные функции ---
 
 def split_text(text: str, max_length: int = 4000):
-    """Дробит текст на части по лимиту Telegram."""
     return [text[i:i+max_length] for i in range(0, len(text), max_length)]
+
 
 def get_script_style_prompt(style_id: str):
     try:
-        with open("config/script_presets.json", "r", encoding="utf-8") as f:
-            presets = json.load(f)
+        presets = get_config("script_presets")
         for s in presets['styles']:
             if s['id'] == style_id: return s['prompt']
     except: pass
     return ""
 
+
 async def refine_script_ai(old_script: str, user_wish: str, lang: str, style_prompt: str):
-    from openai import OpenAI
-    client = OpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com")
     prompt = (
         f"You are a script writer. Update this script based on user wish.\n"
         f"Original: {old_script}\nWish: {user_wish}\nStyle Context: {style_prompt}\n"
         f"Language: {lang}. Return ONLY JSON: {{\"title\": \"...\", \"script\": \"...\", \"target_duration\": 60}}"
     )
-    res = client.chat.completions.create(model="deepseek-chat", messages=[{"role":"user", "content":prompt}], response_format={'type':'json_object'})
-    return json.loads(res.choices[0].message.content)
+    return chat_json(user_prompt=prompt)
+
 
 async def refine_storyboard_ai(script: str, current_scenes: list, user_wish: str, lang: str):
-    from openai import OpenAI
-    client = OpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com")
-    
-    # Максимально строгий промпт
     prompt = (
         f"You are a Storyboard Agent. Based on the script and user instructions, create/update the storyboard.\n"
         f"SCRIPT: {script}\n"
@@ -60,15 +54,8 @@ async def refine_storyboard_ai(script: str, current_scenes: list, user_wish: str
         f"4. If user says 'merge', combine the text segments of the selected scenes into one.\n"
         f"Return ONLY valid JSON in this format: {{\"scenes\": [{{...}}, {{...}}]}}"
     )
-    
-    res = client.chat.completions.create(
-        model="deepseek-chat", 
-        messages=[{"role":"user", "content":prompt}], 
-        response_format={'type':'json_object'}
-    )
-    return json.loads(res.choices[0].message.content)
+    return chat_json(user_prompt=prompt)
 
-# --- Хендлеры Сценария ---
 
 @router.message(ProjectStates.writing_topic)
 async def handle_topic_v4(message: types.Message, state: FSMContext):
@@ -83,7 +70,6 @@ async def handle_topic_v4(message: types.Message, state: FSMContext):
     
     script_data = await asyncio.to_thread(generate_script, prompt, lang)
     
-    # ФИКС: Загружаем текущие данные проекта перед сохранением, чтобы не затереть остальное
     proj = pm.load_project(data['project_id'])
     proj['script'] = script_data['script']
     pm.save_project(data['project_id'], proj)
@@ -91,6 +77,7 @@ async def handle_topic_v4(message: types.Message, state: FSMContext):
     await state.update_data(script_data=script_data)
     await status.delete()
     await show_script_approval(message, state)
+
 
 @router.message(ProjectStates.writing_manual_script)
 async def handle_manual_script(message: types.Message, state: FSMContext):
@@ -104,6 +91,7 @@ async def handle_manual_script(message: types.Message, state: FSMContext):
     await state.update_data(script_data=script_data)
     await show_script_approval(message, state)
 
+
 @router.message(ProjectStates.approving_script)
 async def handle_script_refinement(message: types.Message, state: FSMContext):
     data = await state.get_data()
@@ -115,7 +103,6 @@ async def handle_script_refinement(message: types.Message, state: FSMContext):
         
         new_data = await refine_script_ai(data['script_data']['script'], message.text, lang, "")
         
-        # ФИКС: Сохраняем полный объект проекта
         proj = pm.load_project(data['project_id'])
         proj['script'] = new_data['script']
         pm.save_project(data['project_id'], proj)
@@ -124,6 +111,7 @@ async def handle_script_refinement(message: types.Message, state: FSMContext):
         await status.delete()
         await show_script_approval(message, state)
     except: await message.answer("⚠️ Ошибка.")
+
 
 async def show_script_approval(message: types.Message, state: FSMContext):
     data = await state.get_data()
@@ -142,7 +130,6 @@ async def show_script_approval(message: types.Message, state: FSMContext):
             await message.answer(chunk)
     await state.set_state(ProjectStates.approving_script)
 
-# --- Хендлеры Раскадровки ---
 
 @router.callback_query(F.data == "approve_script", ProjectStates.approving_script)
 async def approve_script_v2(callback: types.CallbackQuery, state: FSMContext):
@@ -163,6 +150,7 @@ async def approve_script_v2(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer("🎭 **Текст одобрен!**\n\nКак подготовим раскадровку?", reply_markup=kb.as_markup())
     await state.set_state(ProjectStates.choosing_storyboard_mode)
 
+
 @router.callback_query(F.data.startswith("stmode_"), ProjectStates.choosing_storyboard_mode)
 async def start_storyboard(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
@@ -177,7 +165,6 @@ async def start_storyboard(callback: types.CallbackQuery, state: FSMContext):
         data = await state.get_data()
         project_id = data.get('project_id')
         
-        # ФИКС: Берем данные из файла, если в стейте пусто
         proj_data = pm.load_project(project_id)
         if not proj_data:
             await status.edit_text("❌ Ошибка: Проект не найден на диске.")
@@ -198,7 +185,6 @@ async def start_storyboard(callback: types.CallbackQuery, state: FSMContext):
                 await status.edit_text("❌ ИИ не смог сгенерировать сцены. Попробуйте еще раз с другим описанием.")
                 return
 
-            # ФИКС: Сохраняем сцены на диск ПЕРЕД показом, чтобы show_full_storyboard их увидел
             proj_data = pm.load_project(project_id)
             if proj_data:
                 proj_data['scenes'] = new_scenes
@@ -211,12 +197,12 @@ async def start_storyboard(callback: types.CallbackQuery, state: FSMContext):
             logger.error(f"Storyboard Generation Error: {e}")
             await status.edit_text(f"⚠️ Ошибка при генерации раскадровки: {e}")
 
+
 @router.message(ProjectStates.refining_storyboard)
 async def handle_storyboard_refinement(message: types.Message, state: FSMContext):
     data = await state.get_data()
     project_id = data.get('project_id')
     
-    # Загружаем актуальные данные с диска
     proj_data = pm.load_project(project_id)
     if not proj_data:
         await message.answer("❌ Проект не найден.")
@@ -230,19 +216,16 @@ async def handle_storyboard_refinement(message: types.Message, state: FSMContext
     try:
         res = await refine_storyboard_ai(script, scenes, message.text, lang)
         
-        # ГИБКАЯ ПРОВЕРКА: ИИ может вернуть {"scenes": [...]} или просто [...]
         if isinstance(res, list):
             new_scenes = res
         elif isinstance(res, dict) and "scenes" in res:
             new_scenes = res["scenes"]
         else:
-            # Если вернул что-то странное, пробуем найти список внутри
             new_scenes = next((v for v in res.values() if isinstance(v, list)), [])
             
         if not new_scenes:
             raise Exception("ИИ не вернул список сцен")
 
-        # ФИКС: Сохраняем обновленные сцены на диск
         proj_data = pm.load_project(project_id)
         if proj_data:
             proj_data['scenes'] = new_scenes
@@ -254,6 +237,7 @@ async def handle_storyboard_refinement(message: types.Message, state: FSMContext
     except Exception as e:
         logger.error(f"Storyboard Refine Error: {e}")
         await message.answer(f"⚠️ Ошибка: {e}")
+
 
 async def show_full_storyboard(message: types.Message, state: FSMContext):
     data = await state.get_data()
@@ -281,6 +265,7 @@ async def show_full_storyboard(message: types.Message, state: FSMContext):
             await message.answer(chunk)
             
     await state.set_state(ProjectStates.refining_storyboard)
+
 
 @router.callback_query(F.data == "st_accept_all", ProjectStates.refining_storyboard)
 async def accept_storyboard(callback: types.CallbackQuery, state: FSMContext):

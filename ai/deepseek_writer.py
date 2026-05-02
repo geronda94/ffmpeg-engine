@@ -1,10 +1,5 @@
-import os
 import json
-from pathlib import Path
-from dotenv import load_dotenv
-from openai import OpenAI
-
-load_dotenv()
+from ai.llm_client import chat_json
 
 SYSTEM_PROMPT = """
 You are an expert AI Video Producer. Generate a production package JSON.
@@ -31,14 +26,9 @@ JSON with keys:
 - Ensure "compose" has "base" and "layers" (even if empty).
 """
 
+
 def generate_project(topic: str, template_type: str = "vertical"):
-    client = OpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com")
-    response = client.chat.completions.create(
-        model="deepseek-chat",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Topic: {topic}. Format: {template_type}."}
-        ],
-        response_format={'type': 'json_object'}
+    return chat_json(
+        system_prompt=SYSTEM_PROMPT,
+        user_prompt=f"Topic: {topic}. Format: {template_type}."
     )
-    return json.loads(response.choices[0].message.content)

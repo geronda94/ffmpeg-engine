@@ -10,16 +10,13 @@ from bot.states import ProjectStates
 from bot.pipeline_manager import generate_project_audio, pm
 from bot.navigation import ask_for_tts_preset, ask_for_tts_engine
 from core.task_manager import task_manager
+from core.config_loader import get_config
 
 logger = logging.getLogger(__name__)
 router = Router()
 
-def load_json(path):
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
 def get_preset_by_id(preset_id: str):
-    presets = load_json("config/audio_presets.json")
+    presets = get_config("audio_presets")
     for engine in presets['tts_engines'].values():
         for p in engine['presets']:
             if p['id'] == preset_id:
@@ -46,11 +43,11 @@ async def send_video_result(task: dict):
         proj_data['video_result_path'] = video_path
         pm.save_project(project_id, proj_data)
         
+        from ai.metadata_agent import format_hashtags
         meta = proj_data.get('metadata', {})
         title = meta.get('title', 'Без названия')
         description = meta.get('description', '')
-        tags_list = meta.get('hashtags', [])
-        hashtags = " ".join([f"#{t}" if not t.startswith("#") else t for t in tags_list])
+        hashtags = format_hashtags(meta.get('hashtags', []))
         
         caption = (
             f"✅ **Ролик готов!**\n\n"
@@ -177,16 +174,9 @@ async def approve_audio(event: types.CallbackQuery | types.Message, state: FSMCo
     data = await state.get_data()
     proj_data = pm.load_project(data['project_id'])
     
-    # ФИКС: Если стиль монтажа уже унаследован (например, при переводе проекта),
-    # мы пропускаем этот шаг и сразу переходим к генерации SEO/метаданных.
-    if proj_data.get('visual_style'):
-        from bot.navigation import ask_for_metadata_style
-        await ask_for_metadata_style(message, state)
-        return
-        
     v_format = proj_data.get('video_format', 'vertical')
     
-    v_config = load_json("config/rendering_presets.json")
+    v_config = get_config("rendering_presets")
     styles = v_config.get(v_format, v_config['vertical'])
     
     kb = InlineKeyboardBuilder()
@@ -339,7 +329,11 @@ async def handle_add_subtitles(callback: types.CallbackQuery):
         output_path = str(project_path / "video_with_subtitles.mp4")
         
         # 1. Генерируем SRT (пропуская динамику)
-        srt_res = generate_srt_from_project(proj_data['scenes'], proj_data['whisper_segments'], srt_path)
+        scenes_for_srt = proj_data['scenes']
+        assets = proj_data.get('assets', {})
+        for i, s in enumerate(scenes_for_srt):
+            s['allow_montage_effects'] = assets.get(str(i), {}).get('allow_montage_effects', True)
+        srt_res = generate_srt_from_project(scenes_for_srt, proj_data['whisper_segments'], srt_path)
         if not srt_res:
             await status_msg.edit_text("❌ Ошибка при генерации файла субтитров.")
             return
@@ -348,11 +342,11 @@ async def handle_add_subtitles(callback: types.CallbackQuery):
         res_path = await asyncio.to_thread(burn_subtitles, video_path, srt_path, output_path)
         
         if res_path and os.path.exists(res_path):
+            from ai.metadata_agent import format_hashtags
             meta = proj_data.get('metadata', {})
             title = meta.get('title', 'Без названия')
             description = meta.get('description', '')
-            tags_list = meta.get('hashtags', [])
-            hashtags = " ".join([f"#{t}" if not t.startswith("#") else t for t in tags_list])
+            hashtags = format_hashtags(meta.get('hashtags', []))
 
             caption = (
                 f"✨ **Версия с субтитрами готова!**\n\n"

@@ -1,32 +1,69 @@
 {
   "vertical": [
     {
+      "id": "v_no_effects",
+      "name": "🚫 Без эффектов",
+      "description": "Чистый монтаж без наложения эффектов и переходов.",
+      "resize_mode": "fit",
+      "effects": [],
+      "transition": { "type": "cut", "duration": 0 }
+    },
+    {
       "id": "v_smooth_story",
       "name": "📖 Плавный сторителлинг",
-      "description": "Мягкие переходы и медленный наезд камеры.",
-      "effects": ["ken_burns"],
+      "description": "Мягкий кроссфейд и лёгкий наезд камеры.",
+      "resize_mode": "fit",
+      "effects": [
+        {"type": "ken_burns", "zoom_from": 1.0, "zoom_to": 1.12, "start_frac": 0.15, "end_frac": 0.75}
+      ],
       "transition": { "type": "crossfade", "duration": 0.5 }
     },
     {
       "id": "v_dynamic_shorts",
       "name": "⚡ Динамичный Shorts",
-      "description": "Быстрые переходы, активный зум.",
-      "effects": ["ken_burns_fast"],
-      "transition": { "type": "crossfade", "duration": 0.2 }
+      "description": "Быстрые переходы, резкий зум, высокая энергия.",
+      "resize_mode": "fit",
+      "effects": [
+        {"type": "ken_burns_fast", "zoom_from": 1.0, "zoom_to": 1.25, "start_frac": 0.10, "end_frac": 0.50}
+      ],
+      "transition": { "type": "slide_left", "duration": 0.3 }
+    },
+    {
+      "id": "v_cinematic_vert",
+      "name": "🎬 Кинематографичный",
+      "description": "Blur dissolve переходы, параллакс-панорама.",
+      "resize_mode": "cover",
+      "effects": [
+        {"type": "ken_burns", "zoom_from": 1.0, "zoom_to": 1.18, "start_frac": 0.10, "end_frac": 0.80},
+        {"type": "parallax", "direction": "left", "strength": 0.05, "start_frac": 0.05, "end_frac": 0.85}
+      ],
+      "transition": { "type": "blur_dissolve", "duration": 0.6, "blur_strength": 15 }
     }
   ],
   "wide": [
     {
+      "id": "w_no_effects",
+      "name": "🚫 Без эффектов",
+      "description": "Чистый монтаж без наложения эффектов и переходов.",
+      "resize_mode": "fit",
+      "effects": [],
+      "transition": { "type": "cut", "duration": 0 }
+    },
+    {
       "id": "w_cinematic",
       "name": "🎬 Кинематографичный",
-      "description": "Широкий формат, глубокие тени и плавные наезды.",
-      "effects": ["ken_burns"],
+      "description": "Широкий формат, плавный кроссфейд и наезд камеры.",
+      "resize_mode": "fit",
+      "effects": [
+        {"type": "ken_burns", "zoom_from": 1.0, "zoom_to": 1.12, "start_frac": 0.15, "end_frac": 0.75}
+      ],
       "transition": { "type": "crossfade", "duration": 1.0 }
     },
     {
       "id": "w_vlog_wide",
       "name": "📺 Влог / Обзор",
       "description": "Минимальные эффекты, акцент на контент.",
+      "resize_mode": "fit",
       "effects": [],
       "transition": { "type": "crossfade", "duration": 0.3 }
     }

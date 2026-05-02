@@ -11,14 +11,11 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.states import ProjectStates
 from core.project_manager import ProjectManager
+from core.config_loader import get_config
 
 logger = logging.getLogger(__name__)
 router = Router()
 pm = ProjectManager()
-
-def load_json(path):
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
 
 @router.message(Command("clean"))
 async def cmd_clean(message: types.Message):
@@ -226,7 +223,7 @@ async def choose_format(callback: types.CallbackQuery, state: FSMContext):
     proj['video_format'] = fmt
     pm.save_project(data['project_id'], proj)
     
-    presets = load_json("config/script_presets.json")
+    presets = get_config("script_presets")
     kb = InlineKeyboardBuilder()
     for mode in presets['modes']:
         kb.button(text=mode['name'], callback_data=f"scrmode_{mode['id']}")
@@ -244,7 +241,7 @@ async def choose_script_mode(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.edit_text("✍️ Пришлите ваш готовый текст для видео:")
         await state.set_state(ProjectStates.writing_manual_script)
     else:
-        presets = load_json("config/script_presets.json")
+        presets = get_config("script_presets")
         kb = InlineKeyboardBuilder()
         for s in presets['styles']:
             kb.button(text=s['name'], callback_data=f"scrstyle_{s['id']}")

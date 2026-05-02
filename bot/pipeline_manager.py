@@ -1,13 +1,13 @@
 import os
 import asyncio
 import logging
-import json
 from pathlib import Path
 from ai.tts_edge import generate_tts
 from ai.timing_agent import align_scenes_with_audio
 from ai.montage_agent import run_montage
 from ai.metadata_agent import generate_metadata
 from core.project_manager import ProjectManager
+from core.config_loader import get_config
 
 logger = logging.getLogger(__name__)
 # Инициализируем менеджер один раз
@@ -48,7 +48,7 @@ async def generate_project_audio(project_id: str, tts_preset: dict) -> str:
         logger.error(f"TTS Error: {e}")
         return None
 
-async def render_project_video(project_id: str, audio_path: str, progress_callback=None) -> str:
+async def render_project_video(project_id: str, audio_path: str, progress_callback=None, render_threads: int = 4) -> str:
     """Универсальный рендер (v3.0 Disk-First). Источник правды — только project.json."""
     proj_data = pm.load_project(project_id)
     if not proj_data:
@@ -96,11 +96,10 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
         pm.save_project(project_id, proj_data)
     
     # 3. ПОДГРУЗКА ПРЕСЕТОВ МОНТАЖА
-    with open("config/rendering_presets.json", "r", encoding="utf-8") as f:
-        m_config = json.load(f)
+    m_config = get_config("rendering_presets")
     
     v_format = proj_data.get('video_format', 'vertical')
-    style_id = proj_data.get('visual_style', 'v_smooth_story')
+    style_id = proj_data.get('visual_style', 'v_no_effects')
     
     format_styles = m_config.get(v_format, m_config['vertical'])
     preset = next((s for s in format_styles if s['id'] == style_id), format_styles[0])
@@ -152,7 +151,7 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
     try:
         success = await asyncio.to_thread(
             run_montage, scenes_for_agent, audio_path, output_path, preset, 
-            progress_callback, sound_map, width=w, height=h
+            progress_callback, sound_map, width=w, height=h, render_threads=render_threads
         )
         
         if success:
