@@ -26,18 +26,38 @@ def align_scenes_with_audio(scenes: list, audio_path: str):
         segments = result.get('segments', [])
         
         total_duration = segments[-1]['end'] if segments else 0.0
+        
+        # Подсчет длины оригинального текста и текста от Whisper
+        total_chars = sum(len(scene.get('text_segment', '')) for scene in scenes)
+        total_whisper_chars = sum(len(seg.get('text', '')) for seg in segments)
+        
+        # Если Whisper выдал мусор (текст слишком короткий), используем пропорциональное распределение
+        if not segments or (total_chars > 0 and total_whisper_chars < total_chars * 0.4):
+            logger.warning(f"Whisper output seems inaccurate ({total_whisper_chars} vs {total_chars} chars). Using proportional timing fallback.")
+            if total_duration == 0.0:
+                # Если даже длины нет, пытаемся оценить по 3 секунды на сцену
+                total_duration = len(scenes) * 3.0
+            
+            current_time = 0.0
+            processed_scenes = []
+            for scene in scenes:
+                text_len = len(scene.get('text_segment', ''))
+                ratio = text_len / total_chars if total_chars > 0 else 1.0 / len(scenes)
+                duration = total_duration * ratio
+                
+                scene['start'] = round(current_time, 3)
+                scene['end'] = round(current_time + duration, 3)
+                current_time += duration
+                processed_scenes.append(scene)
+            
+            # Корректируем конец последней сцены
+            if processed_scenes:
+                processed_scenes[-1]['end'] = round(total_duration, 3)
+            return processed_scenes
+
         current_time = 0.0
         processed_scenes = []
         
-        if not segments:
-            # Если аудио пустое, распределяем время равномерно (заглушка)
-            avg_dur = 2.0
-            for i, scene in enumerate(scenes):
-                scene['start'] = round(i * avg_dur, 3)
-                scene['end'] = round((i + 1) * avg_dur, 3)
-                processed_scenes.append(scene)
-            return processed_scenes
-
         seg_ptr = 0
         for i, scene in enumerate(scenes):
             scene_text = scene.get('text_segment', "").lower().strip()
