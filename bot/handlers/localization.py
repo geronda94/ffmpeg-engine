@@ -101,9 +101,14 @@ async def handle_translation_choice(callback: types.CallbackQuery, state: FSMCon
             proj_data['status'] = "translated"
             
             # ВАЖНО: Удаляем старые тайминги Whisper, так как новая озвучка
-            # будет иметь другую длительность. Бот сгенерирует новые при добавлении субтитров.
+            # будет иметь другую длительность. Бот сгенерирует новые при монтаже.
             if 'whisper_segments' in proj_data:
                 del proj_data['whisper_segments']
+            
+            # Также очищаем тайминги в самих сценах, чтобы они пересчитались для нового языка
+            for scene in proj_data.get('scenes', []):
+                scene.pop('start', None)
+                scene.pop('end', None)
                 
             pm.save_project(new_id, proj_data)
             

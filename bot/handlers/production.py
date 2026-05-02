@@ -324,7 +324,11 @@ async def handle_add_subtitles(callback: types.CallbackQuery):
                 from ai.timing_agent import get_model
                 model = get_model()
                 whisper_res = await asyncio.to_thread(model.transcribe, audio_path, verbose=False)
-                proj_data['whisper_segments'] = whisper_res.get('segments', [])
+                whisper_segments = whisper_res.get('segments', [])
+                proj_data['whisper_segments'] = [
+                    {'start': s['start'], 'end': s['end'], 'text': s['text']}
+                    for s in whisper_segments
+                ]
                 pm.save_project(project_id, proj_data)
             else:
                 await status_msg.edit_text("❌ Ошибка: данные Whisper и аудиофайл отсутствуют.")
