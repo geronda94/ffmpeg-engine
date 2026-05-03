@@ -32,12 +32,10 @@ async def main():
         logging.error("TELEGRAM_BOT_TOKEN не найден в .env файле!")
         return
 
-    from aiohttp import ClientTimeout
-    # Настраиваем более устойчивые таймауты для работы в условиях нестабильной сети
-    session = AiohttpSession(
-        timeout=ClientTimeout(total=120, connect=10, sock_read=120, sock_connect=10)
-    )
+    # Используем простое число для таймаута, так как aiogram складывает его при поллинге
+    session = AiohttpSession()
     
+    # Мы можем задать таймаут по умолчанию для всех запросов бота через Bot(..., request_timeout=120)
     bot = Bot(token=API_TOKEN, session=session)
     dp = Dispatcher(storage=MemoryStorage())
 
@@ -69,7 +67,7 @@ async def main():
         logging.warning(f"Failed to set bot commands: {e}")
 
     logging.info("Starting bot v3.7.1 (Localization & Queue Edition)...")
-    await dp.start_polling(bot)
+    await dp.start_polling(bot, request_timeout=120)
 
 if __name__ == "__main__":
     try:
