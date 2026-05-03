@@ -58,6 +58,14 @@
         {"type": "parallax", "direction": "left", "strength": 0.07, "start_frac": 0.0, "end_frac": 1.0}
       ],
       "transition": { "type": "fade_black", "duration": 0.5 }
+    },
+    {
+      "id": "v_mixed_ai",
+      "name": "🤖 AI Смешанный (Умный)",
+      "description": "ИИ-режиссёр анализирует каждую сцену и подбирает эффекты индивидуально.",
+      "resize_mode": "fit",
+      "effects": [],
+      "transition": { "type": "crossfade", "duration": 0.5 }
     }
   ],
   "wide": [
@@ -96,6 +104,14 @@
         {"type": "parallax", "direction": "left", "strength": 0.06, "start_frac": 0.0, "end_frac": 1.0}
       ],
       "transition": { "type": "fade_black", "duration": 0.5 }
+    },
+    {
+      "id": "w_mixed_ai",
+      "name": "🤖 AI Смешанный (Умный)",
+      "description": "ИИ-режиссёр анализирует каждую сцену и подбирает эффекты индивидуально.",
+      "resize_mode": "fit",
+      "effects": [],
+      "transition": { "type": "crossfade", "duration": 0.5 }
     }
   ]
 }

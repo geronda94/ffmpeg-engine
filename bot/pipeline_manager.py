@@ -28,7 +28,8 @@ async def generate_project_audio(project_id: str, tts_preset: dict) -> str:
         # Если сцен еще нет (например, скрипт только что написан), берем из скрипта
         full_text = proj_data.get('script', '')
     else:
-        full_text = " ".join([s['text_segment'] for s in scenes_data])
+        # Добавляем отчетливую паузу между сценами для естественного ритма
+        full_text = ". ... ".join([s['text_segment'] for s in scenes_data])
     
     if not full_text:
         raise ValueError("Cannot generate audio: no script or scenes found")
@@ -106,7 +107,27 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
     
     w, h = (1920, 1080) if v_format == 'wide' else (1080, 1920)
 
-    # 4. ПОДГОТОВКА СЦЕН (СТРОГАЯ ПРОВЕРКА)
+    # 4. СМЕШАННЫЙ МОНТАЖ (MIXED AI)
+    if style_id in ['v_mixed_ai', 'w_mixed_ai']:
+        logger.info("Mixed AI Style detected. Planning montage with Director Agent...")
+        from ai.montage_director_agent import montage_director
+        
+        # Планируем эффекты на основе текста
+        montage_plan = await montage_director.plan_montage(
+            proj_data.get('script', ''), 
+            scenes,
+            proj_data.get('language', 'Russian')
+        )
+        
+        # Применяем план к сценам (в памяти для этого рендера)
+        for i, scene in enumerate(scenes):
+            if i < len(montage_plan):
+                p = montage_plan[i]
+                scene['effects'] = p.get('effects', [])
+                scene['transition'] = p.get('transition', {})
+                logger.info(f"🎬 Scene {i} montage plan: {p}")
+
+    # 5. ПОДГОТОВКА СЦЕН (СТРОГАЯ ПРОВЕРКА)
     project_assets = proj_data.get('assets', {})
     scenes_for_agent = []
     logger.info(f"Preparing scenes for agent. Total assets found: {len(project_assets)}")

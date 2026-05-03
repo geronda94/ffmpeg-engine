@@ -34,17 +34,29 @@ async def optimize_text_for_tts(text: str, lang: str, rate: str = "+0%"):
             elif val > 5:
                 speed_info = "slow"
 
+        # Специальные инструкции для русского языка
+        lang_specific = ""
+        if lang == "Russian":
+            lang_specific = (
+                "RUSSIAN SPECIFIC RULES:\n"
+                "1. Always use 'ё' instead of 'е' where applicable (e.g., 'детёныш', 'всё').\n"
+                "2. PRONUNCIATION: In loanwords or technical terms where 'е' sounds like 'э' (e.g., 'проект' -> 'проэкт', 'бренд' -> 'брэнд'), use 'э' to force the correct hard sound.\n"
+                "3. ACCENTS: Capitalize the stressed vowel in any word that might be mispronounced (e.g., 'сУдьбы' vs 'судьбЫ').\n"
+                "4. PAUSES: Respect and enhance the '. ... ' markers between scenes. Ensure punctuation reflects the emotional rhythm.\n"
+            )
+
         prompt = (
-            f"You are a professional voiceover director. Optimize this text for Microsoft Edge TTS.\n"
-            f"GOAL: Maximum clarity and natural rhythm in {lang}.\n"
+            f"You are a professional voiceover director and phonetic expert for {lang}.\n"
+            f"Task: Adapt the provided text for Microsoft Edge Neural TTS to ensure PERFECT pronunciation and natural prosody.\n\n"
+            f"GOAL: Maximum clarity, correct accents, and natural emotional rhythm.\n"
             f"SPEED CONTEXT: The text will be read in a **{speed_info}** tempo.\n\n"
-            f"STRICT RULES:\n"
-            f"1. TEXT INTEGRITY: DO NOT add, remove, or replace any words. The output must contain the EXACT same words as the input.\n"
-            f"2. ALPHABET: Keep strictly in {lang}. NO Latin/transliteration.\n"
-            f"3. PAUSES: If speed is fast, use FEWER pauses. If speed is slow, use MORE '...' for dramatic effect.\n"
-            f"4. STRESS: Capitalize stressed vowels only in tricky words (e.g., 'крОна', 'едА').\n"
-            f"5. NO QUOTES: Return ONLY the optimized text.\n\n"
-            f"TEXT: {text}"
+            f"{lang_specific}\n"
+            f"STRICT GENERAL RULES:\n"
+            f"1. WORD INTEGRITY: Do not change, add or remove words. Only adjust characters, punctuation, and capitalization for phonetics.\n"
+            f"2. PUNCTUATION: Use '...' for long pauses and '-' for short breaks within words if they are often misread.\n"
+            f"3. PHONETIC AIDS: For {lang}, if some words are known to be mispronounced by AI, write them in a way that guides the engine (e.g., repeating a vowel or using capitalization).\n"
+            f"4. NO QUOTES: Return ONLY the optimized text for the voice engine.\n\n"
+            f"TEXT TO OPTIMIZE: {text}"
         )
 
         res = client.chat.completions.create(

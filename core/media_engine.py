@@ -173,12 +173,13 @@ class MediaEngine:
                         return canvas
                     return _frame
 
-                frame_fn = _make_kb_frame(_src, big_w, big_h, cw, ch, _dur, zoom_from, zoom_to, start_frac, end_frac, is_mask=False)
-                new_clip = VideoClip(frame_function=frame_fn, duration=_dur)
+                kb_fn = _make_kb_frame(_src, big_w, big_h, cw, ch, _dur, zoom_from, zoom_to, start_frac, end_frac)
+                new_clip = VideoClip(frame_function=kb_fn, duration=_dur, size=(big_w, big_h))
                 
-                mask_src = getattr(_src, 'mask', None)
+                # Добавляем маску, чтобы края были прозрачными при зуме
+                mask_src = _src.mask if _src.mask else ColorClip(size=(cw, ch), color=1.0, is_mask=True).with_duration(_dur)
                 mask_fn = _make_kb_frame(mask_src, big_w, big_h, cw, ch, _dur, zoom_from, zoom_to, start_frac, end_frac, is_mask=True)
-                new_mask = VideoClip(frame_function=mask_fn, duration=_dur, is_mask=True)
+                new_mask = VideoClip(frame_function=mask_fn, duration=_dur, is_mask=True, size=(big_w, big_h))
                 new_clip = new_clip.with_mask(new_mask)
                 
                 clip = new_clip

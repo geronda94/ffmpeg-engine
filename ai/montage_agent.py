@@ -115,13 +115,17 @@ class BaseMontageEngine:
             for i, scene in enumerate(scenes):
                 start_time = scene['start']
                 
+                # Длительность наложения (overhang) зависит от перехода СЛЕДУЮЩЕЙ сцены
                 if i < len(scenes) - 1:
-                    next_start = scenes[i+1]['start']
+                    next_scene = scenes[i+1]
+                    next_trans = next_scene.get('transition', trans_cfg)
+                    next_start = next_scene['start']
                     total_dur = next_start - start_time
+                    overhang = next_trans.get('duration', 0.5)
                 else:
                     total_dur = audio.duration - start_time
+                    overhang = 0
                 
-                overhang = trans_cfg.get('duration', 0)
                 total_dur += overhang
 
                 logger.info(f"--- Processing Scene {i} ---")
@@ -130,14 +134,16 @@ class BaseMontageEngine:
                 clip = self.media_engine.process_asset(
                     scene['asset_path'], 
                     total_dur, 
-                    mode=preset.get("resize_mode", "fit"),
+                    mode=scene.get("resize_mode", preset.get("resize_mode", "fit")),
                     offset=scene.get('start_offset', 0),
                     allow_effects=scene.get('allow_montage_effects', True),
-                    effects=preset.get('effects', [])
+                    effects=scene.get('effects', preset.get('effects', []))
                 )
                 
                 clip = clip.with_start(start_time)
-                clip = _apply_transition(clip, trans_cfg, i == 0, self.width, self.height)
+                # Приоритет переходу из сцены, затем из пресета
+                scene_trans = scene.get('transition', trans_cfg)
+                clip = _apply_transition(clip, scene_trans, i == 0, self.width, self.height)
                 
                 final_clips.append(clip)
                 logger.info(f"Scene {i} added successfully.")
