@@ -33,7 +33,6 @@ async def main():
         return
 
     session = AiohttpSession()
-    session.timeout = 900 
     
     bot = Bot(token=API_TOKEN, session=session)
     dp = Dispatcher(storage=MemoryStorage())

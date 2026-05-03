@@ -32,7 +32,7 @@
       "id": "v_cinematic_vert",
       "name": "🎬 Кинематографичный",
       "description": "Blur dissolve переходы, параллакс-панорама.",
-      "resize_mode": "cover",
+      "resize_mode": "fit",
       "effects": [
         {"type": "ken_burns", "zoom_from": 1.0, "zoom_to": 1.18, "start_frac": 0.10, "end_frac": 0.80},
         {"type": "parallax", "direction": "left", "strength": 0.05, "start_frac": 0.05, "end_frac": 0.85}
@@ -43,7 +43,7 @@
       "id": "v_zoom_out_reveal",
       "name": "🔭 Zoom-Out раскрытие",
       "description": "Каждая сцена начинается с крупного плана и медленно отдаляется. Ощущение глубины.",
-      "resize_mode": "cover",
+      "resize_mode": "fit",
       "effects": [
         {"type": "ken_burns", "zoom_from": 1.20, "zoom_to": 1.0, "start_frac": 0.05, "end_frac": 0.85}
       ],
@@ -53,7 +53,7 @@
       "id": "v_parallax_drift",
       "name": "🌊 Параллакс-дрейф",
       "description": "Горизонтальный дрейф без зума. Медитативный, подходит для атмосферного контента.",
-      "resize_mode": "cover",
+      "resize_mode": "fit",
       "effects": [
         {"type": "parallax", "direction": "left", "strength": 0.07, "start_frac": 0.0, "end_frac": 1.0}
       ],
@@ -91,7 +91,7 @@
       "id": "w_parallax_drift",
       "name": "🌊 Параллакс-дрейф",
       "description": "Горизонтальный дрейф, кино-атмосфера.",
-      "resize_mode": "cover",
+      "resize_mode": "fit",
       "effects": [
         {"type": "parallax", "direction": "left", "strength": 0.06, "start_frac": 0.0, "end_frac": 1.0}
       ],

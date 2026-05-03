@@ -226,8 +226,9 @@ class MediaEngine:
                 positioned_pan = pan_clip.with_position(
                     _make_par_pos(_cx, _cy, _pw, _dir, _str, _sf, _ef, _pdur)
                 )
-                # Оборачиваем в CompositeVideoClip для фиксации размера (отсекает выезжающие края)
-                clip = CompositeVideoClip([positioned_pan], size=(clip.w, clip.h)).with_duration(_pdur)
+                # Оборачиваем в CompositeVideoClip для фиксации ШИРИНЫ (отсекает выезжающие края),
+                # но высоту оставляем от pan_clip, чтобы не обрезать верх и низ контента.
+                clip = CompositeVideoClip([positioned_pan], size=(clip.w, pan_clip.h)).with_duration(_pdur)
 
         return clip
 

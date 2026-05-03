@@ -77,7 +77,8 @@ async def send_video_result(task: dict):
                 caption=caption[:1024], 
                 parse_mode="Markdown",
                 reply_to_message_id=reply_id,
-                reply_markup=kb.as_markup()
+                reply_markup=kb.as_markup(),
+                request_timeout=900
             )
             # Отправляем JSON конфиг
             json_path = pm.get_project_path(project_id) / "project.json"
@@ -86,7 +87,8 @@ async def send_video_result(task: dict):
                     user_id,
                     FSInputFile(str(json_path)),
                     reply_to_message_id=msg.message_id,
-                    caption="📄 Конфиг проекта"
+                    caption="📄 Конфиг проекта",
+                    request_timeout=900
                 )
                 pm.add_protected_message(doc_msg.message_id)
 
