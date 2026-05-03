@@ -151,7 +151,9 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
             "end": scene['end'],
             "text_segment": scene['text_segment'],
             "start_offset": asset_info.get('start_offset', 0),
-            "allow_montage_effects": asset_info.get('allow_montage_effects', True)
+            "allow_montage_effects": asset_info.get('allow_montage_effects', True),
+            "effects": scene.get('effects', []),
+            "transition": scene.get('transition', {})
         })
 
     logger.info(f"Total scenes for agent: {len(scenes_for_agent)}/{len(scenes)}")

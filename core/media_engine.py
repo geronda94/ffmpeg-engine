@@ -26,6 +26,7 @@ class MediaEngine:
         self.DEFAULT_LUM = -50
 
     def smart_resize_stable(self, clip, mode="fit", effects_data=None):
+        logger.info(f"⚙️ [MediaEngine] smart_resize_stable start: mode={mode}, effects_count={len(effects_data) if effects_data else 0}")
         import math
         target_w, target_h = self.width, self.height
         
@@ -117,6 +118,7 @@ class MediaEngine:
 
         for effect in effects_data:
             eff_type = effect if isinstance(effect, str) else effect.get("type", "")
+            logger.info(f"✨ [MediaEngine] Applying effect: {eff_type} (config: {effect})")
 
             if eff_type in ("ken_burns", "ken_burns_fast"):
                 zoom_from = 1.0
@@ -174,12 +176,14 @@ class MediaEngine:
                     return _frame
 
                 kb_fn = _make_kb_frame(_src, big_w, big_h, cw, ch, _dur, zoom_from, zoom_to, start_frac, end_frac)
-                new_clip = VideoClip(frame_function=kb_fn, duration=_dur, size=(big_w, big_h))
+                new_clip = VideoClip(frame_function=kb_fn, duration=_dur)
+                new_clip.size = (big_w, big_h)
                 
                 # Добавляем маску, чтобы края были прозрачными при зуме
                 mask_src = _src.mask if _src.mask else ColorClip(size=(cw, ch), color=1.0, is_mask=True).with_duration(_dur)
                 mask_fn = _make_kb_frame(mask_src, big_w, big_h, cw, ch, _dur, zoom_from, zoom_to, start_frac, end_frac, is_mask=True)
-                new_mask = VideoClip(frame_function=mask_fn, duration=_dur, is_mask=True, size=(big_w, big_h))
+                new_mask = VideoClip(frame_function=mask_fn, duration=_dur, is_mask=True)
+                new_mask.size = (big_w, big_h)
                 new_clip = new_clip.with_mask(new_mask)
                 
                 clip = new_clip
@@ -188,14 +192,18 @@ class MediaEngine:
 
             elif eff_type == "pulse":
                 frequency = 1.5
-                amplitude = 5.0
+                amplitude = 6.0 # Немного усилили по умолчанию
                 if isinstance(effect, dict):
                     frequency = effect.get("frequency", frequency)
                     amplitude = effect.get("amplitude", amplitude)
 
-                def _pulse_func(t):
-                    return smooth_pulse_lum(t, frequency, amplitude)
-                clip = clip.with_effects([vfx.LumContrast(lum=_pulse_func)])
+                def _pulse_transform(get_frame, t):
+                    frame = get_frame(t)
+                    lum_shift = smooth_pulse_lum(t, frequency, amplitude)
+                    # Применяем изменение яркости напрямую к массиву кадра
+                    return np.clip(frame.astype(np.float32) + lum_shift, 0, 255).astype(np.uint8)
+
+                clip = clip.transform(_pulse_transform)
 
             elif eff_type == "parallax":
                 direction = effect.get("direction", "left") if isinstance(effect, dict) else "left"
