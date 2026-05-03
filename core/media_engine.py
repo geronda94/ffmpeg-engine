@@ -6,6 +6,11 @@ from moviepy import VideoFileClip, ImageClip, ColorClip, CompositeVideoClip, Vid
 
 logger = logging.getLogger(__name__)
 
+# Порог минимального масштаба переднего плана (доля от размера экрана).
+# Изменяйте для подстройки масштаба узких/мелких медиа. Работает для обеих ориентаций кадра.
+MIN_FG_SCALE_DIVISOR = 2.5
+
+
 class MediaEngine:
     """
     Унифицированный движок для обработки медиа-контента.
@@ -20,7 +25,7 @@ class MediaEngine:
         self.BLUR_UPSCALER = 50.0
         self.DEFAULT_LUM = -50
 
-    def smart_resize_stable(self, clip, mode="fit"):
+    def smart_resize_stable(self, clip, mode="fit", effects_data=None):
         import math
         target_w, target_h = self.width, self.height
         
@@ -35,21 +40,25 @@ class MediaEngine:
             # Точный кроп через x1/y1/x2/y2 — нет плавающих центров
             x1 = (new_w - target_w) // 2
             y1 = (new_h - target_h) // 2
-            return resized.cropped(
+            res = resized.cropped(
                 x1=x1, y1=y1,
                 x2=x1 + target_w, y2=y1 + target_h
             ).with_position((0, 0))
+
+            if effects_data:
+                res = self.apply_preset_effects(res, effects_data)
+            return res
             
         else:
-            # 1. Получаем основу cover (гарантированно target_w x target_h)
+            # 1. Получаем основу cover
             bg = self.smart_resize_stable(clip, mode="cover")
             
             # 2. Размываем: сжать до крошечного → растянуть с запасом
             bg = bg.resized(self.BLUR_RESIZE_FACTOR)
             
-            # Растягиваем чуть больше target, кропаем через точные координаты
-            over_w = target_w + 60
-            over_h = target_h + 60
+            # Растягиваем на 10% больше target, чтобы гарантированно избежать черных рамок
+            over_w = int(target_w * 1.1)
+            over_h = int(target_h * 1.1)
             bg = bg.resized(width=over_w, height=over_h)
             x1 = (over_w - target_w) // 2
             y1 = (over_h - target_h) // 2
@@ -60,11 +69,43 @@ class MediaEngine:
             
             bg = bg.with_effects([vfx.LumContrast(lum=self.DEFAULT_LUM)])
             
-            # 3. Передний план (fit — вписываем без обрезки)
+            # 3. Передний план (fit)
             ratio = min(target_w / clip.w, target_h / clip.h)
             new_w = math.ceil(clip.w * ratio)
             new_h = math.ceil(clip.h * ratio)
-            fg = clip.resized(width=new_w, height=new_h).with_position("center")
+            
+            # ФИКС: увеличиваем размер, если вторичная ось слишком мала
+            is_vertical_video = target_h > target_w
+            
+            if is_vertical_video:
+                min_h = target_h / MIN_FG_SCALE_DIVISOR
+                if new_h < min_h:
+                    ratio = min_h / clip.h
+                    new_w = math.ceil(clip.w * ratio)
+                    new_h = math.ceil(clip.h * ratio)
+            else:
+                min_w = target_w / MIN_FG_SCALE_DIVISOR
+                if new_w < min_w:
+                    ratio = min_w / clip.w
+                    new_w = math.ceil(clip.w * ratio)
+                    new_h = math.ceil(clip.h * ratio)
+            
+            fg = clip.resized(width=new_w, height=new_h)
+            
+            # Если после увеличения размеры превысили кадр, кропаем по центру
+            if new_w > target_w or new_h > target_h:
+                x1 = max(0, (new_w - target_w) // 2)
+                y1 = max(0, (new_h - target_h) // 2)
+                x2 = min(new_w, x1 + target_w)
+                y2 = min(new_h, y1 + target_h)
+                fg = fg.cropped(x1=x1, y1=y1, x2=x2, y2=y2)
+
+
+            # ПРИМЕНЯЕМ ЭФФЕКТЫ ТОЛЬКО К ПЕРЕДНЕМУ ПЛАНУ!
+            if effects_data:
+                fg = self.apply_preset_effects(fg, effects_data)
+
+            fg = fg.with_position("center")
             
             return CompositeVideoClip([bg, fg], size=(target_w, target_h))
 
@@ -88,40 +129,60 @@ class MediaEngine:
                     start_frac = effect.get("start_frac", start_frac)
                     end_frac = effect.get("end_frac", end_frac)
 
-                # Ken Burns MoviePy 2.x: большой клип + центральный кроп + ресайз до экрана.
-                # Не используем vfx.Resize (якорится в top-left).
-                # При zoom=z: кропаем область размером (screen/z)*max_z из центра большого клипа,
-                # затем ресайзим до экрана — зум всегда из центра.
+                # Идеальный Ken Burns: клип РАСТЁТ на экране из центра.
+                # Canvas фиксируется по максимальному размеру зума.
+                cw, ch = clip.w, clip.h
                 max_z = max(zoom_from, zoom_to)
-                big_w = int(self.width * max_z * 1.02)
-                big_h = int(self.height * max_z * 1.02)
-                big_clip = clip.resized(width=big_w, height=big_h)
+                big_w = int(cw * max_z) + 4  # +4px запас
+                big_h = int(ch * max_z) + 4
+                _dur = clip_dur
+                _src = clip
 
-                _bw, _bh = big_w, big_h
-                _tw, _th = self.width, self.height
-                _dur_kb = clip_dur
+                def _make_kb_frame(src, bw, bh, ow, oh, d, zf, zt, sf, ef, is_mask=False):
+                    def _frame(t):
+                        z = ken_burns_zoom(t, d, zf, zt, sf, ef)
+                        new_w = max(1, int(ow * z))
+                        new_h = max(1, int(oh * z))
+                        
+                        if is_mask:
+                            if src is not None:
+                                raw = src.get_frame(t)
+                                img = _PILImage.fromarray((raw * 255).astype(np.uint8), mode="L")
+                                scaled = np.array(img.resize((new_w, new_h), _PILImage.BILINEAR)) / 255.0
+                            else:
+                                scaled = np.ones((new_h, new_w), dtype=np.float64)
+                            canvas = np.zeros((bh, bw), dtype=np.float64)
+                        else:
+                            raw = src.get_frame(t)
+                            img = _PILImage.fromarray(raw.astype(np.uint8))
+                            scaled = np.array(img.resize((new_w, new_h), _PILImage.BILINEAR))
+                            canvas = np.zeros((bh, bw, 3), dtype=np.uint8)
+                            
+                        x1 = (bw - new_w) // 2
+                        y1 = (bh - new_h) // 2
+                        x2 = x1 + new_w
+                        y2 = y1 + new_h
+                        
+                        if x2 > bw or y2 > bh:
+                            trim_w = min(new_w, bw - x1)
+                            trim_h = min(new_h, bh - y1)
+                            canvas[y1:y1+trim_h, x1:x1+trim_w] = scaled[:trim_h, :trim_w]
+                        else:
+                            canvas[y1:y2, x1:x2] = scaled
+                            
+                        return canvas
+                    return _frame
 
-                def _build_kb(bc, bw, bh, tw, th, dur, zf, zt, sf, ef):
-                    from moviepy import concatenate_videoclips
-                    fps_v = 30
-                    n = max(1, int(round(dur * fps_v)))
-                    step = dur / n
-                    parts = []
-                    for i in range(n):
-                        t = i * step
-                        z = ken_burns_zoom(t, dur, zf, zt, sf, ef)
-                        cw = min(bw, int(tw * max_z / z))
-                        ch = min(bh, int(th * max_z / z))
-                        x1 = (bw - cw) // 2
-                        y1 = (bh - ch) // 2
-                        seg = bc.subclipped(t, min(t + step, dur))
-                        seg = seg.cropped(x1=x1, y1=y1, x2=x1 + cw, y2=y1 + ch)
-                        seg = seg.resized(width=tw, height=th)
-                        parts.append(seg)
-                    return concatenate_videoclips(parts) if parts else bc.resized(width=tw, height=th)
+                frame_fn = _make_kb_frame(_src, big_w, big_h, cw, ch, _dur, zoom_from, zoom_to, start_frac, end_frac, is_mask=False)
+                new_clip = VideoClip(frame_function=frame_fn, duration=_dur)
+                
+                mask_src = getattr(_src, 'mask', None)
+                mask_fn = _make_kb_frame(mask_src, big_w, big_h, cw, ch, _dur, zoom_from, zoom_to, start_frac, end_frac, is_mask=True)
+                new_mask = VideoClip(frame_function=mask_fn, duration=_dur, is_mask=True)
+                new_clip = new_clip.with_mask(new_mask)
+                
+                clip = new_clip
 
-                clip = _build_kb(big_clip, _bw, _bh, _tw, _th,
-                                 _dur_kb, zoom_from, zoom_to, start_frac, end_frac)
 
 
             elif eff_type == "pulse":
@@ -142,14 +203,13 @@ class MediaEngine:
                 end_frac = effect.get("end_frac", 0.80) if isinstance(effect, dict) else 0.80
 
                 # Параллакс: расширяем клип горизонтально, сдвигаем по x.
-                # Вертикально центрируем через center_y. Оригинальный подход корректен.
                 pad_factor = 1.0 + strength * 2.5
                 pan_clip = clip.resized(
                     width=int(clip.w * pad_factor),
                     height=int(clip.h * pad_factor)
                 )
-                _cx = (self.width - pan_clip.w) / 2
-                _cy = (self.height - pan_clip.h) / 2
+                _cx = (clip.w - pan_clip.w) / 2
+                _cy = (clip.h - pan_clip.h) / 2
                 _pw = pan_clip.w
                 _dir = direction
                 _str = strength
@@ -160,12 +220,14 @@ class MediaEngine:
                 def _make_par_pos(cx, cy, pw, dire, stre, sf, ef, dur):
                     def _pos(t):
                         px = parallax_pan_x(t, pw, dur, dire, stre, sf, ef)
-                        return (cx + px, cy)
+                        return (int(cx + px), int(cy))
                     return _pos
 
-                clip = pan_clip.with_position(
+                positioned_pan = pan_clip.with_position(
                     _make_par_pos(_cx, _cy, _pw, _dir, _str, _sf, _ef, _pdur)
                 )
+                # Оборачиваем в CompositeVideoClip для фиксации размера (отсекает выезжающие края)
+                clip = CompositeVideoClip([positioned_pan], size=(clip.w, clip.h)).with_duration(_pdur)
 
         return clip
 
@@ -185,20 +247,13 @@ class MediaEngine:
             else:
                 raw = ImageClip(asset_path).with_duration(duration)
 
-            # ФИКС: убираем двойную обёртку в черный ColorClip.
-            # smart_resize_stable уже возвращает клип точного размера экрана.
-            # Лишний CompositeVideoClip([base, processed]) создаёт пиксельные зазоры.
-            # Если эффекты отключены, принудительно используем cover (чтобы не было размытия фона)
-            # или можно было бы добавить режим 'fit_black'
             current_mode = mode
             if not allow_effects and current_mode == "fit":
-                current_mode = "cover" # Для "своих сцен" cover обычно лучше, чем блюр
+                current_mode = "cover" # Для "своих сцен" cover обычно лучше
             
-            processed = self.smart_resize_stable(raw, mode=current_mode)
+            effects_to_apply = effects if allow_effects else None
+            processed = self.smart_resize_stable(raw, mode=current_mode, effects_data=effects_to_apply)
             processed = processed.with_duration(duration)
-            
-            if allow_effects and effects:
-                processed = self.apply_preset_effects(processed, effects)
             
             return processed
             
