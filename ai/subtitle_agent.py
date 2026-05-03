@@ -102,10 +102,6 @@ def generate_srt_from_project(scenes: list, whisper_segments: list, output_path:
         logger.error(f"SRT generation error: {e}")
         return None
 
-    except Exception as e:
-        logger.error(f"SRT generation error: {e}")
-        return None
-
 
 def burn_subtitles(video_path: str, srt_path: str, output_path: str) -> str | None:
     """
