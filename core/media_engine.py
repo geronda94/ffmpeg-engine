@@ -51,7 +51,36 @@ class MediaEngine:
             return res
             
         else:
-            # 1. Получаем основу cover
+            # ОПТИМИЗАЦИЯ: Если пропорции близки к целевым, используем быстрый COVER
+            target_ratio = target_w / target_h
+            clip_ratio = clip.w / clip.h
+            diff = abs(clip_ratio - target_ratio) / target_ratio
+            
+            if diff < 0.20:
+                logger.info(f"⚡ [MediaEngine] Proportions are close (diff {diff:.2f}). Using FAST cover mode with Color Background.")
+                
+                # 1. Вычисляем средний цвет (МГНОВЕННО через сжатие)
+                try:
+                    # Сжимаем до 1x1 пикселя для получения среднего цвета
+                    small_img = clip.resized((1, 1))
+                    avg_color = small_img.get_frame(0)[0][0].tolist()
+                except:
+                    avg_color = [30, 30, 30] # Темно-серый дефолт
+
+                # 2. Создаем подложку (длительность берем явно)
+                final_dur = clip.duration or 5.0
+                bg = ColorClip(size=(target_w, target_h), color=avg_color).with_duration(final_dur)
+                
+                # 3. Готовим основной клип (Cover + 2% запас)
+                safe_w, safe_h = int(target_w * 1.02), int(target_h * 1.02)
+                old_w, old_h = self.width, self.height
+                self.width, self.height = safe_w, safe_h
+                fg = self.smart_resize_stable(clip, mode="cover", effects_data=effects_data)
+                self.width, self.height = old_w, old_h
+                
+                return CompositeVideoClip([bg, fg.with_position("center")], size=(target_w, target_h)).with_duration(final_dur)
+
+            # 1. Получаем основу cover (для фона с блюром)
             bg = self.smart_resize_stable(clip, mode="cover")
             
             # 2. Размываем: сжать до крошечного → растянуть с запасом

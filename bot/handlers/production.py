@@ -161,7 +161,9 @@ async def handle_preset_choice(callback: types.CallbackQuery, state: FSMContext)
         kb.button(text="✅ Одобрить", callback_data="audio_ok")
         kb.button(text="🔄 Переделать", callback_data="audio_retry")
         kb.adjust(2)
-        await callback.message.answer_audio(types.FSInputFile(audio_path), caption="🎧 Одобряем озвучку?", reply_markup=kb.as_markup())
+        msg = await callback.message.answer_audio(types.FSInputFile(audio_path), caption="🎧 Одобряем озвучку?", reply_markup=kb.as_markup())
+        from bot.navigation import register_trash
+        await register_trash(msg, state)
         await state.set_state(ProjectStates.approving_audio)
 
 @router.callback_query(F.data == "audio_ok", ProjectStates.approving_audio)
@@ -190,7 +192,9 @@ async def approve_audio(event: types.CallbackQuery | types.Message, state: FSMCo
     for s in styles:
         kb.button(text=s['name'], callback_data=f"visstyle_{s['id']}")
     kb.adjust(1)
-    await message.answer(f"🎨 Выберите стиль монтажа для {'вертикального' if v_format=='vertical' else 'широкого'} видео:", reply_markup=kb.as_markup())
+    msg = await message.answer(f"🎨 Выберите стиль монтажа для {'вертикального' if v_format=='vertical' else 'широкого'} video:", reply_markup=kb.as_markup())
+    from bot.navigation import register_trash
+    await register_trash(msg, state)
     await state.set_state(ProjectStates.choosing_visual_style)
 
 @router.callback_query(F.data.startswith("visstyle_"), ProjectStates.choosing_visual_style)
@@ -259,25 +263,27 @@ async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
         reply_markup=kb.as_markup()
     )
     
-    # Очистка чата от мусора по точным ID
+    # Очистка чата: сначала по списку trash_messages, потом по диапазону
     try:
+        # 1. Удаляем явно зарегистрированный мусор
+        trash = data.get('trash_messages', [])
+        for t_id in trash:
+            try:
+                await callback.bot.delete_message(chat_id=callback.message.chat.id, message_id=t_id)
+            except Exception: pass
+
+        # 2. Дополнительная зачистка по диапазону (на всякий случай)
         current_msg_id = callback.message.message_id
         flow_start = data.get('flow_start_msg_id')
+        if not flow_start: flow_start = current_msg_id
         
-        # Если flow_start не задан, удаляем только текущее сообщение как fallback
-        if not flow_start:
-            flow_start = current_msg_id
-            
-        # Защита от бесконечного цикла, удаляем максимум 100 сообщений (хватит для любой сессии)
         start_id = max(flow_start, current_msg_id - 100)
-        
         for msg_id in range(current_msg_id, start_id - 1, -1):
             try:
                 await callback.bot.delete_message(chat_id=callback.message.chat.id, message_id=msg_id)
-            except Exception:
-                pass # Сообщение уже удалено, или это сообщение юзера и у бота нет прав
+            except Exception: pass
     except Exception as e:
-        logger.warning(f"Error clearing chat by ID: {e}")
+        logger.warning(f"Error clearing chat: {e}")
     
     try:
         await callback.bot.pin_chat_message(chat_id=callback.message.chat.id, message_id=msg.message_id)

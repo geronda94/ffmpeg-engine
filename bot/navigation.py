@@ -12,6 +12,15 @@ pm = ProjectManager()
 def load_presets():
     return get_config("audio_presets")
 
+async def register_trash(message: types.Message, state: FSMContext):
+    """Регистрирует сообщение для последующего удаления."""
+    if not message: return
+    data = await state.get_data()
+    trash = data.get('trash_messages', [])
+    if message.message_id not in trash:
+        trash.append(message.message_id)
+        await state.update_data(trash_messages=trash)
+
 async def ask_for_asset(message: types.Message, state: FSMContext, scene_idx: int = 0):
     """Переход к сбору материалов (v10.0 Disk-First)."""
     try:
@@ -44,7 +53,7 @@ async def ask_for_asset(message: types.Message, state: FSMContext, scene_idx: in
         
         kb = InlineKeyboardBuilder()
         kb.button(text="🤖 Сгенерировать ИИ", callback_data="asset_ai")
-        kb.button(text="🌐 Искать в сети", callback_data="asset_search_web") # Новое!
+        kb.button(text="🌐 Искать в сети", callback_data="asset_search_web")
         kb.button(text="🎬 Динамическая сцена", callback_data="asset_dynamic")
         kb.button(text="📁 Загрузить своё", callback_data="asset_manual")
         kb.adjust(1)

@@ -33,27 +33,44 @@ async def optimize_text_for_tts(text: str, lang: str, rate: str = "+0%"):
             if val > 15: speed_info = "very slow and dramatic"
             elif val > 5: speed_info = "slow"
 
-        lang_specific = ""
-        if lang == "Russian":
-            lang_specific = (
-                "RUSSIAN SPECIFIC RULES:\n"
-                "1. Use 'ё' where applicable (e.g., 'всё', 'идёт').\n"
-                "2. ACCENTS: Capitalize the stressed vowel ONLY if the word is ambiguous (e.g., 'сУдьбы' vs 'судьбЫ').\n"
-                "3. PHONETICS: DO NOT change 'г' to 'v' or 'э' to 'e' aggressively. Edge TTS already knows natural Russian phonetics. Keep word spelling natural.\n"
-                "4. PAUSES: Enhance the '. ... ' markers for clear scene transitions.\n"
+        guidelines = {
+            "Russian": (
+                "LINGUISTIC GUIDELINES FOR RUSSIAN:\n"
+                "1. PRESERVE ORTHOGRAPHY: Maintain strict morphological spelling. NEVER use phonetic spelling (e.g., write 'солнце', not 'сонце', 'его', not 'ево'). The neural engine automatically handles all complex phonetic rules like reduction (аканье/иканье) and devoicing.\n"
+                "2. MANDATORY 'Ё': Always restore the letter 'ё' everywhere it is required (e.g., 'идёт', 'всё', 'свёкла'). This is the single most important hint for the engine to avoid pronunciation errors.\n"
+                "3. SEMANTIC ACCENTS: Use capitalization for the stressed vowel (e.g., 'зАмок' vs 'замОк') ONLY to resolve ambiguity in homographs or for extremely rare words. Do NOT over-accentuate; it makes the voice sound robotic.\n"
+                "4. PUNCTUATION AS RHYTHM: Use '...' for long pauses between scenes and ',' for natural breathing points within sentences. Use '-' for logical emphasis.\n"
+            ),
+            "English": (
+                "LINGUISTIC GUIDELINES FOR ENGLISH:\n"
+                "1. STANDARD ORTHOGRAPHY: Do not use eye-dialect or phonetic spelling. The neural engine (e.g., Andrew) handles reduction, linking, and aspiration perfectly based on standard spelling.\n"
+                "2. PHRASAL RHYTHM: Use ',' to mark natural pauses in long sentences. Use '...' for transitions between ideas.\n"
+                "3. EMPHASIS: Use standard capitalization ONLY for words that require strong emotional emphasis to change the sentence's meaning.\n"
+            ),
+            "Romanian": (
+                "LINGUISTIC GUIDELINES FOR ROMANIAN:\n"
+                "1. DIACRITICS: Ensure all diacritics (ă, â, î, ș, ț) are perfectly placed. They are critical for correct phoneme selection.\n"
+                "2. MELODIC FLOW: Romanian is a syllable-timed language; use punctuation to guide the engine's intonation curves.\n"
+            ),
+            "Georgian": (
+                "LINGUISTIC GUIDELINES FOR GEORGIAN:\n"
+                "1. SCRIPT INTEGRITY: Maintain the original Mkhedruli script. Do not attempt phonetic approximations.\n"
+                "2. SEGMENTATION: Georgian sentences can be dense; use commas to help the engine find natural breaking points for breath.\n"
             )
+        }
+
+        lang_specific = guidelines.get(lang, "GUIDELINES: Preserve natural spelling, restore language-specific markers, and use punctuation to guide the rhythm and prosody.")
 
         prompt = (
-            f"You are a professional voiceover director for {lang}.\n"
-            f"Task: Adapt the provided text for Microsoft Edge Neural TTS to ensure natural prosody and correct accents.\n\n"
-            f"GOAL: Natural emotional rhythm and clarity. Avoid robotic over-correction.\n"
-            f"SPEED CONTEXT: {speed_info} tempo.\n\n"
+            f"You are a professional linguistic consultant and voiceover director for {lang}.\n"
+            f"Your task is to prepare the text for a High-End Neural TTS engine (Microsoft Edge).\n\n"
+            f"STRATEGY: Do not over-process. Guide the engine's prosody and phonetics using language-specific markers without breaking the spelling.\n"
+            f"SPEED & MOOD: {speed_info} tempo.\n\n"
             f"{lang_specific}\n"
-            f"STRICT RULES:\n"
-            f"1. DO NOT change words. Only adjust punctuation, capitalization (for stress), and use 'ё'.\n"
-            f"2. Use '...' for natural pauses.\n"
-            f"3. Return ONLY the optimized text.\n\n"
-            f"TEXT: {text}"
+            f"STRICT LIMITS:\n"
+            f"1. DO NOT change, add, or remove any words. Keep the meaning 1:1.\n"
+            f"2. Return ONLY the processed text, no explanations.\n\n"
+            f"TEXT TO PROCESS:\n{text}"
         )
 
         res = client.chat.completions.create(

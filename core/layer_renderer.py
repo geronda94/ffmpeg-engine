@@ -1,5 +1,7 @@
 import os
 import logging
+import numpy as np
+from PIL import Image as _PILImage
 from moviepy import VideoFileClip, ImageClip, TextClip, CompositeVideoClip, ColorClip
 import moviepy.video.fx as vfx
 from core.media_engine import MediaEngine
@@ -332,6 +334,31 @@ def render_from_layers(preset: dict, elements: dict, duration: float, output_pat
         all_clips = []
         layers = preset.get("layers", [])
 
+        # 1. СОЗДАЕМ ГЛОБАЛЬНУЮ ПОДЛОЖКУ (чтобы не было черных рамок)
+        bg_color = (20, 20, 25) # Темно-серый по умолчанию
+        
+        # Пытаемся найти первый медиа-файл для извлечения цвета
+        for layer_def in layers:
+            if layer_def.get("type") in ["media", "overlay", "overlay_with_bg"]:
+                path = elements.get(layer_def.get("element"))
+                if path and os.path.exists(str(path)):
+                    try:
+                        ext = os.path.splitext(str(path))[1].lower()
+                        # Используем мгновенное сжатие MoviePy для любого типа медиа
+                        if ext in ['.mp4', '.mov', '.avi', '.mkv']:
+                            temp_clip = VideoFileClip(str(path)).without_audio()
+                        else:
+                            temp_clip = ImageClip(str(path))
+                        
+                        small = temp_clip.resized((1, 1))
+                        bg_color = small.get_frame(0)[0][0].tolist()
+                        break
+                    except: pass
+        
+        base_bg = ColorClip(size=(width, height), color=bg_color).with_duration(duration)
+        all_clips.append(base_bg)
+
+        # 2. РЕНДЕРИМ СЛОИ
         for layer_def in layers:
             layer_clips = render_layer(layer_def, elements, duration, width, height)
             all_clips.extend(layer_clips)

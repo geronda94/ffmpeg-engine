@@ -22,6 +22,7 @@ class ProjectStates(StatesGroup):
     waiting_for_asset = State()
     selecting_video_offset = State()
     searching_web_image = State() # Новое!
+    entering_query = State() # ДЛЯ РУЧНОГО ВВОДА С ИИ
     approving_asset = State()
     
     # Динамические сцены (Интерактив)
@@ -35,6 +36,8 @@ class ProjectStates(StatesGroup):
     standalone_collecting_element = State()
     standalone_choosing_plate = State()
     standalone_approving = State()
+    standalone_searching_web = State()
+    standalone_entering_query = State()
     
     # Финал (Озвучка и Рендер)
     choosing_visual_style = State()

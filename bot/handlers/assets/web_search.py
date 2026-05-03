@@ -1,0 +1,279 @@
+"""Обработчики веб-поиска изображений (Pexels, Pixabay, Pollinations AI)."""
+import logging
+import os
+import asyncio
+import time
+import aiohttp
+
+from aiogram import Router, types, F
+from aiogram.filters import StateFilter
+from aiogram.fsm.context import FSMContext
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+from bot.states import ProjectStates
+from core.project_manager import ProjectManager
+from bot.navigation import register_trash, ask_for_asset
+from ai.image_search_agent import image_search_agent, optimize_query_ai
+
+logger = logging.getLogger(__name__)
+router = Router()
+pm = ProjectManager()
+
+SOURCE_MAP = {
+    "all": "🌀 Смешанный",
+    "pexels": "📸 Pexels",
+    "pixabay": "📸 Pixabay",
+    "ai": "🤖 Pollinations"
+}
+SOURCE_ORDER = ["all", "pexels", "pixabay", "ai"]
+
+
+# ── Вход в поиск ────────────────────────────────────────────────────────────
+@router.callback_query(F.data == "asset_search_web", StateFilter(ProjectStates.collecting_assets))
+async def handle_web_search_start(callback: types.CallbackQuery, state: FSMContext):
+    """Сразу запускаем ИИ-поиск по данным сцены."""
+    # Защита от двойного нажатия
+    data = await state.get_data()
+    if data.get('_searching'):
+        await callback.answer("⏳ Уже идёт поиск...", show_alert=False)
+        return
+    await state.update_data(_searching=True)
+    
+    logger.info(f"handle_web_search_start triggered for user {callback.from_user.id}")
+    await callback.answer("🤖 Анализирую сцену...")
+
+    project_id = data.get('project_id')
+    scene_idx = data.get('current_scene_idx', 0)
+
+    proj_data = pm.load_project(project_id)
+    if not proj_data:
+        await state.update_data(_searching=False)
+        return
+
+    scene = proj_data['scenes'][scene_idx]
+    user_query = scene.get('image_prompt', scene.get('visual_description', 'nature background'))
+
+    status = await callback.message.answer("🤖 ИИ подбирает ключевые слова и цвет...")
+    await register_trash(status, state)
+
+    try:
+        logger.info(f"🔍 AI auto-search for: {user_query[:50]}...")
+        queries, color = await asyncio.wait_for(optimize_query_ai(user_query), timeout=20)
+        logger.info(f"✅ AI: queries={queries}, color={color}")
+        results = await asyncio.wait_for(
+            image_search_agent.search_images(queries, color=color, source_type="all"), timeout=30
+        )
+        await status.delete()
+    except asyncio.TimeoutError:
+        await status.edit_text("❌ Поиск занял слишком много времени. Попробуйте ручной ввод.")
+        await state.update_data(_searching=False)
+        return
+    except Exception as e:
+        logger.error(f"❌ Search error: {e}", exc_info=True)
+        await status.edit_text(f"❌ Ошибка при поиске: {e}")
+        await state.update_data(_searching=False)
+        return
+
+    await state.update_data(_searching=False)
+
+    if not results:
+        await callback.message.answer("❌ Авто-поиск не дал результатов. Попробуйте ручной ввод.")
+        return
+
+    await state.update_data(
+        search_results=results, search_idx=0,
+        search_queries=queries, search_color=color, search_source="all"
+    )
+    await register_trash(callback.message, state)
+    await show_web_search_result(callback.message, state)
+
+
+# ── Ручной ввод запроса ──────────────────────────────────────────────────────
+@router.callback_query(F.data == "web_search_manual_ai", StateFilter(ProjectStates.collecting_assets))
+async def handle_web_search_manual_ai(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    msg = await callback.message.answer("⌨️ Введите описание того, что нужно найти:")
+    await register_trash(msg, state)
+    await state.set_state(ProjectStates.entering_query)
+
+
+@router.message(ProjectStates.entering_query)
+async def handle_web_search_manual_query(message: types.Message, state: FSMContext):
+    user_query = message.text
+    await register_trash(message, state)
+
+    status = await message.answer("🤖 ИИ подбирает ключевые слова и цвет...")
+    await register_trash(status, state)
+
+    try:
+        logger.info(f"🔍 Manual search: {user_query[:50]}...")
+        queries, color = await asyncio.wait_for(optimize_query_ai(user_query), timeout=20)
+        logger.info(f"✅ Manual AI: queries={queries}, color={color}")
+        results = await asyncio.wait_for(
+            image_search_agent.search_images(queries, color=color, source_type="all"), timeout=30
+        )
+        await status.delete()
+    except asyncio.TimeoutError:
+        await status.edit_text("❌ Поиск занял слишком много времени. Попробуйте другой запрос.")
+        return
+    except Exception as e:
+        logger.error(f"❌ Manual search error: {e}", exc_info=True)
+        await status.edit_text(f"❌ Ошибка при поиске: {e}")
+        return
+
+    if not results:
+        msg = await message.answer("❌ Ничего не нашлось. Попробуйте описать иначе:")
+        await register_trash(msg, state)
+        return
+
+    await state.update_data(
+        search_results=results, search_idx=0,
+        search_queries=queries, search_color=color, search_source="all"
+    )
+    await show_web_search_result(message, state)
+
+
+# ── Карусель результатов ─────────────────────────────────────────────────────
+async def show_web_search_result(message: types.Message, state: FSMContext):
+    """Отрисовка карусели с защитой от битых ссылок."""
+    data = await state.get_data()
+    results = data.get('search_results', [])
+    idx = data.get('search_idx', 0)
+    source = data.get('search_source', 'all')
+    color = data.get('search_color')
+
+    if not results: return
+
+    mode_text = SOURCE_MAP.get(source, "Источник")
+    color_text = f" | 🎨 {color}" if color else ""
+
+    kb = InlineKeyboardBuilder()
+    kb.button(text="⬅️", callback_data="web_prev")
+    kb.button(text="✅ Выбрать", callback_data="web_confirm")
+    kb.button(text="➡️", callback_data="web_next")
+    kb.button(text=f"🔄 {mode_text}{color_text}", callback_data="web_toggle_source")
+    kb.button(text="⌨️ Уточнить запрос", callback_data="web_refine_query")
+    kb.button(text="❌ Отмена", callback_data="web_cancel")
+    kb.adjust(3, 1, 1, 1)
+
+    attempts = 0
+    max_attempts = min(5, len(results))
+
+    while attempts < max_attempts:
+        photo = results[idx]
+        caption = (
+            f"🖼 **Вариант {idx + 1}/{len(results)}**\n"
+            f"📷 Автор: {photo.get('photographer', 'Unknown')}\n\n"
+            f"Нравится это изображение?"
+        )
+        try:
+            media = types.InputMediaPhoto(media=photo['url'], caption=caption)
+            await message.edit_media(media=media, reply_markup=kb.as_markup())
+            await state.update_data(search_idx=idx)
+            await state.set_state(ProjectStates.searching_web_image)
+            return
+        except Exception as e:
+            err_msg = str(e).lower()
+            if "failed to get http url content" in err_msg or "wrong type of the web page content" in err_msg:
+                logger.warning(f"⚠️ Broken URL, skipping: {photo['url']}")
+                idx = (idx + 1) % len(results)
+                attempts += 1
+                continue
+            if "message is not modified" in err_msg:
+                return
+            try:
+                msg = await message.answer_photo(photo=photo['url'], caption=caption, reply_markup=kb.as_markup())
+                await register_trash(msg, state)
+                await state.update_data(search_idx=idx)
+                await state.set_state(ProjectStates.searching_web_image)
+                return
+            except:
+                idx = (idx + 1) % len(results)
+                attempts += 1
+
+    await message.answer("❌ Эти варианты недоступны. Попробуйте сменить источник или уточнить запрос.")
+
+
+# ── Навигация по карусели ────────────────────────────────────────────────────
+@router.callback_query(F.data == "web_next", ProjectStates.searching_web_image)
+async def handle_web_search_next(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    results = data.get('search_results', [])
+    idx = data.get('search_idx', 0)
+    await state.update_data(search_idx=(idx + 1) % len(results))
+    await show_web_search_result(callback.message, state)
+
+
+@router.callback_query(F.data == "web_prev", ProjectStates.searching_web_image)
+async def handle_web_search_prev(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    results = data.get('search_results', [])
+    idx = data.get('search_idx', 0)
+    await state.update_data(search_idx=(idx - 1) % len(results))
+    await show_web_search_result(callback.message, state)
+
+
+@router.callback_query(F.data == "web_toggle_source", ProjectStates.searching_web_image)
+async def handle_web_toggle_source(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    current = data.get('search_source', 'all')
+    queries = data.get('search_queries', [])
+    color = data.get('search_color')
+
+    next_source = SOURCE_ORDER[(SOURCE_ORDER.index(current) + 1) % len(SOURCE_ORDER)]
+    await callback.answer(f"🔎 Ищу в: {next_source.upper()}...")
+
+    results = await image_search_agent.search_images(queries, source_type=next_source, color=color)
+    if not results:
+        await callback.answer("❌ В этом источнике ничего не нашлось.", show_alert=True)
+        return
+
+    await state.update_data(search_results=results, search_idx=0, search_source=next_source)
+    await show_web_search_result(callback.message, state)
+
+
+@router.callback_query(F.data == "web_cancel", ProjectStates.searching_web_image)
+async def handle_web_search_cancel(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    scene_idx = data.get('current_scene_idx', 0)
+    await ask_for_asset(callback.message, state, scene_idx)
+
+
+@router.callback_query(F.data == "web_refine_query", ProjectStates.searching_web_image)
+async def handle_web_refine_query(callback: types.CallbackQuery, state: FSMContext):
+    """Уточнение запроса вручную прямо из карусели."""
+    await callback.answer()
+    msg = await callback.message.answer("⌨️ Введите свой запрос для поиска:")
+    await register_trash(msg, state)
+    await state.set_state(ProjectStates.entering_query)
+
+
+@router.callback_query(F.data == "web_confirm", ProjectStates.searching_web_image)
+async def handle_web_search_confirm(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer("⏳ Сохраняю...")
+
+    data = await state.get_data()
+    results = data.get('search_results', [])
+    idx = data.get('search_idx', 0)
+    photo = results[idx]
+    project_id = data.get('project_id')
+    scene_idx = data.get('current_scene_idx', 0)
+
+    temp_path = f"temp/web_{int(time.time())}.jpg"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(photo['url']) as resp:
+                if resp.status == 200:
+                    with open(temp_path, "wb") as f:
+                        f.write(await resp.read())
+                    pm.update_asset(project_id, scene_idx, temp_path)
+                    if os.path.exists(temp_path): os.remove(temp_path)
+                    await ask_for_asset(callback.message, state, scene_idx + 1)
+                else:
+                    await callback.message.answer("❌ Ошибка при скачивании файла.")
+    except Exception as e:
+        logger.error(f"Web Search Confirm Error: {e}")
+        await callback.message.answer(f"❌ Ошибка: {e}")

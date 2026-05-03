@@ -15,6 +15,8 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.states import ProjectStates
 from core.config_loader import get_config
+from bot.navigation import register_trash
+from ai.image_search_agent import image_search_agent, optimize_query_ai
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -179,10 +181,25 @@ async def _ask_next_element(message: types.Message, state: FSMContext):
         return
 
     type_map = {"media": "фото или видео", "photo": "фото (PNG)", "video": "видео", "text": "текст"}
-    msg = await message.answer(
-        f"📥 **{preset['name']}** | Шаг {idx + 1}/{len(elements_cfg)}\n\n"
-        f"Пришлите **{el['name']}** ({type_map.get(el['type'], 'файл')}):"
-    )
+    
+    # ПРЕДЛАГАЕМ ПОИСК ДЛЯ ВСЕХ НЕ-ТЕКСТОВЫХ ЭЛЕМЕНТОВ
+    if el["type"] not in ["text", "plate_select"]:
+        kb = InlineKeyboardBuilder()
+        kb.button(text="📁 Загрузить файл", callback_data="sc_upload_local")
+        kb.button(text="🔍 Найти в сети (AI)", callback_data="sc_search_start")
+        kb.adjust(1)
+        
+        msg = await message.answer(
+            f"📥 **{preset['name']}** | Шаг {idx + 1}/{len(elements_cfg)}\n\n"
+            f"Для элемента **{el['name']}** ({type_map.get(el['type'])}) выберите источник:",
+            reply_markup=kb.as_markup()
+        )
+    else:
+        msg = await message.answer(
+            f"📥 **{preset['name']}** | Шаг {idx + 1}/{len(elements_cfg)}\n\n"
+            f"Пришлите **{el['name']}** ({type_map.get(el['type'], 'файл')}):"
+        )
+        
     await state.update_data(sc_last_msg_id=msg.message_id)
     await state.set_state(ProjectStates.standalone_collecting_element)
 
@@ -272,6 +289,211 @@ async def sc_collect_element(message: types.Message, state: FSMContext):
     await state.update_data(sc_elements=collected, sc_element_idx=idx + 1)
     await _ask_next_element(message, state)
 
+# ─────────────────────────────────────────────
+# Умный поиск для конструктора сцен
+# ─────────────────────────────────────────────
+
+@router.callback_query(F.data == "sc_upload_local", ProjectStates.standalone_collecting_element)
+async def handle_sc_upload_local(callback: types.CallbackQuery, state: FSMContext):
+    """Пользователь выбрал локальную загрузку."""
+    await callback.answer()
+    data = await state.get_data()
+    idx = data.get("sc_element_idx", 0)
+    preset = data["sc_preset"]
+    el = preset["elements"][idx]
+    
+    type_map = {"media": "фото или видео", "photo": "фото (PNG)", "video": "видео"}
+    await callback.message.edit_text(
+        f"📥 **{preset['name']}** | Шаг {idx + 1}\n\n"
+        f"Жду ваш файл: **{el['name']}** ({type_map.get(el['type'])})"
+    )
+
+@router.callback_query(F.data == "sc_search_start", ProjectStates.standalone_collecting_element)
+async def handle_sc_search_start(callback: types.CallbackQuery, state: FSMContext):
+    """Запуск процесса поиска."""
+    await callback.answer()
+    kb = InlineKeyboardBuilder().button(text="🔙 Назад", callback_data="sc_search_back").adjust(1)
+    await callback.message.edit_text(
+        "🔍 **Что именно мы ищем?**\n\n"
+        "Опишите словами (можно на русском), и ИИ подберет лучшие варианты со стоков:",
+        reply_markup=kb.as_markup()
+    )
+    await state.set_state(ProjectStates.standalone_entering_query)
+
+@router.callback_query(F.data == "sc_search_back", ProjectStates.standalone_entering_query)
+async def handle_sc_search_back(callback: types.CallbackQuery, state: FSMContext):
+    """Возврат из ввода запроса к выбору источника."""
+    await callback.answer()
+    await _ask_next_element(callback.message, state)
+
+@router.message(ProjectStates.standalone_entering_query, F.text)
+async def handle_sc_search_query(message: types.Message, state: FSMContext):
+    """Обработка текстового описания для поиска через ИИ."""
+    user_query = message.text
+    status = await message.answer("🤖 ИИ анализирует запрос и ищет варианты...")
+    
+    # Регистрация мусора
+    await register_trash(message, state)
+    await register_trash(status, state)
+    
+    # Оптимизация запроса через ИИ
+    queries = await optimize_query_ai(user_query)
+    results = await image_search_agent.search_images(queries)
+    
+    await status.delete()
+    
+    if not results:
+        msg = await message.answer("❌ Ничего не нашлось. Попробуйте описать иначе:")
+        await register_trash(msg, state)
+        return
+        
+    await state.update_data(sc_search_results=results, sc_search_idx=0)
+    await state.set_state(ProjectStates.standalone_searching_web)
+    
+    # Создаем сообщение карусели
+    msg = await message.answer("🖼 Загружаю результаты...")
+    await register_trash(msg, state)
+    await show_sc_search_result(msg, state)
+
+async def show_sc_search_result(message: types.Message, state: FSMContext):
+    """Отрисовка карусели поиска с защитой от битых ссылок."""
+    data = await state.get_data()
+    results = data.get('sc_search_results', [])
+    idx = data.get('sc_search_idx', 0)
+    source = data.get('sc_search_source', 'all')
+    color = data.get('sc_search_color')
+    
+    if not results: return
+    
+    source_map = {"all": "🌀 Микс", "pexels": "📸 Pexels", "pixabay": "📸 Pixabay", "ai": "🤖 AI"}
+    mode_text = source_map.get(source, "Источник")
+    color_text = f" | 🎨 {color}" if color else ""
+
+    kb = InlineKeyboardBuilder()
+    kb.button(text="⬅️ Назад", callback_data="sc_snav_prev")
+    kb.button(text="✅ Выбрать", callback_data="sc_snav_select")
+    kb.button(text="Вперед ➡️", callback_data="sc_snav_next")
+    kb.button(text=f"🔄 {mode_text}{color_text}", callback_data="sc_search_toggle_source")
+    kb.button(text="🔙 К выбору источника", callback_data="sc_search_back_to_src")
+    kb.adjust(3, 1, 1)
+
+    attempts = 0
+    max_attempts = min(5, len(results))
+    
+    while attempts < max_attempts:
+        photo = results[idx]
+        caption = (
+            f"🖼 **Вариант {idx+1}/{len(results)}**\n"
+            f"👤 Автор: {photo.get('photographer', 'Unknown')}\n\n"
+            f"Нравится это изображение?"
+        )
+        
+        try:
+            from aiogram.types import InputMediaPhoto
+            await message.edit_media(
+                media=InputMediaPhoto(media=photo['url'], caption=caption),
+                reply_markup=kb.as_markup()
+            )
+            # Успех
+            await state.update_data(sc_search_idx=idx)
+            return
+        except Exception as e:
+            err_msg = str(e).lower()
+            if "failed to get http url content" in err_msg or "wrong type of the web page content" in err_msg:
+                logger.warning(f"⚠️ SC: Broken URL detected, skipping: {photo['url']}")
+                idx = (idx + 1) % len(results)
+                attempts += 1
+                continue
+            
+            if "message is not modified" in err_msg:
+                return
+                
+            try:
+                msg = await message.answer_photo(photo['url'], caption=caption, reply_markup=kb.as_markup())
+                await register_trash(msg, state)
+                await state.update_data(sc_search_idx=idx)
+                return
+            except:
+                idx = (idx + 1) % len(results)
+                attempts += 1
+
+    await message.answer("❌ Эти варианты недоступны. Попробуйте другой запрос или загрузите файл локально.")
+
+@router.callback_query(F.data == "sc_search_toggle_source", ProjectStates.standalone_searching_web)
+async def handle_sc_search_toggle_source(callback: types.CallbackQuery, state: FSMContext):
+    """Переключение источника в конструкторе сцен."""
+    data = await state.get_data()
+    current = data.get('sc_search_source', 'all')
+    queries = data.get('sc_search_queries', [])
+    color = data.get('sc_search_color')
+    
+    order = ["all", "pexels", "pixabay", "ai"]
+    next_source = order[(order.index(current) + 1) % len(order)]
+    
+    await callback.answer(f"🔎 Ищу в: {next_source.upper()}...")
+    
+    results = await image_search_agent.search_images(queries, source_type=next_source, color=color)
+    
+    if not results:
+        await callback.answer("❌ В этом источнике пусто.", show_alert=True)
+        return
+        
+    await state.update_data(sc_search_results=results, sc_search_idx=0, sc_search_source=next_source)
+    await show_sc_search_result(callback.message, state)
+
+@router.callback_query(F.data.startswith("sc_snav_"), ProjectStates.standalone_searching_web)
+async def handle_sc_search_nav(callback: types.CallbackQuery, state: FSMContext):
+    """Навигация по карусели."""
+    action = callback.data.split("_")[2]
+    data = await state.get_data()
+    results = data.get('sc_search_results', [])
+    idx = data.get('sc_search_idx', 0)
+    
+    if action == "prev":
+        idx = (idx - 1) % len(results)
+    elif action == "next":
+        idx = (idx + 1) % len(results)
+    elif action == "select":
+        await callback.answer("⏳ Скачиваю файл...")
+        photo = results[idx]
+        os.makedirs("temp/sc_builder", exist_ok=True)
+        local_path = f"temp/sc_builder/search_{int(time.time())}.jpg"
+        
+        try:
+            import aiohttp
+            async with aiohttp.ClientSession() as session:
+                async with session.get(photo['url']) as resp:
+                    if resp.status == 200:
+                        with open(local_path, "wb") as f:
+                            f.write(await resp.read())
+                        
+                        # Сохраняем и идем к следующему элементу
+                        preset = data["sc_preset"]
+                        el_idx = data.get("sc_element_idx", 0)
+                        el = preset["elements"][el_idx]
+                        
+                        collected = data.get("sc_elements", {})
+                        collected[el["id"]] = local_path
+                        await state.update_data(sc_elements=collected, sc_element_idx=el_idx + 1)
+                        await callback.message.delete()
+                        await _ask_next_element(callback.message, state)
+                        return
+        except Exception as e:
+            logger.error(f"Failed to download search result: {e}")
+            await callback.answer("❌ Ошибка при скачивании файла.", show_alert=True)
+        return
+
+    await state.update_data(sc_search_idx=idx)
+    await show_sc_search_result(callback.message, state)
+    await callback.answer()
+
+@router.callback_query(F.data == "sc_search_back_to_src", ProjectStates.standalone_searching_web)
+async def handle_sc_search_back_to_src(callback: types.CallbackQuery, state: FSMContext):
+    """Возврат из карусели к выбору источника."""
+    await callback.answer()
+    await callback.message.delete()
+    await _ask_next_element(callback.message, state)
+
 
 # ─────────────────────────────────────────────
 # Шаг 4 — рендер
@@ -326,7 +548,12 @@ async def _render_standalone_scene(message: types.Message, state: FSMContext):
         await state.update_data(sc_last_output=res, sc_result_msg_id=result_msg.message_id)
         await state.set_state(ProjectStates.standalone_approving)
 
-        # ── ОЧИСТКА: удаляем весь поток сборки до результата ──
+        # ── ОЧИСТКА: сначала trash_messages, потом основной поток ──
+        trash = data.get('trash_messages', [])
+        for t_id in trash:
+            try: await message.bot.delete_message(chat_id=message.chat.id, message_id=t_id)
+            except: pass
+
         flow_start = data.get("sc_flow_start_msg_id", result_msg.message_id - 100)
         await _cleanup_flow(
             message.bot,

@@ -13,8 +13,9 @@ from aiogram.client.session.aiohttp import AiohttpSession
 root_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(root_dir))
 
-from bot.handlers import common, scripting, assets, production, metadata, localization
+from bot.handlers import common, scripting, production, metadata, localization
 from bot.handlers import scene_builder
+from bot.handlers.assets import router as assets_router
 from bot.middlewares.errors import ErrorHandlingMiddleware
 from core.task_manager import task_manager
 
@@ -45,7 +46,7 @@ async def main():
 
     dp.include_router(common.router)
     dp.include_router(scripting.router)
-    dp.include_router(assets.router)
+    dp.include_router(assets_router)
     dp.include_router(production.router)
     dp.include_router(metadata.router)
     dp.include_router(localization.router)
