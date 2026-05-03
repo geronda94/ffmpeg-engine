@@ -44,6 +44,7 @@ async def ask_for_asset(message: types.Message, state: FSMContext, scene_idx: in
         
         kb = InlineKeyboardBuilder()
         kb.button(text="🤖 Сгенерировать ИИ", callback_data="asset_ai")
+        kb.button(text="🌐 Искать в сети", callback_data="asset_search_web") # Новое!
         kb.button(text="🎬 Динамическая сцена", callback_data="asset_dynamic")
         kb.button(text="📁 Загрузить своё", callback_data="asset_manual")
         kb.adjust(1)

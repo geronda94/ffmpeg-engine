@@ -21,6 +21,7 @@ class ProjectStates(StatesGroup):
     collecting_assets = State()
     waiting_for_asset = State()
     selecting_video_offset = State()
+    searching_web_image = State() # Новое!
     approving_asset = State()
     
     # Динамические сцены (Интерактив)

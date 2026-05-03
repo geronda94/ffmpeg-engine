@@ -19,6 +19,7 @@ JSON with:
    - "visual_description": What happens on screen.
    - "image_prompt": Detailed AI prompt. MUST include: [style keywords], [lighting details], [specific color codes or names from the global palette].
    - "ui_caption": Short subtitle.
+   - "stock_search_queries": Array of 3-5 very short and simple search keywords in ENGLISH (e.g., ["monkey jumping", "jungle trees", "rainforest nature"]). No camera settings or stylistic buzzwords here.
 
 ### CONSTRAINTS
 - Each scene should be 4-8 seconds long.

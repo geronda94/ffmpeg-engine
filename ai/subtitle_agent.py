@@ -120,8 +120,11 @@ def burn_subtitles(video_path: str, srt_path: str, output_path: str) -> str | No
         fonts_dir = os.path.join(os.getcwd(), "local_assets", "fonts").replace("\\", "/").replace(":", "\\:")
         
         # Настройка стиля субтитров (Social Media Premium Style):
-        # - FontName=DejaVu Sans (Берется из папки fonts/)
-        style = "FontName=DejaVu Sans,FontSize=13,PrimaryColour=&H00FFFFFF&,OutlineColour=&H80333333&,BorderStyle=1,Outline=1.0,Shadow=0.5,Alignment=2,MarginV=18,MarginR=100,MarginL=30,Bold=1"
+        # - FontName=DejaVu Sans Bold (Точное имя для гарантированного применения)
+        # - FontSize=11 (Еще компактнее)
+        # - Outline=0.8 (Минималистичная обводка)
+        # - MarginV=12 (Опускаем почти к самому низу)
+        style = "FontName=DejaVu Sans Bold,FontSize=11,PrimaryColour=&H00FFFFFF&,OutlineColour=&H80333333&,BorderStyle=1,Outline=0.8,Shadow=0.5,Alignment=2,MarginV=12,MarginR=100,MarginL=30"
         
         cmd = [
             "ffmpeg", "-y",

@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 router = Router()
 pm = ProjectManager()
 
+from ai.image_search_agent import image_search_agent
+
 URL_PATTERN = re.compile(r'https?://[^\s]+')
 
 @router.callback_query(F.data == "asset_dynamic", StateFilter(ProjectStates.collecting_assets, ProjectStates.approving_asset, ProjectStates.approving_dynamic_pre_render))
@@ -711,3 +713,134 @@ async def confirm_asset(callback: types.CallbackQuery, state: FSMContext):
     
     logger.info(f"Moving to next step after scene {idx}")
     await ask_for_asset(callback.message, state, idx + 1)
+
+# --- ВЕБ-ПОИСК ИЗОБРАЖЕНИЙ ---
+
+@router.callback_query(F.data == "asset_search_web", ProjectStates.collecting_assets)
+async def handle_web_search_start(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer("🔍 Ищу варианты...")
+    
+    data = await state.get_data()
+    project_id = data.get('project_id')
+    scene_idx = data.get('current_scene_idx', 0)
+    
+    proj_data = pm.load_project(project_id)
+    if not proj_data: return
+    
+    scene = proj_data['scenes'][scene_idx]
+    
+    # Пытаемся взять готовые запросы от ИИ-режиссера
+    queries = scene.get('stock_search_queries')
+    
+    if not queries:
+        # Если их нет (старый проект), генерируем из промпта как раньше
+        query = scene.get('image_prompt', scene.get('visual_description', 'nature background'))
+        queries = [query.split(",")[0].replace("cinematic documentary shot", "").strip()]
+    
+    results = await image_search_agent.search_images(queries)
+    if not results:
+        await callback.message.answer("❌ Ничего не нашлось по этому запросу. Попробуйте другой способ.")
+        return
+        
+    await state.update_data(search_results=results, search_idx=0)
+    await show_web_search_result(callback.message, state)
+
+async def show_web_search_result(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    results = data.get('search_results', [])
+    idx = data.get('search_idx', 0)
+    
+    if not results: return
+    
+    photo = results[idx]
+    
+    kb = InlineKeyboardBuilder()
+    kb.button(text="⬅️ Назад", callback_data="web_prev")
+    kb.button(text="✅ Выбрать", callback_data="web_confirm")
+    kb.button(text="➡️ Вперед", callback_data="web_next")
+    kb.button(text="❌ Отмена", callback_data="web_cancel")
+    kb.adjust(3, 1)
+    
+    caption = (
+        f"🖼 **Вариант {idx + 1}/{len(results)}**\n"
+        f"📷 Автор: {photo['photographer']}\n\n"
+        f"Нравится это изображение?"
+    )
+    
+    # Пытаемся отредактировать текущее медиа
+    try:
+        media = types.InputMediaPhoto(media=photo['url'], caption=caption)
+        await message.edit_media(media=media, reply_markup=kb.as_markup())
+    except Exception as e:
+        # Если редактирование не удалось (например, слишком быстро кликнули), просто логируем
+        if "message is not modified" in str(e).lower() or "canceled by new editmessagemedia" in str(e).lower():
+            pass
+        else:
+            logger.warning(f"Smooth edit failed: {e}. Sending new message.")
+            await message.answer_photo(photo=photo['url'], caption=caption, reply_markup=kb.as_markup())
+        
+    await state.set_state(ProjectStates.searching_web_image)
+
+@router.callback_query(F.data == "web_next", ProjectStates.searching_web_image)
+async def handle_web_search_next(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    results = data.get('search_results', [])
+    idx = data.get('search_idx', 0)
+    
+    new_idx = (idx + 1) % len(results)
+    await state.update_data(search_idx=new_idx)
+    await show_web_search_result(callback.message, state)
+
+@router.callback_query(F.data == "web_prev", ProjectStates.searching_web_image)
+async def handle_web_search_prev(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    results = data.get('search_results', [])
+    idx = data.get('search_idx', 0)
+    
+    new_idx = (idx - 1) % len(results)
+    await state.update_data(search_idx=new_idx)
+    await show_web_search_result(callback.message, state)
+
+@router.callback_query(F.data == "web_cancel", ProjectStates.searching_web_image)
+async def handle_web_search_cancel(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    scene_idx = data.get('current_scene_idx', 0)
+    from bot.navigation import ask_for_asset
+    await ask_for_asset(callback.message, state, scene_idx)
+
+@router.callback_query(F.data == "web_confirm", ProjectStates.searching_web_image)
+async def handle_web_search_confirm(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer("⏳ Сохраняю...")
+    
+    data = await state.get_data()
+    results = data.get('search_results', [])
+    idx = data.get('search_idx', 0)
+    photo = results[idx]
+    
+    project_id = data.get('project_id')
+    scene_idx = data.get('current_scene_idx', 0)
+    
+    # Скачиваем выбранное фото на сервер
+    temp_path = f"temp/web_{int(time.time())}.jpg"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(photo['url']) as resp:
+                if resp.status == 200:
+                    with open(temp_path, "wb") as f:
+                        f.write(await resp.read())
+                    
+                    # Обновляем ассет в проекте
+                    pm.update_asset(project_id, scene_idx, temp_path)
+                    if os.path.exists(temp_path): os.remove(temp_path)
+                    
+                    # Переходим к следующей сцене
+                    from bot.navigation import ask_for_asset
+                    await ask_for_asset(callback.message, state, scene_idx + 1)
+                else:
+                    await callback.message.answer("❌ Ошибка при скачивании файла.")
+    except Exception as e:
+        logger.error(f"Web Search Confirm Error: {e}")
+        await callback.message.answer(f"❌ Ошибка: {e}")
