@@ -620,7 +620,8 @@ async def handle_manual_asset(message: types.Message, state: FSMContext):
                     target_dur = scene['end'] - scene['start']
             
             if video_dur > 0 and video_dur <= target_dur + 0.5:
-                no_fx = data.get('next_asset_no_effects', False)
+                # Возвращаем стандартное поведение: по умолчанию эффекты разрешены
+                no_fx = data.get('next_asset_no_effects', False) 
                 pm.update_asset(project_id, scene_idx, temp_path, offset=0, allow_montage_effects=(not no_fx))
                 if os.path.exists(temp_path): os.remove(temp_path)
                 

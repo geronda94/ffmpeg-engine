@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 async def optimize_text_for_tts(text: str, lang: str, rate: str = "+0%"):
+    """
+    Оптимизация текста через LLM для улучшения произношения (акценты, паузы, 'ё').
+    """
     try:
         api_key = os.getenv("DEEPSEEK_API_KEY")
         if not api_key:
@@ -23,40 +26,34 @@ async def optimize_text_for_tts(text: str, lang: str, rate: str = "+0%"):
         speed_info = "normal"
         if "+" in rate:
             val = int(rate.replace("+", "").replace("%", ""))
-            if val > 15:
-                speed_info = "very fast and energetic"
-            elif val > 5:
-                speed_info = "fast"
+            if val > 15: speed_info = "very fast and energetic"
+            elif val > 5: speed_info = "fast"
         elif "-" in rate:
             val = int(rate.replace("-", "").replace("%", ""))
-            if val > 15:
-                speed_info = "very slow and dramatic"
-            elif val > 5:
-                speed_info = "slow"
+            if val > 15: speed_info = "very slow and dramatic"
+            elif val > 5: speed_info = "slow"
 
-        # Специальные инструкции для русского языка
         lang_specific = ""
         if lang == "Russian":
             lang_specific = (
                 "RUSSIAN SPECIFIC RULES:\n"
-                "1. Always use 'ё' instead of 'е' where applicable (e.g., 'детёныш', 'всё').\n"
-                "2. PRONUNCIATION: In loanwords or technical terms where 'е' sounds like 'э' (e.g., 'проект' -> 'проэкт', 'бренд' -> 'брэнд'), use 'э' to force the correct hard sound.\n"
-                "3. ACCENTS: Capitalize the stressed vowel in any word that might be mispronounced (e.g., 'сУдьбы' vs 'судьбЫ').\n"
-                "4. PAUSES: Respect and enhance the '. ... ' markers between scenes. Ensure punctuation reflects the emotional rhythm.\n"
+                "1. Use 'ё' where applicable (e.g., 'всё', 'идёт').\n"
+                "2. ACCENTS: Capitalize the stressed vowel ONLY if the word is ambiguous (e.g., 'сУдьбы' vs 'судьбЫ').\n"
+                "3. PHONETICS: DO NOT change 'г' to 'v' or 'э' to 'e' aggressively. Edge TTS already knows natural Russian phonetics. Keep word spelling natural.\n"
+                "4. PAUSES: Enhance the '. ... ' markers for clear scene transitions.\n"
             )
 
         prompt = (
-            f"You are a professional voiceover director and phonetic expert for {lang}.\n"
-            f"Task: Adapt the provided text for Microsoft Edge Neural TTS to ensure PERFECT pronunciation and natural prosody.\n\n"
-            f"GOAL: Maximum clarity, correct accents, and natural emotional rhythm.\n"
-            f"SPEED CONTEXT: The text will be read in a **{speed_info}** tempo.\n\n"
+            f"You are a professional voiceover director for {lang}.\n"
+            f"Task: Adapt the provided text for Microsoft Edge Neural TTS to ensure natural prosody and correct accents.\n\n"
+            f"GOAL: Natural emotional rhythm and clarity. Avoid robotic over-correction.\n"
+            f"SPEED CONTEXT: {speed_info} tempo.\n\n"
             f"{lang_specific}\n"
-            f"STRICT GENERAL RULES:\n"
-            f"1. WORD INTEGRITY: Do not change, add or remove words. Only adjust characters, punctuation, and capitalization for phonetics.\n"
-            f"2. PUNCTUATION: Use '...' for long pauses and '-' for short breaks within words if they are often misread.\n"
-            f"3. PHONETIC AIDS: For {lang}, if some words are known to be mispronounced by AI, write them in a way that guides the engine (e.g., repeating a vowel or using capitalization).\n"
-            f"4. NO QUOTES: Return ONLY the optimized text for the voice engine.\n\n"
-            f"TEXT TO OPTIMIZE: {text}"
+            f"STRICT RULES:\n"
+            f"1. DO NOT change words. Only adjust punctuation, capitalization (for stress), and use 'ё'.\n"
+            f"2. Use '...' for natural pauses.\n"
+            f"3. Return ONLY the optimized text.\n\n"
+            f"TEXT: {text}"
         )
 
         res = client.chat.completions.create(
@@ -64,7 +61,7 @@ async def optimize_text_for_tts(text: str, lang: str, rate: str = "+0%"):
             messages=[{"role": "user", "content": prompt}]
         )
         optimized = res.choices[0].message.content.strip().replace('"', "")
-        logger.info(f"TTS Optimized Text ({speed_info}): {optimized}")
+        logger.info(f"TTS Optimized Text: {optimized}")
         return optimized
     except Exception as e:
         logger.error(f"TTS Optimization Error: {e}")
@@ -73,7 +70,7 @@ async def optimize_text_for_tts(text: str, lang: str, rate: str = "+0%"):
 
 async def generate_tts(text: str, output_path: str, lang: str = "Russian", voice: str = None, rate: str = "+0%", pitch: str = "+0Hz"):
     """
-    Генерация озвучки через Microsoft Edge TTS (бесплатно).
+    Генерация озвучки через Microsoft Edge TTS.
     """
     try:
         optimized_text = await optimize_text_for_tts(text, lang, rate)

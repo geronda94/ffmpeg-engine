@@ -32,11 +32,12 @@ async def main():
         logging.error("TELEGRAM_BOT_TOKEN не найден в .env файле!")
         return
 
-    # Используем простое число для таймаута, так как aiogram складывает его при поллинге
     session = AiohttpSession()
-    
-    # Мы можем задать таймаут по умолчанию для всех запросов бота через Bot(..., request_timeout=120)
+    # Увеличиваем таймаут для работы с большими видео файлами (300 секунд = 5 минут)
     bot = Bot(token=API_TOKEN, session=session)
+    # В aiogram 3.x таймаут на скачивание задается через session или в методах, 
+    # но самый надежный способ - прокинуть его в Bot
+    bot.default_request_timeout = 300 
     dp = Dispatcher(storage=MemoryStorage())
 
     # Регистрируем мидлвари

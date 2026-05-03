@@ -132,7 +132,23 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
     scenes_for_agent = []
     logger.info(f"Preparing scenes for agent. Total assets found: {len(project_assets)}")
 
+    # Проверка на аномально короткие тайминги (защита от сбоев Whisper)
+    total_json_dur = scenes[-1].get('end', 0) if scenes else 0
+    total_est_dur = sum(s.get('estimated_duration', 5.0) for s in scenes)
+    
+    use_fallback_timings = False
+    if total_json_dur < 1.0 or total_json_dur < (total_est_dur * 0.3):
+        logger.warning(f"⚠️ Detected anomaly in timings: JSON dur {total_json_dur}s vs EST dur {total_est_dur}s. Falling back to estimated durations.")
+        use_fallback_timings = True
+
+    current_time = 0.0
     for i, scene in enumerate(scenes):
+        if use_fallback_timings:
+            dur = scene.get('estimated_duration', 5.0)
+            scene['start'] = current_time
+            scene['end'] = current_time + dur
+            current_time += dur
+
         # Гарантируем строковый ключ для поиска в JSON
         asset_info = project_assets.get(str(i))
         if not asset_info or not asset_info.get('path'):
