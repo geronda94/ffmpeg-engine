@@ -32,7 +32,11 @@ async def main():
         logging.error("TELEGRAM_BOT_TOKEN не найден в .env файле!")
         return
 
-    session = AiohttpSession()
+    from aiohttp import ClientTimeout
+    # Настраиваем более устойчивые таймауты для работы в условиях нестабильной сети
+    session = AiohttpSession(
+        timeout=ClientTimeout(total=120, connect=10, sock_read=120, sock_connect=10)
+    )
     
     bot = Bot(token=API_TOKEN, session=session)
     dp = Dispatcher(storage=MemoryStorage())

@@ -269,7 +269,10 @@ async def show_full_storyboard(message: types.Message, state: FSMContext):
 
 @router.callback_query(F.data == "st_accept_all", ProjectStates.refining_storyboard)
 async def accept_storyboard(callback: types.CallbackQuery, state: FSMContext):
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     data = await state.get_data()
     project_id = data.get('project_id')
     if not project_id:

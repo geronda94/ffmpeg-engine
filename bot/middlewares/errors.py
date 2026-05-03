@@ -27,10 +27,27 @@ class ErrorHandlingMiddleware(BaseMiddleware):
                 "чтобы восстановить текущий проект."
             )
             
+            from aiogram.exceptions import TelegramBadRequest
+            
             if isinstance(event, Message):
-                await event.answer(error_text)
+                try:
+                    await event.answer(error_text)
+                except Exception:
+                    pass
             elif isinstance(event, CallbackQuery):
-                await event.message.answer(error_text)
-                await event.answer()
+                try:
+                    await event.message.answer(error_text)
+                except Exception:
+                    pass
+                    
+                try:
+                    await event.answer()
+                except TelegramBadRequest as ee:
+                    if "query is too old" in str(ee):
+                        logger.debug("Ignored old callback query in error handler")
+                    else:
+                        raise ee
+                except Exception:
+                    pass
             
             return None
