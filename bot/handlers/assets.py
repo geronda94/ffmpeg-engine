@@ -109,7 +109,8 @@ async def ask_next_dynamic_element(message: types.Message, state: FSMContext):
         )
         new_msg = await message.answer(msg_text, reply_markup=kb.as_markup())
         await state.update_data(last_dynamic_msg_id=new_msg.message_id)
-        # Состояние остается то же, но мы будем ждать callback
+        # Явно устанавливаем состояние, чтобы dyn_plate_ коллбэк был пойман
+        await state.set_state(ProjectStates.collecting_dynamic_element)
         return
 
     type_map = {"media": "фото или видео", "photo": "фото (PNG)", "video": "видео", "text": "текст"}

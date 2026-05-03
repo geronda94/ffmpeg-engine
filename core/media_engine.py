@@ -1,6 +1,8 @@
 import logging
 import os
-from moviepy import VideoFileClip, ImageClip, ColorClip, CompositeVideoClip, vfx
+import numpy as np
+from PIL import Image as _PILImage
+from moviepy import VideoFileClip, ImageClip, ColorClip, CompositeVideoClip, VideoClip, vfx
 
 logger = logging.getLogger(__name__)
 
@@ -86,26 +88,41 @@ class MediaEngine:
                     start_frac = effect.get("start_frac", start_frac)
                     end_frac = effect.get("end_frac", end_frac)
 
-                pad_factor = zoom_to * 1.05
-                padded = clip.resized(width=int(clip.w * pad_factor), height=int(clip.h * pad_factor))
+                # Ken Burns MoviePy 2.x: большой клип + центральный кроп + ресайз до экрана.
+                # Не используем vfx.Resize (якорится в top-left).
+                # При zoom=z: кропаем область размером (screen/z)*max_z из центра большого клипа,
+                # затем ресайзим до экрана — зум всегда из центра.
+                max_z = max(zoom_from, zoom_to)
+                big_w = int(self.width * max_z * 1.02)
+                big_h = int(self.height * max_z * 1.02)
+                big_clip = clip.resized(width=big_w, height=big_h)
 
-                def make_zoom_func(zf, zt, sf, ef):
-                    def _z(t):
-                        return ken_burns_zoom(t, clip_dur, zf, zt, sf, ef)
-                    return _z
-                zoom_func = make_zoom_func(zoom_from, zoom_to, start_frac, end_frac)
-                padded = padded.with_effects([vfx.Resize(zoom_func)])
+                _bw, _bh = big_w, big_h
+                _tw, _th = self.width, self.height
+                _dur_kb = clip_dur
 
-                base_w, base_h = clip.w, clip.h
-                def make_center_pos(bw, bh, pf, zf, zt, sf, ef):
-                    def _p(t):
-                        z = ken_burns_zoom(t, clip_dur, zf, zt, sf, ef)
-                        cw = bw * pf * z
-                        ch = bh * pf * z
-                        return ((self.width - cw) / 2, (self.height - ch) / 2)
-                    return _p
-                center_func = make_center_pos(base_w, base_h, pad_factor, zoom_from, zoom_to, start_frac, end_frac)
-                clip = padded.with_position(center_func)
+                def _build_kb(bc, bw, bh, tw, th, dur, zf, zt, sf, ef):
+                    from moviepy import concatenate_videoclips
+                    fps_v = 30
+                    n = max(1, int(round(dur * fps_v)))
+                    step = dur / n
+                    parts = []
+                    for i in range(n):
+                        t = i * step
+                        z = ken_burns_zoom(t, dur, zf, zt, sf, ef)
+                        cw = min(bw, int(tw * max_z / z))
+                        ch = min(bh, int(th * max_z / z))
+                        x1 = (bw - cw) // 2
+                        y1 = (bh - ch) // 2
+                        seg = bc.subclipped(t, min(t + step, dur))
+                        seg = seg.cropped(x1=x1, y1=y1, x2=x1 + cw, y2=y1 + ch)
+                        seg = seg.resized(width=tw, height=th)
+                        parts.append(seg)
+                    return concatenate_videoclips(parts) if parts else bc.resized(width=tw, height=th)
+
+                clip = _build_kb(big_clip, _bw, _bh, _tw, _th,
+                                 _dur_kb, zoom_from, zoom_to, start_frac, end_frac)
+
 
             elif eff_type == "pulse":
                 frequency = 1.5
@@ -124,17 +141,34 @@ class MediaEngine:
                 start_frac = effect.get("start_frac", 0.10) if isinstance(effect, dict) else 0.10
                 end_frac = effect.get("end_frac", 0.80) if isinstance(effect, dict) else 0.80
 
-                pad_factor = 1.25
-                pan_clip = clip.resized(width=int(clip.w * pad_factor), height=int(clip.h * pad_factor))
-                center_x = (self.width - pan_clip.w) / 2
-                center_y = (self.height - pan_clip.h) / 2
+                # Параллакс: расширяем клип горизонтально, сдвигаем по x.
+                # Вертикально центрируем через center_y. Оригинальный подход корректен.
+                pad_factor = 1.0 + strength * 2.5
+                pan_clip = clip.resized(
+                    width=int(clip.w * pad_factor),
+                    height=int(clip.h * pad_factor)
+                )
+                _cx = (self.width - pan_clip.w) / 2
+                _cy = (self.height - pan_clip.h) / 2
+                _pw = pan_clip.w
+                _dir = direction
+                _str = strength
+                _sf = start_frac
+                _ef = end_frac
+                _pdur = clip_dur
 
-                def _parallax_func(t):
-                    px = parallax_pan_x(t, pan_clip.w, clip_dur, direction, strength, start_frac, end_frac)
-                    return (center_x + px, center_y)
-                clip = pan_clip.with_position(_parallax_func)
+                def _make_par_pos(cx, cy, pw, dire, stre, sf, ef, dur):
+                    def _pos(t):
+                        px = parallax_pan_x(t, pw, dur, dire, stre, sf, ef)
+                        return (cx + px, cy)
+                    return _pos
+
+                clip = pan_clip.with_position(
+                    _make_par_pos(_cx, _cy, _pw, _dir, _str, _sf, _ef, _pdur)
+                )
 
         return clip
+
 
     def process_asset(self, asset_path, duration, mode="fit", offset=0, allow_effects=True, effects=None):
         logger.info(f"Processing asset: {asset_path} (dur: {duration}s, offset: {offset}s)")

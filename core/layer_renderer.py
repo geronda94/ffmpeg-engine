@@ -101,13 +101,15 @@ def _animate_position(clip, animation, duration, end_pos_raw, screen_w, screen_h
         return clip.with_effects([vfx.FadeIn(anim_dur)])
 
     elif anim_type == "fade_in_up":
-        start_x, start_y = end_x, end_y + screen_h * 0.12
+        start_x = end_x
+        # ФИКС: не даём start_y уйти ниже экрана, иначе MoviePy 2.x крашится с negative index mask slice
+        start_y = min(float(screen_h), end_y + screen_h * 0.12)
         def _fiu_pos(t):
             if t > anim_dur:
-                return (end_x, end_y)
+                return (int(end_x), int(end_y))
             p = min(t / anim_dur, 1.0)
             e = ease_out_cubic(p)
-            return (start_x + (end_x - start_x) * e, start_y + (end_y - start_y) * e)
+            return (int(start_x + (end_x - start_x) * e), int(start_y + (end_y - start_y) * e))
         faded = clip.with_effects([vfx.FadeIn(anim_dur)])
         return faded.with_position(_fiu_pos)
 
@@ -117,10 +119,10 @@ def _animate_position(clip, animation, duration, end_pos_raw, screen_w, screen_h
         start_x, start_y = end_x, -float(ch * start_scale)
         def _rft_pos(t):
             if t > anim_dur:
-                return (end_x, end_y)
+                return (int(end_x), int(end_y))
             p = min(t / anim_dur, 1.0)
             e = ease_out_cubic(p)
-            return (start_x + (end_x - start_x) * e, start_y + (end_y - start_y) * e)
+            return (int(start_x + (end_x - start_x) * e), int(start_y + (end_y - start_y) * e))
         def _rft_scale(t):
             if t > anim_dur:
                 return end_scale
@@ -165,7 +167,7 @@ def _animate_position(clip, animation, duration, end_pos_raw, screen_w, screen_h
         # Регулируем позицию, чтобы зум шел в центр
         def _center_pos(t):
             z = _zoom_func(t)
-            return (end_x - (cw * z - cw) / 2, end_y - (ch * z - ch) / 2)
+            return (int(end_x - (cw * z - cw) / 2), int(end_y - (ch * z - ch) / 2))
         return zoomed.with_position(_center_pos)
 
     if anim_type == "slide_up":
@@ -181,12 +183,12 @@ def _animate_position(clip, animation, duration, end_pos_raw, screen_w, screen_h
 
     def _pos_func(t):
         if t > anim_dur:
-            return (end_x, end_y)
+            return (int(end_x), int(end_y))
         p = min(t / anim_dur, 1.0)
         e = ease_out_cubic(p) if easing == "ease_out_cubic" else ease_in_out_cubic(p)
         return (
-            start_x + (end_x - start_x) * e,
-            start_y + (end_y - start_y) * e
+            int(start_x + (end_x - start_x) * e),
+            int(start_y + (end_y - start_y) * e)
         )
     return clip.with_position(_pos_func)
 
@@ -274,9 +276,9 @@ def render_layer(preset_layer: dict, elements: dict, duration: float, width: int
 
     elif layer_type == "plate_image":
         path = elements.get(element_id)
-        # Если плашка не выбрана (None или пустая строка) — пропускаем слой
         if not path or not os.path.exists(str(path)):
             return clips
+
         height_pct = preset_layer.get("height_pct", 0.35)
         plate_h = int(height * height_pct)
         raw = ImageClip(str(path)).with_duration(duration)
@@ -313,7 +315,8 @@ def render_layer(preset_layer: dict, elements: dict, duration: float, width: int
         cw = clip.w if hasattr(clip, 'w') else width
         ch = clip.h if hasattr(clip, 'h') else height
         end_x, end_y = _pos_to_pixels(end_pos_raw, cw, ch, width, height)
-        clip = clip.with_position((end_x, end_y))
+        # ФИКС: MoviePy 2.x ломает маску при дробных позициях — всегда целые пиксели
+        clip = clip.with_position((int(end_x), int(end_y)))
 
     clips.append(clip)
     return clips

@@ -10,3 +10,4 @@ docs/directus_integration_blueprint.md
 .env
 env
 venv
+projects/

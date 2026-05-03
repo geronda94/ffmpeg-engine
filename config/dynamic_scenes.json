@@ -1,130 +1,206 @@
 {
-    "presets": [
+  "presets": [
+    {
+      "id": "logo_float",
+      "name": "🚀 Плавающий логотип",
+      "description": "Логотип пульсирует поверх фонового видео. Опционально — подпись бренда снизу.",
+      "allow_montage_effects": false,
+      "elements": [
+        {"id": "bg", "name": "Фоновое видео или фото", "type": "media"},
+        {"id": "logo", "name": "Логотип (PNG, лучше без фона)", "type": "photo"},
+        {"id": "brand_name", "name": "Название бренда (опционально, '-' пропустить)", "type": "text"}
+      ],
+      "layers": [
+        {"element": "bg", "type": "media", "mode": "cover", "effects": ["ken_burns"]},
         {
-            "id": "logo_float",
-            "name": "🚀 Плавающий логотип",
-            "description": "Ваш логотип плавно пульсирует поверх фонового видео.",
-            "allow_montage_effects": false,
-            "elements": [
-                {"id": "bg", "name": "Фоновое видео или фото", "type": "media"},
-                {"id": "logo", "name": "Логотип (желательно PNG)", "type": "photo"}
-            ],
-            "layers": [
-                {"element": "bg", "type": "media", "mode": "cover", "effects": ["ken_burns"]},
-                {"element": "logo", "type": "overlay", "scale": 0.45, "position": "center", "animation": {"type": "pulse", "duration": 2.0}}
-            ]
+          "element": "logo", "type": "overlay", "scale": 0.42,
+          "position": "center",
+          "animation": {"type": "pulse", "frequency": 2.5, "strength": 0.06, "decay_rate": 0.25}
         },
         {
-            "id": "price_tag",
-            "name": "💎 Акцент на цену (Premium)",
-            "description": "Профессиональная карточка товара: название, новая цена, зачёркнутая старая цена и бейдж скидки.",
-            "allow_montage_effects": false,
-            "elements": [
-                {"id": "bg", "name": "Фоновый материал", "type": "media"},
-                {"id": "title", "name": "Название товара", "type": "text"},
-                {"id": "price_new", "name": "Новая цена (только число)", "type": "text"},
-                {"id": "price_old", "name": "Старая цена (опционально, '-' чтобы пропустить)", "type": "text"},
-                {"id": "discount", "name": "Скидка % (опционально, '-' чтобы пропустить)", "type": "text"},
-                {"id": "plate", "name": "Плашка под ценовой блок", "type": "plate_select"}
-            ],
-            "layers": [
-                {"element": "bg", "type": "media", "mode": "cover", "effects": ["ken_burns"]},
-                {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.68"}, "height_pct": 0.32},
-                {"element": "title", "type": "text", "font_size": 60, "color": "#FFFFFF", "position": {"x": 100, "y": "h*0.72"}, "animation": {"type": "slide_left", "duration": 0.8}, "static": false},
-                {"element": "price_new", "type": "text", "font_size": 130, "color": "#FFD700", "position": {"x": 100, "y": "h*0.80"}, "animation": {"type": "slide_up", "duration": 1.0}, "static": false},
-                {"element": "price_old", "type": "text", "font_size": 50, "color": "#999999", "position": {"x": 100, "y": "h*0.90"}, "animation": {"type": "fade_in", "duration": 1.2}, "static": false},
-                {"element": "discount", "type": "text", "font_size": 60, "color": "#FF4444", "position": {"x": "w-320", "y": "h*0.80"}, "animation": {"type": "scale_in", "duration": 0.8}, "static": false}
-            ]
-        },
-        {
-            "id": "split_compare",
-            "name": "🌓 Сравнение (Split)",
-            "description": "Два материала разделены пополам (До / После).",
-            "allow_montage_effects": false,
-            "elements": [
-                {"id": "left", "name": "Левая / верхняя часть", "type": "media"},
-                {"id": "right", "name": "Правая / нижняя часть", "type": "media"}
-            ]
-        },
-        {
-            "id": "text_reveal",
-            "name": "🔤 Текстовое раскрытие",
-            "description": "Заголовок и подзаголовок выезжают снизу поверх фона.",
-            "allow_montage_effects": false,
-            "elements": [
-                {"id": "bg", "name": "Фоновый материал", "type": "media"},
-                {"id": "title", "name": "Заголовок", "type": "text"},
-                {"id": "subtitle", "name": "Подзаголовок (опционально, '-' чтобы пропустить)", "type": "text"},
-                {"id": "plate", "name": "Плашка под текст", "type": "plate_select"}
-            ],
-            "layers": [
-                {"element": "bg", "type": "media", "mode": "cover", "effects": ["ken_burns"]},
-                {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.26"}, "height_pct": 0.48},
-                {"element": "title", "type": "text", "font_size": 68, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.32"}, "animation": {"type": "slide_up", "duration": 0.8}},
-                {"element": "subtitle", "type": "text", "font_size": 44, "color": "#DDDDDD", "position": {"x": "center", "y": "h*0.56"}, "animation": {"type": "slide_up", "duration": 1.0}}
-            ]
-        },
-        {
-            "id": "icon_presentation",
-            "name": "🕊 Иконная презентация",
-            "description": "Икона/изображение спускается сверху с уменьшением. Заголовок и описание раскрываются снизу.",
-            "allow_montage_effects": false,
-            "elements": [
-                {"id": "bg", "name": "Фоновый материал", "type": "media"},
-                {"id": "icon", "name": "Икона/изображение (PNG)", "type": "photo"},
-                {"id": "title", "name": "Заголовок", "type": "text"},
-                {"id": "description", "name": "Описание (опционально, '-' чтобы пропустить)", "type": "text"},
-                {"id": "plate", "name": "Плашка под текст", "type": "plate_select"}
-            ],
-            "layers": [
-                {"element": "bg", "type": "media", "mode": "cover", "effects": ["ken_burns"]},
-                {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.56"}, "height_pct": 0.38},
-                {"element": "icon", "type": "overlay", "scale": 0.35, "position": {"x": "center", "y": "h*0.20"}, "animation": {"type": "reveal_from_top", "duration": 1.3, "start_scale": 1.5, "end_scale": 1.0}},
-                {"element": "title", "type": "text", "font_size": 55, "color": "#FFD700", "position": {"x": "center", "y": "h*0.60"}, "animation": {"type": "fade_in_up", "duration": 0.8}},
-                {"element": "description", "type": "text", "font_size": 34, "color": "#EEEEEE", "position": {"x": "center", "y": "h*0.76"}, "animation": {"type": "fade_in_up", "duration": 1.0}}
-            ]
-        },
-        {
-            "id": "footage_intro",
-            "name": "🎬 Футажное интро",
-            "description": "Фоновый футаж с виньеткой. Логотип и заголовок проявляются через fade-in.",
-            "allow_montage_effects": false,
-            "elements": [
-                {"id": "bg", "name": "Фоновый футаж/видео", "type": "media"},
-                {"id": "logo", "name": "Логотип/иконка (PNG)", "type": "photo"},
-                {"id": "headline", "name": "Заголовок", "type": "text"},
-                {"id": "plate", "name": "Плашка под заголовок", "type": "plate_select"}
-            ],
-            "layers": [
-                {"element": "bg", "type": "media", "mode": "cover", "effects": [{"type": "ken_burns", "zoom_from": 1.0, "zoom_to": 1.10, "start_frac": 0.0, "end_frac": 1.0}]},
-                {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.65"}, "height_pct": 0.25},
-                {"element": "logo", "type": "overlay_with_bg", "scale": 0.30, "bg_color": "#000000", "bg_opacity": 0.55, "position": "center", "animation": {"type": "scale_in", "duration": 0.8, "start_scale": 0.3}},
-                {"element": "headline", "type": "text", "font_size": 60, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.69"}, "animation": {"type": "fade_in_up", "duration": 1.2}}
-            ]
-        },
-        {
-            "id": "product_card",
-            "name": "🛍 Карточка товара",
-            "description": "Картинка товара по центру. Заголовок выезжает справа. Плашка с ценой снизу.",
-            "allow_montage_effects": false,
-            "elements": [
-                {"id": "bg", "name": "Фоновый материал", "type": "media"},
-                {"id": "product", "name": "Картинка товара (PNG/JPG)", "type": "photo"},
-                {"id": "title", "name": "Название товара", "type": "text"},
-                {"id": "desc", "name": "Краткое описание (опционально, '-' чтобы пропустить)", "type": "text"},
-                {"id": "price_new", "name": "Новая цена (только число)", "type": "text"},
-                {"id": "discount", "name": "Процент скидки (опционально, '-' чтобы пропустить)", "type": "text"},
-                {"id": "plate", "name": "Плашка под цену", "type": "plate_select"}
-            ],
-            "layers": [
-                {"element": "bg", "type": "media", "mode": "cover", "effects": []},
-                {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.60"}, "height_pct": 0.38},
-                {"element": "product", "type": "overlay", "scale": 0.55, "position": {"x": "center", "y": "h*0.15"}, "animation": {"type": "scale_in", "duration": 0.7, "start_scale": 0.5}},
-                {"element": "title", "type": "text", "font_size": 52, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.63"}, "animation": {"type": "slide_left", "duration": 0.8}},
-                {"element": "desc", "type": "text", "font_size": 36, "color": "#CCCCCC", "position": {"x": "center", "y": "h*0.74"}, "animation": {"type": "fade_in_up", "duration": 1.0}},
-                {"element": "price_new", "type": "text", "font_size": 80, "color": "#FFD700", "position": {"x": "center", "y": "h*0.82"}, "animation": {"type": "slide_up", "duration": 1.2}},
-                {"element": "discount", "type": "text", "font_size": 46, "color": "#FF4444", "position": {"x": "center", "y": "h*0.91"}, "animation": {"type": "fade_in_up", "duration": 1.4}}
-            ]
+          "element": "brand_name", "type": "text", "font_size": 50, "color": "#FFFFFF",
+          "position": {"x": "center", "y": "h*0.74"},
+          "animation": {"type": "fade_in", "duration": 1.2}
         }
-    ]
+      ]
+    },
+    {
+      "id": "price_tag",
+      "name": "💎 Акцент на цену (Premium)",
+      "description": "Профессиональная карточка: название, цена, зачёркнутая старая цена, бейдж скидки.",
+      "allow_montage_effects": false,
+      "elements": [
+        {"id": "bg", "name": "Фоновый материал", "type": "media"},
+        {"id": "title", "name": "Название товара", "type": "text"},
+        {"id": "price_new", "name": "Новая цена с символом (например: 150 ₽ или 99 €)", "type": "text"},
+        {"id": "price_old", "name": "Старая цена (опционально, '-' пропустить)", "type": "text"},
+        {"id": "discount", "name": "Скидка % (опционально, '-' пропустить)", "type": "text"},
+        {"id": "plate", "name": "Плашка под ценовой блок", "type": "plate_select"}
+      ],
+      "layers": [
+        {"element": "bg", "type": "media", "mode": "cover", "effects": ["ken_burns"]},
+        {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.68"}, "height_pct": 0.32},
+        {"element": "title", "type": "text", "font_size": 60, "color": "#FFFFFF", "position": {"x": 100, "y": "h*0.72"}, "animation": {"type": "slide_left", "duration": 0.8}, "static": false},
+        {"element": "price_new", "type": "text", "font_size": 130, "color": "#FFD700", "position": {"x": 100, "y": "h*0.80"}, "animation": {"type": "slide_up", "duration": 1.0}, "static": false},
+        {"element": "price_old", "type": "text", "font_size": 50, "color": "#999999", "position": {"x": 100, "y": "h*0.90"}, "animation": {"type": "fade_in", "duration": 1.2}, "static": false},
+        {"element": "discount", "type": "text", "font_size": 60, "color": "#FF4444", "position": {"x": "w-320", "y": "h*0.80"}, "animation": {"type": "scale_in", "duration": 0.8}, "static": false}
+      ]
+    },
+    {
+      "id": "split_compare",
+      "name": "🌓 Сравнение (До / После)",
+      "description": "Два материала разделены пополам. Идеально для сравнения До/После.",
+      "allow_montage_effects": false,
+      "elements": [
+        {"id": "left", "name": "Левая / верхняя часть (ДО)", "type": "media"},
+        {"id": "right", "name": "Правая / нижняя часть (ПОСЛЕ)", "type": "media"}
+      ]
+    },
+    {
+      "id": "text_reveal",
+      "name": "🔤 Текстовое раскрытие",
+      "description": "Заголовок и подзаголовок выезжают снизу поверх фона.",
+      "allow_montage_effects": false,
+      "elements": [
+        {"id": "bg", "name": "Фоновый материал", "type": "media"},
+        {"id": "title", "name": "Заголовок", "type": "text"},
+        {"id": "subtitle", "name": "Подзаголовок (опционально, '-' пропустить)", "type": "text"},
+        {"id": "plate", "name": "Плашка под текст", "type": "plate_select"}
+      ],
+      "layers": [
+        {"element": "bg", "type": "media", "mode": "cover", "effects": ["ken_burns"]},
+        {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.26"}, "height_pct": 0.48},
+        {"element": "title", "type": "text", "font_size": 68, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.32"}, "animation": {"type": "slide_up", "duration": 0.8}},
+        {"element": "subtitle", "type": "text", "font_size": 44, "color": "#DDDDDD", "position": {"x": "center", "y": "h*0.56"}, "animation": {"type": "slide_up", "duration": 1.0}}
+      ]
+    },
+    {
+      "id": "icon_presentation",
+      "name": "🕊 Иконная презентация",
+      "description": "Икона спускается сверху. Заголовок и описание раскрываются снизу.",
+      "allow_montage_effects": false,
+      "elements": [
+        {"id": "bg", "name": "Фоновый материал", "type": "media"},
+        {"id": "icon", "name": "Икона/изображение (PNG)", "type": "photo"},
+        {"id": "title", "name": "Заголовок", "type": "text"},
+        {"id": "description", "name": "Описание (опционально, '-' пропустить)", "type": "text"},
+        {"id": "plate", "name": "Плашка под текст", "type": "plate_select"}
+      ],
+      "layers": [
+        {"element": "bg", "type": "media", "mode": "cover", "effects": ["ken_burns"]},
+        {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.56"}, "height_pct": 0.38},
+        {"element": "icon", "type": "overlay", "scale": 0.35, "position": {"x": "center", "y": "h*0.20"}, "animation": {"type": "reveal_from_top", "duration": 1.3, "start_scale": 1.5, "end_scale": 1.0}},
+        {"element": "title", "type": "text", "font_size": 55, "color": "#FFD700", "position": {"x": "center", "y": "h*0.60"}, "animation": {"type": "fade_in_up", "duration": 0.8}},
+        {"element": "description", "type": "text", "font_size": 34, "color": "#EEEEEE", "position": {"x": "center", "y": "h*0.76"}, "animation": {"type": "fade_in_up", "duration": 1.0}}
+      ]
+    },
+    {
+      "id": "footage_intro",
+      "name": "🎬 Футажное интро",
+      "description": "Фоновый футаж. Логотип появляется с зумом, заголовок выезжает снизу.",
+      "allow_montage_effects": false,
+      "elements": [
+        {"id": "bg", "name": "Фоновый футаж/видео", "type": "media"},
+        {"id": "logo", "name": "Логотип/иконка (PNG)", "type": "photo"},
+        {"id": "headline", "name": "Заголовок", "type": "text"},
+        {"id": "plate", "name": "Плашка под заголовок", "type": "plate_select"}
+      ],
+      "layers": [
+        {"element": "bg", "type": "media", "mode": "cover", "effects": [{"type": "ken_burns", "zoom_from": 1.0, "zoom_to": 1.10, "start_frac": 0.0, "end_frac": 1.0}]},
+        {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.65"}, "height_pct": 0.25},
+        {"element": "logo", "type": "overlay_with_bg", "scale": 0.30, "bg_color": "#000000", "bg_opacity": 0.55, "position": "center", "animation": {"type": "scale_in", "duration": 0.8, "start_scale": 0.3}},
+        {"element": "headline", "type": "text", "font_size": 60, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.69"}, "animation": {"type": "fade_in_up", "duration": 1.2}}
+      ]
+    },
+    {
+      "id": "product_card",
+      "name": "🛍 Карточка товара",
+      "description": "Картинка товара по центру. Заголовок выезжает справа. Плашка с ценой снизу.",
+      "allow_montage_effects": false,
+      "elements": [
+        {"id": "bg", "name": "Фоновый материал", "type": "media"},
+        {"id": "product", "name": "Картинка товара (PNG/JPG)", "type": "photo"},
+        {"id": "title", "name": "Название товара", "type": "text"},
+        {"id": "desc", "name": "Краткое описание (опционально, '-' пропустить)", "type": "text"},
+        {"id": "price_new", "name": "Цена с символом (например: 1 990 ₽)", "type": "text"},
+        {"id": "discount", "name": "Процент скидки (опционально, '-' пропустить)", "type": "text"},
+        {"id": "plate", "name": "Плашка под цену", "type": "plate_select"}
+      ],
+      "layers": [
+        {"element": "bg", "type": "media", "mode": "cover", "effects": []},
+        {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.60"}, "height_pct": 0.38},
+        {"element": "product", "type": "overlay", "scale": 0.55, "position": {"x": "center", "y": "h*0.15"}, "animation": {"type": "scale_in", "duration": 0.7, "start_scale": 0.5}},
+        {"element": "title", "type": "text", "font_size": 52, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.63"}, "animation": {"type": "slide_left", "duration": 0.8}},
+        {"element": "desc", "type": "text", "font_size": 36, "color": "#CCCCCC", "position": {"x": "center", "y": "h*0.74"}, "animation": {"type": "fade_in_up", "duration": 1.0}},
+        {"element": "price_new", "type": "text", "font_size": 80, "color": "#FFD700", "position": {"x": "center", "y": "h*0.82"}, "animation": {"type": "slide_up", "duration": 1.2}},
+        {"element": "discount", "type": "text", "font_size": 46, "color": "#FF4444", "position": {"x": "center", "y": "h*0.91"}, "animation": {"type": "fade_in_up", "duration": 1.4}}
+      ]
+    },
+    {
+      "id": "announcement_bold",
+      "name": "📣 Жирный анонс",
+      "description": "Мощный анонс: иконка падает сверху, крупный заголовок въезжает справа, описание проявляется снизу.",
+      "allow_montage_effects": false,
+      "elements": [
+        {"id": "bg", "name": "Фоновый материал", "type": "media"},
+        {"id": "icon", "name": "Иконка или эмодзи-изображение (PNG, опционально, '-' пропустить)", "type": "photo"},
+        {"id": "title", "name": "Главный заголовок (большой, до 30 символов)", "type": "text"},
+        {"id": "subtitle", "name": "Описание / подзаголовок (опционально, '-' пропустить)", "type": "text"},
+        {"id": "cta", "name": "Призыв к действию (опционально, напр. 'Узнать больше →')", "type": "text"},
+        {"id": "plate", "name": "Плашка под текст", "type": "plate_select"}
+      ],
+      "layers": [
+        {"element": "bg", "type": "media", "mode": "cover", "effects": [{"type": "ken_burns", "zoom_from": 1.05, "zoom_to": 1.18, "start_frac": 0.0, "end_frac": 0.9}]},
+        {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.38"}, "height_pct": 0.55},
+        {"element": "icon", "type": "overlay", "scale": 0.22, "position": {"x": "center", "y": "h*0.10"}, "animation": {"type": "reveal_from_top", "duration": 1.0, "start_scale": 1.8, "end_scale": 1.0}},
+        {"element": "title", "type": "text", "font_size": 88, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.42"}, "animation": {"type": "slide_right", "duration": 0.7}, "static": false},
+        {"element": "subtitle", "type": "text", "font_size": 42, "color": "#E0E0E0", "position": {"x": "center", "y": "h*0.60"}, "animation": {"type": "fade_in_up", "duration": 0.9}},
+        {"element": "cta", "type": "text", "font_size": 46, "color": "#FFD700", "position": {"x": "center", "y": "h*0.82"}, "animation": {"type": "fade_in", "duration": 1.4}}
+      ]
+    },
+    {
+      "id": "testimonial_card",
+      "name": "💬 Карточка отзыва",
+      "description": "Фото клиента появляется сверху, цитата выезжает снизу, имя и рейтинг проявляются в конце.",
+      "allow_montage_effects": false,
+      "elements": [
+        {"id": "bg", "name": "Фоновый материал", "type": "media"},
+        {"id": "avatar", "name": "Фото клиента (PNG/JPG)", "type": "photo"},
+        {"id": "quote", "name": "Цитата / текст отзыва", "type": "text"},
+        {"id": "author", "name": "Имя и должность (напр. 'Анна К., директор')", "type": "text"},
+        {"id": "rating", "name": "Рейтинг (опционально, напр. '★★★★★')", "type": "text"},
+        {"id": "plate", "name": "Плашка под отзыв", "type": "plate_select"}
+      ],
+      "layers": [
+        {"element": "bg", "type": "media", "mode": "cover", "effects": ["ken_burns"]},
+        {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.42"}, "height_pct": 0.52},
+        {"element": "avatar", "type": "overlay_with_bg", "scale": 0.28, "bg_color": "#FFFFFF", "bg_opacity": 0.15, "position": {"x": "center", "y": "h*0.09"}, "animation": {"type": "scale_in", "duration": 0.9, "start_scale": 0.4}},
+        {"element": "quote", "type": "text", "font_size": 42, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.47"}, "animation": {"type": "fade_in_up", "duration": 0.8}},
+        {"element": "author", "type": "text", "font_size": 36, "color": "#FFD700", "position": {"x": "center", "y": "h*0.75"}, "animation": {"type": "fade_in_up", "duration": 1.1}},
+        {"element": "rating", "type": "text", "font_size": 50, "color": "#FFD700", "position": {"x": "center", "y": "h*0.86"}, "animation": {"type": "fade_in", "duration": 1.4}}
+      ]
+    },
+    {
+      "id": "countdown_sale",
+      "name": "⏳ Акция / Дедлайн",
+      "description": "Продукт появляется с зумом сверху, заголовок акции и дата окончания выезжают снизу.",
+      "allow_montage_effects": false,
+      "elements": [
+        {"id": "bg", "name": "Фоновый материал", "type": "media"},
+        {"id": "product", "name": "Фото продукта или товара (PNG/JPG)", "type": "photo"},
+        {"id": "title", "name": "Заголовок акции (напр. 'ЧЕРНАЯ ПЯТНИЦА')", "type": "text"},
+        {"id": "deadline", "name": "Дата или условие (напр. 'Только до 31 мая!')", "type": "text"},
+        {"id": "price", "name": "Цена или выгода (напр. '-50% на всё')", "type": "text"},
+        {"id": "plate", "name": "Плашка под блок цены", "type": "plate_select"}
+      ],
+      "layers": [
+        {"element": "bg", "type": "media", "mode": "cover", "effects": [{"type": "ken_burns", "zoom_from": 1.0, "zoom_to": 1.12, "start_frac": 0.1, "end_frac": 0.85}]},
+        {"element": "plate", "type": "plate_image", "position": {"x": 0, "y": "h*0.55"}, "height_pct": 0.45},
+        {"element": "product", "type": "overlay", "scale": 0.50, "position": {"x": "center", "y": "h*0.06"}, "animation": {"type": "reveal_from_top", "duration": 1.1, "start_scale": 1.4, "end_scale": 1.0}},
+        {"element": "title", "type": "text", "font_size": 76, "color": "#FF4444", "position": {"x": "center", "y": "h*0.58"}, "animation": {"type": "slide_up", "duration": 0.7}, "static": false},
+        {"element": "deadline", "type": "text", "font_size": 40, "color": "#FFFFFF", "position": {"x": "center", "y": "h*0.72"}, "animation": {"type": "fade_in_up", "duration": 1.0}},
+        {"element": "price", "type": "text", "font_size": 90, "color": "#FFD700", "position": {"x": "center", "y": "h*0.83"}, "animation": {"type": "scale_in", "duration": 0.9, "start_scale": 0.3}}
+      ]
+    }
+  ]
 }

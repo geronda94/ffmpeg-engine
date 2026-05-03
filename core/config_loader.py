@@ -14,6 +14,7 @@ CONFIG_PATHS = {
     "dynamic_scenes": "config/dynamic_scenes.json",
     "channel_context": "config/channel_context.json",
     "audio_library": "config/audio_library.json",
+    "ui_plates": "config/ui_plates.json",
 }
 
 

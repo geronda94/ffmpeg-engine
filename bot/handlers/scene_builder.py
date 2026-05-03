@@ -112,6 +112,8 @@ async def _ask_preset(message: types.Message, state: FSMContext, edit=False):
         "🎭 **Выберите пресет динамической сцены:**\n\n"
         "Каждый пресет — готовый шаблон с анимацией."
     )
+    # Устанавливаем состояние ДО отправки/редактирования, чтобы кнопки всегда работали
+    await state.set_state(ProjectStates.standalone_choosing_preset)
     try:
         if edit:
             await message.edit_text(text, reply_markup=kb.as_markup())
@@ -123,7 +125,6 @@ async def _ask_preset(message: types.Message, state: FSMContext, edit=False):
     msgs = data.get("sc_bot_msgs", [])
     msgs.append(msg.message_id)
     await state.update_data(sc_bot_msgs=msgs)
-    await state.set_state(ProjectStates.standalone_choosing_preset)
 
 
 @router.callback_query(F.data.startswith("sc_pre_"), ProjectStates.standalone_choosing_preset)
@@ -338,6 +339,8 @@ async def _render_standalone_scene(message: types.Message, state: FSMContext):
         kb.button(text="🔄 Попробовать снова", callback_data="sc_restart")
         kb.adjust(1)
         await message.answer("❌ Ошибка при рендере сцены.", reply_markup=kb.as_markup())
+        # Устанавливаем состояние, чтобы кнопка «Попробовать снова» работала
+        await state.set_state(ProjectStates.standalone_approving)
 
 
 # ─────────────────────────────────────────────
@@ -371,5 +374,5 @@ async def sc_change_preset(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     await callback.message.edit_reply_markup(reply_markup=None)
     await state.update_data(sc_elements={}, sc_element_idx=0)
+    # _ask_preset сам устанавливает standalone_choosing_preset внутри
     await _ask_preset(callback.message, state, edit=False)
-    await state.set_state(ProjectStates.standalone_choosing_preset)
