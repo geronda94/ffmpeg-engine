@@ -112,10 +112,11 @@ class RenderTaskManager:
                     task['status'] = "failed"
                     logger.error(f"Worker: Render failed for {project_id}")
                 
-                # Вызываем коллбэк (например, для отправки видео пользователю)
+                # Вызываем коллбэк (отправка видео) в отдельной задаче, 
+                # чтобы не блокировать воркер для следующего рендеринга.
                 if task['callback']:
-                    logger.info(f"Worker: Triggering callback for {project_id}")
-                    await task['callback'](task)
+                    logger.info(f"Worker: Launching background callback for {project_id}")
+                    asyncio.create_task(self._safe_callback(task))
                 else:
                     logger.warning(f"Worker: No callback defined for {project_id}")
                     
@@ -124,10 +125,15 @@ class RenderTaskManager:
                 task['status'] = "error"
                 task['error'] = str(e)
             finally:
-                # Очищаем из активных после завершения (опционально)
-                # del self.active_tasks[project_id] 
                 self.queue.task_done()
-                logger.info(f"Worker: Task {project_id} finished. Waiting for next...")
+                logger.info(f"Worker: Task {project_id} rendering cycle finished. Moving to next queue item...")
+
+    async def _safe_callback(self, task: dict):
+        """Безопасный запуск коллбэка в фоне (чтобы не уронить основной цикл)."""
+        try:
+            await task['callback'](task)
+        except Exception as e:
+            logger.error(f"Error in background callback for {task['project_id']}: {e}")
 
 # Синглтон для импорта
 task_manager = RenderTaskManager()

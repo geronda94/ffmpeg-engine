@@ -51,90 +51,68 @@ class MediaEngine:
             return res
             
         else:
-            # ОПТИМИЗАЦИЯ: Если пропорции близки к целевым, используем быстрый COVER
-            target_ratio = target_w / target_h
-            clip_ratio = clip.w / clip.h
-            diff = abs(clip_ratio - target_ratio) / target_ratio
-            
-            if diff < 0.20:
-                logger.info(f"⚡ [MediaEngine] Proportions are close (diff {diff:.2f}). Using FAST cover mode with Color Background.")
-                
-                # 1. Вычисляем средний цвет (МГНОВЕННО через сжатие)
-                try:
-                    # Сжимаем до 1x1 пикселя для получения среднего цвета
-                    small_img = clip.resized((1, 1))
-                    avg_color = small_img.get_frame(0)[0][0].tolist()
-                except:
-                    avg_color = [30, 30, 30] # Темно-серый дефолт
-
-                # 2. Создаем подложку (длительность берем явно)
-                final_dur = clip.duration or 5.0
-                bg = ColorClip(size=(target_w, target_h), color=avg_color).with_duration(final_dur)
-                
-                # 3. Готовим основной клип (Cover + 2% запас)
-                safe_w, safe_h = int(target_w * 1.02), int(target_h * 1.02)
-                old_w, old_h = self.width, self.height
-                self.width, self.height = safe_w, safe_h
-                fg = self.smart_resize_stable(clip, mode="cover", effects_data=effects_data)
-                self.width, self.height = old_w, old_h
-                
-                return CompositeVideoClip([bg, fg.with_position("center")], size=(target_w, target_h)).with_duration(final_dur)
-
-            # 1. Получаем основу cover (для фона с блюром)
+            # 1. ПОДЛОЖКА (Размытый Cover)
+            # Используем рекурсию для получения базы фона
             bg = self.smart_resize_stable(clip, mode="cover")
             
-            # 2. Размываем: сжать до крошечного → растянуть с запасом
+            # Размываем: сжать → растянуть с запасом
             bg = bg.resized(self.BLUR_RESIZE_FACTOR)
-            
-            # Растягиваем на 10% больше target, чтобы гарантированно избежать черных рамок
             over_w = int(target_w * 1.1)
             over_h = int(target_h * 1.1)
             bg = bg.resized(width=over_w, height=over_h)
-            x1 = (over_w - target_w) // 2
-            y1 = (over_h - target_h) // 2
             bg = bg.cropped(
-                x1=x1, y1=y1,
-                x2=x1 + target_w, y2=y1 + target_h
+                x1=(over_w - target_w) // 2,
+                y1=(over_h - target_h) // 2,
+                x2=(over_w - target_w) // 2 + target_w,
+                y2=(over_h - target_h) // 2 + target_h
             ).with_position((0, 0))
             
+            # Затемняем фон
             bg = bg.with_effects([vfx.LumContrast(lum=self.DEFAULT_LUM)])
             
-            # 3. Передний план (fit)
-            ratio = min(target_w / clip.w, target_h / clip.h)
-            new_w = math.ceil(clip.w * ratio)
-            new_h = math.ceil(clip.h * ratio)
+            # 2. ПЕРЕДНИЙ ПЛАН (с новой логикой отступов)
+            target_ratio = target_w / target_h
+            clip_ratio = clip.w / clip.h
             
-            # ФИКС: увеличиваем размер, если вторичная ось слишком мала
-            is_vertical_video = target_h > target_w
+            # Определяем, является ли пропорция "противоположной" (например, горизонтальное фото в вертикальном видео)
+            is_opposed = (target_ratio < 0.8 and clip_ratio > 1.2) or (target_ratio > 1.2 and clip_ratio < 0.8)
             
-            if is_vertical_video:
-                min_h = target_h / MIN_FG_SCALE_DIVISOR
-                if new_h < min_h:
-                    ratio = min_h / clip.h
-                    new_w = math.ceil(clip.w * ratio)
-                    new_h = math.ceil(clip.h * ratio)
+            if is_opposed:
+                # СЛУЧАЙ B: Горизонтальное в вертикальном (или наоборот)
+                # По бокам без отступов (ширина = канвас)
+                # По высоте занимаем фиксированную долю (1/2.6 от экрана)
+                new_w = target_w
+                new_h = int(target_h / 2.6)
+                
+                # Масштабируем фото по принципу COVER внутри этого окна
+                scale_ratio = max(new_w / clip.w, new_h / clip.h)
+                fg_w = math.ceil(clip.w * scale_ratio)
+                fg_h = math.ceil(clip.h * scale_ratio)
+                fg = clip.resized(width=fg_w, height=fg_h)
+                
+                # Кропаем лишнее, чтобы вписаться точно в окно (new_w, new_h)
+                fg = fg.cropped(
+                    x1=(fg_w - new_w) // 2,
+                    y1=(fg_h - new_h) // 2,
+                    x2=(fg_w - new_w) // 2 + new_w,
+                    y2=(fg_h - new_h) // 2 + new_h
+                )
             else:
-                min_w = target_w / MIN_FG_SCALE_DIVISOR
-                if new_w < min_w:
-                    ratio = min_w / clip.w
-                    new_w = math.ceil(clip.w * ratio)
-                    new_h = math.ceil(clip.h * ratio)
-            
-            fg = clip.resized(width=new_w, height=new_h)
-            
-            # Если после увеличения размеры превысили кадр, кропаем по центру
-            if new_w > target_w or new_h > target_h:
-                x1 = max(0, (new_w - target_w) // 2)
-                y1 = max(0, (new_h - target_h) // 2)
-                x2 = min(new_w, x1 + target_w)
-                y2 = min(new_h, y1 + target_h)
-                fg = fg.cropped(x1=x1, y1=y1, x2=x2, y2=y2)
+                # СЛУЧАЙ A: Похожие пропорции
+                # Принудительные отступы: ширина 90% (по 5% сбоку), высота 80% (по 10% сверху/снизу)
+                max_w = int(target_w * 0.90)
+                max_h = int(target_h * 0.80)
+                
+                scale_ratio = min(max_w / clip.w, max_h / clip.h)
+                new_w = math.ceil(clip.w * scale_ratio)
+                new_h = math.ceil(clip.h * scale_ratio)
+                fg = clip.resized(width=new_w, height=new_h)
 
-
-            # ПРИМЕНЯЕМ ЭФФЕКТЫ ТОЛЬКО К ПЕРЕДНЕМУ ПЛАНУ!
+            # ПРИМЕНЯЕМ ЭФФЕКТЫ
             if effects_data:
                 fg = self.apply_preset_effects(fg, effects_data)
 
+            # Центрируем
             fg = fg.with_position("center")
             
             return CompositeVideoClip([bg, fg], size=(target_w, target_h))

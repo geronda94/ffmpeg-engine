@@ -84,8 +84,14 @@ async def handle_web_search_start(callback: types.CallbackQuery, state: FSMConte
         search_results=results, search_idx=0,
         search_queries=queries, search_color=color, search_source="all"
     )
-    await register_trash(callback.message, state)
-    await show_web_search_result(callback.message, state)
+    
+    # Удаляем старое меню
+    try:
+        await callback.message.delete()
+    except:
+        pass
+        
+    await show_web_search_result(callback.message, state, is_first=True)
 
 
 # ── Ручной ввод запроса ──────────────────────────────────────────────────────
@@ -130,12 +136,13 @@ async def handle_web_search_manual_query(message: types.Message, state: FSMConte
         search_results=results, search_idx=0,
         search_queries=queries, search_color=color, search_source="all"
     )
-    await show_web_search_result(message, state)
+    # При ручном вводе тоже создаем новое сообщение
+    await show_web_search_result(message, state, is_first=True)
 
 
 # ── Карусель результатов ─────────────────────────────────────────────────────
-async def show_web_search_result(message: types.Message, state: FSMContext):
-    """Отрисовка карусели с защитой от битых ссылок."""
+async def show_web_search_result(message: types.Message, state: FSMContext, is_first: bool = False):
+    """Отрисовка карусели. is_first=True создает новое сообщение, иначе редактирует."""
     data = await state.get_data()
     results = data.get('search_results', [])
     idx = data.get('search_idx', 0)
@@ -156,47 +163,62 @@ async def show_web_search_result(message: types.Message, state: FSMContext):
     kb.button(text="❌ Отмена", callback_data="web_cancel")
     kb.adjust(3, 1, 1, 1)
 
-    attempts = 0
-    max_attempts = min(5, len(results))
+    # Устанавливаем состояние СРАЗУ, чтобы кнопки точно работали
+    await state.set_state(ProjectStates.searching_web_image)
 
-    while attempts < max_attempts:
-        photo = results[idx]
-        caption = (
-            f"🖼 **Вариант {idx + 1}/{len(results)}**\n"
-            f"📷 Автор: {photo.get('photographer', 'Unknown')}\n\n"
-            f"Нравится это изображение?"
-        )
-        try:
+    photo = results[idx]
+    caption = (
+        f"🖼 **Вариант {idx + 1}/{len(results)}**\n"
+        f"📷 Автор: {photo.get('photographer', 'Unknown')}\n\n"
+        f"Нравится это изображение?"
+    )
+
+    try:
+        if is_first:
+            msg = await message.answer_photo(photo=photo['url'], caption=caption, reply_markup=kb.as_markup())
+            await register_trash(msg, state)
+        else:
             media = types.InputMediaPhoto(media=photo['url'], caption=caption)
             await message.edit_media(media=media, reply_markup=kb.as_markup())
-            await state.update_data(search_idx=idx)
-            await state.set_state(ProjectStates.searching_web_image)
-            return
-        except Exception as e:
-            err_msg = str(e).lower()
-            if "failed to get http url content" in err_msg or "wrong type of the web page content" in err_msg:
-                logger.warning(f"⚠️ Broken URL, skipping: {photo['url']}")
-                idx = (idx + 1) % len(results)
-                attempts += 1
-                continue
-            if "message is not modified" in err_msg:
-                return
-            try:
-                msg = await message.answer_photo(photo=photo['url'], caption=caption, reply_markup=kb.as_markup())
-                await register_trash(msg, state)
-                await state.update_data(search_idx=idx)
-                await state.set_state(ProjectStates.searching_web_image)
-                return
-            except:
-                idx = (idx + 1) % len(results)
-                attempts += 1
-
-    await message.answer("❌ Эти варианты недоступны. Попробуйте сменить источник или уточнить запрос.")
+        
+        await state.update_data(search_idx=idx, _retry_count=0)
+    except Exception as e:
+        err_str = str(e).lower()
+        if "canceled by new" in err_str or "message is not modified" in err_str:
+            return # Игнорируем сетевые гонки
+            
+        logger.warning(f"⚠️ Carousel error: {e}")
+        
+        # Пробуем следующий только если ссылка битая
+        if "failed to get" in err_str or "wrong type" in err_str or "file_reference" in err_str:
+            retry_count = data.get("_retry_count", 0)
+            if retry_count < 5:
+                new_idx = (idx + 1) % len(results)
+                await state.update_data(search_idx=new_idx, _retry_count=retry_count + 1)
+                await show_web_search_result(message, state, is_first=is_first)
+            else:
+                await state.update_data(_retry_count=0)
+                await message.answer("⚠️ Не удалось загрузить несколько вариантов. Попробуйте другой источник.")
 
 
 # ── Навигация по карусели ────────────────────────────────────────────────────
+async def _is_fast_click(state: FSMContext) -> bool:
+    """Защита от спама кнопками."""
+    import time
+    data = await state.get_data()
+    last_click = data.get("_last_web_click", 0)
+    now = time.time()
+    if now - last_click < 0.4: # 400мс
+        return True
+    await state.update_data(_last_web_click=now)
+    return False
+
+
 @router.callback_query(F.data == "web_next", ProjectStates.searching_web_image)
 async def handle_web_search_next(callback: types.CallbackQuery, state: FSMContext):
+    if await _is_fast_click(state):
+        await callback.answer()
+        return
     await callback.answer()
     data = await state.get_data()
     results = data.get('search_results', [])
@@ -207,6 +229,9 @@ async def handle_web_search_next(callback: types.CallbackQuery, state: FSMContex
 
 @router.callback_query(F.data == "web_prev", ProjectStates.searching_web_image)
 async def handle_web_search_prev(callback: types.CallbackQuery, state: FSMContext):
+    if await _is_fast_click(state):
+        await callback.answer()
+        return
     await callback.answer()
     data = await state.get_data()
     results = data.get('search_results', [])

@@ -36,10 +36,10 @@ async def optimize_text_for_tts(text: str, lang: str, rate: str = "+0%"):
         guidelines = {
             "Russian": (
                 "LINGUISTIC GUIDELINES FOR RUSSIAN:\n"
-                "1. PRESERVE ORTHOGRAPHY: Maintain strict morphological spelling. NEVER use phonetic spelling (e.g., write 'солнце', not 'сонце', 'его', not 'ево'). The neural engine automatically handles all complex phonetic rules like reduction (аканье/иканье) and devoicing.\n"
-                "2. MANDATORY 'Ё': Always restore the letter 'ё' everywhere it is required (e.g., 'идёт', 'всё', 'свёкла'). This is the single most important hint for the engine to avoid pronunciation errors.\n"
-                "3. SEMANTIC ACCENTS: Use capitalization for the stressed vowel (e.g., 'зАмок' vs 'замОк') ONLY to resolve ambiguity in homographs or for extremely rare words. Do NOT over-accentuate; it makes the voice sound robotic.\n"
-                "4. PUNCTUATION AS RHYTHM: Use '...' for long pauses between scenes and ',' for natural breathing points within sentences. Use '-' for logical emphasis.\n"
+                "1. PRESERVE ORTHOGRAPHY: Maintain strict morphological spelling (e.g., 'солнце', 'его'). NEVER use phonetic spelling ('сонце', 'ево'). The neural engine handles automatic reduction perfectly.\n"
+                "2. MANDATORY 'Ё': Always restore 'ё' where it belongs ('ещё', 'всё'). This is the most critical hint for the engine.\n"
+                "3. PROACTIVE ACCENTUATION: Use capitalization for the stressed vowel (e.g., 'зАмок', 'красИвый', 'переключИла') to ensure correct and natural pronunciation. Prioritize complex words, long words, and ambiguous homographs. Do not mark every single word, but be proactive where the engine might stumble.\n"
+                "4. PUNCTUATION AS RHYTHM: Use '...' for long pauses and ',' for breathing points.\n"
             ),
             "English": (
                 "LINGUISTIC GUIDELINES FOR ENGLISH:\n"
