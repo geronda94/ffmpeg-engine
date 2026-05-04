@@ -63,7 +63,13 @@ def align_scenes_with_audio(scenes: list, audio_path: str):
             scene_text = scene.get('text_segment', "").lower().strip()
             clean_scene_text = "".join(filter(str.isalnum, scene_text))
             
-            scene_start = segments[seg_ptr]['start'] if seg_ptr < len(segments) else current_time
+            # Каждая следующая сцена должна начинаться там, где закончилась предыдущая,
+            # чтобы закрывать паузы тишины и не создавать черных кадров.
+            if i == 0:
+                # Первая сцена ВСЕГДА начинается в 0.0, чтобы не было черного кадра в начале
+                scene_start = 0.0
+            else:
+                scene_start = processed_scenes[-1]['end']
             
             if not clean_scene_text:
                 scene['start'] = round(scene_start, 3)
@@ -86,6 +92,7 @@ def align_scenes_with_audio(scenes: list, audio_path: str):
             scene['end'] = round(current_time, 3)
             processed_scenes.append(scene)
             
+        # Гарантируем, что последняя сцена идет до конца аудио
         if processed_scenes:
             processed_scenes[-1]['end'] = round(total_duration, 3)
             

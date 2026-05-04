@@ -70,6 +70,11 @@ class MediaEngine:
             # Затемняем фон
             bg = bg.with_effects([vfx.LumContrast(lum=self.DEFAULT_LUM)])
             
+            # Фикс длительности: фон должен быть равен контенту
+            final_duration = clip.duration
+            if final_duration:
+                bg = bg.with_duration(final_duration)
+            
             # 2. ПЕРЕДНИЙ ПЛАН (с новой логикой отступов)
             target_ratio = target_w / target_h
             clip_ratio = clip.w / clip.h
@@ -99,7 +104,7 @@ class MediaEngine:
                 )
             else:
                 # СЛУЧАЙ A: Похожие пропорции
-                # Принудительные отступы: ширина 90% (по 5% сбоку), высота 80% (по 10% сверху/снизу)
+                # Принудительные отступы: ширина 90%, высота 80%
                 max_w = int(target_w * 0.90)
                 max_h = int(target_h * 0.80)
                 
@@ -115,7 +120,11 @@ class MediaEngine:
             # Центрируем
             fg = fg.with_position("center")
             
-            return CompositeVideoClip([bg, fg], size=(target_w, target_h))
+            # ВАЖНО: Явно задаем duration для всей композиции, чтобы избежать черных кадров
+            res = CompositeVideoClip([bg, fg], size=(target_w, target_h))
+            if final_duration:
+                res = res.with_duration(final_duration)
+            return res
 
     def apply_preset_effects(self, clip, effects_data):
         from core.animation_utils import (

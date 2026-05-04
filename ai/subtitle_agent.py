@@ -36,58 +36,39 @@ def generate_srt_from_project(scenes: list, whisper_segments: list, output_path:
 
         final_srt_segments = []
         
-        # 2. Обрабатываем каждую сцену отдельно
-        for scene in scenes:
-            # Проверка: разрешены ли субтитры в этой сцене (защита динамических сцен)
-            if not scene.get('allow_montage_effects', True):
+        # 2. Обрабатываем сегменты Whisper напрямую
+        for seg in whisper_segments:
+            start_t = seg['start']
+            end_t = seg['end']
+            text = seg['text'].strip()
+            
+            if not text:
                 continue
-
-            text = scene.get('text_segment', '').strip()
-            if not text: continue
-
-            # Находим временной диапазон речи в этой сцене по данным Whisper
-            # Берем сегменты, которые попадают в границы сцены (с небольшим запасом)
-            scene_whisper = [
-                s for s in whisper_segments 
-                if s['start'] >= scene['start'] - 0.3 
-                and s['end'] <= scene['end'] + 0.3
-            ]
-
-            if not scene_whisper:
-                speech_start = scene['start']
-                speech_end = scene['end']
-            else:
-                speech_start = min(s['start'] for s in scene_whisper)
-                speech_end = max(s['end'] for s in scene_whisper)
             
-            duration = speech_end - speech_start
-            if duration <= 0: continue
-
-            # Разбиваем текст на небольшие группы (по 3-4 слова)
+            # Проверяем, разрешены ли субтитры в этот момент времени (защита динамических сцен)
+            if not is_time_allowed(start_t):
+                continue
+            
+            # Разбиваем длинные сегменты Whisper на части, если в них больше 5 слов
             words = text.split()
-            chunks = []
-            temp_chunk = []
-            temp_len = 0
-            
-            for w in words:
-                # Ограничение: 4 слова или 30 символов на субтитр
-                if (len(temp_chunk) >= 4 or temp_len + len(w) > 30) and temp_chunk:
-                    chunks.append(" ".join(temp_chunk))
-                    temp_chunk = [w]
-                    temp_len = len(w)
-                else:
-                    temp_chunk.append(w)
-                    temp_len += len(w) + 1
-            if temp_chunk:
-                chunks.append(" ".join(temp_chunk))
-
-            # Равномерно распределяем группы слов по времени речи
-            chunk_dur = duration / len(chunks)
-            for i, chunk_text in enumerate(chunks):
+            if len(words) > 5:
+                mid = len(words) // 2
+                dur = end_t - start_t
                 final_srt_segments.append({
-                    'start': speech_start + i * chunk_dur,
-                    'end': speech_start + (i + 1) * chunk_dur,
-                    'text': chunk_text
+                    'start': start_t,
+                    'end': start_t + (dur / 2),
+                    'text': " ".join(words[:mid])
+                })
+                final_srt_segments.append({
+                    'start': start_t + (dur / 2),
+                    'end': end_t,
+                    'text': " ".join(words[mid:])
+                })
+            else:
+                final_srt_segments.append({
+                    'start': start_t,
+                    'end': end_t,
+                    'text': text
                 })
 
         # Генерируем SRT
