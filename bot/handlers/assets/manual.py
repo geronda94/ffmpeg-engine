@@ -179,6 +179,27 @@ async def handle_manual_asset(message: types.Message, state: FSMContext):
             await message.answer("❌ Не удалось сохранить файл. Попробуйте еще раз.")
             return
 
+        # ВАЛИДАЦИЯ И САНИТАРИЗАЦИЯ
+        try:
+            if not is_video:
+                from PIL import Image
+                with Image.open(temp_path) as img:
+                    img.verify()
+                with Image.open(temp_path) as img:
+                    rgb_img = img.convert('RGB')
+                    rgb_img.save(temp_path, "JPEG", quality=95, optimize=True)
+                logger.info(f"Manual image sanitized: {temp_path}")
+            else:
+                info = await asyncio.to_thread(get_video_info, temp_path)
+                if not info or info.get('duration', 0) <= 0:
+                    raise ValueError("Файл поврежден или имеет нулевую длительность")
+                logger.info(f"Manual video validated: {temp_path}")
+        except Exception as err:
+            logger.error(f"Asset validation failed: {err}")
+            if os.path.exists(temp_path): os.remove(temp_path)
+            await message.answer(f"❌ Файл поврежден или имеет неверный формат: {err}")
+            return
+
         if is_video:
             info = await asyncio.to_thread(get_video_info, temp_path)
             video_dur = info['duration'] if info else 0

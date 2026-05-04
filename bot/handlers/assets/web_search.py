@@ -292,13 +292,36 @@ async def handle_web_search_confirm(callback: types.CallbackQuery, state: FSMCon
         async with aiohttp.ClientSession() as session:
             async with session.get(photo['url']) as resp:
                 if resp.status == 200:
+                    content = await resp.read()
                     with open(temp_path, "wb") as f:
-                        f.write(await resp.read())
+                        f.write(content)
+                    
+                    # ПРОВЕРКА ВАЛИДНОСТИ И ПОЧИНКА
+                    try:
+                        from PIL import Image
+                        # Сначала проверяем, что это вообще картинка
+                        with Image.open(temp_path) as img:
+                            img.verify()
+                        
+                        # Переоткрываем и пересохраняем (это чинит кривые заголовки и цветовые профили)
+                        with Image.open(temp_path) as img:
+                            # Конвертируем в RGB (убирает CMYK/Alpha проблемы)
+                            rgb_img = img.convert('RGB')
+                            rgb_img.save(temp_path, "JPEG", quality=95, optimize=True)
+                        
+                        logger.info(f"Image validated and sanitized: {temp_path}")
+                            
+                    except Exception as img_err:
+                        logger.warning(f"Corrupted or invalid image from web: {img_err}")
+                        if os.path.exists(temp_path): os.remove(temp_path)
+                        await callback.message.answer("⚠️ Выбранный файл поврежден или имеет неверный формат. Пожалуйста, выберите другой вариант.")
+                        return
+
                     pm.update_asset(project_id, scene_idx, temp_path)
                     if os.path.exists(temp_path): os.remove(temp_path)
                     await ask_for_asset(callback.message, state, scene_idx + 1)
                 else:
-                    await callback.message.answer("❌ Ошибка при скачивании файла.")
+                    await callback.message.answer(f"❌ Ошибка при скачивании файла (Status: {resp.status})")
     except Exception as e:
         logger.error(f"Web Search Confirm Error: {e}")
         await callback.message.answer(f"❌ Ошибка: {e}")
