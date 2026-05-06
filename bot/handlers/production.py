@@ -155,7 +155,7 @@ async def handle_preset_choice(callback: types.CallbackQuery, state: FSMContext)
     audio_path = await generate_project_audio(project_id, preset)
     await status.delete()
     
-    if audio_path:
+    if audio_path and os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
         await state.update_data(current_audio_path=audio_path)
         kb = InlineKeyboardBuilder()
         kb.button(text="✅ Одобрить", callback_data="audio_ok")
@@ -165,6 +165,89 @@ async def handle_preset_choice(callback: types.CallbackQuery, state: FSMContext)
         from bot.navigation import register_trash
         await register_trash(msg, state)
         await state.set_state(ProjectStates.approving_audio)
+    else:
+        await callback.message.answer("❌ Ошибка: Не удалось сгенерировать аудио (сервер озвучки занят). Попробуйте еще раз через минуту.")
+
+@router.callback_query(F.data == "tts_manual", ProjectStates.choosing_tts_engine)
+async def handle_tts_manual(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    project_id = data.get('project_id')
+    proj_data = pm.load_project(project_id)
+    
+    script = proj_data.get('script', 'Текст не найден.')
+    
+    msg_text = (
+        "🎙 **Загрузка своей озвучки**\n\n"
+        "Скопируйте текст ниже, озвучьте его и пришлите аудиофайл или голосовое сообщение.\n\n"
+        f"```\n{script}\n```"
+    )
+    
+    msg = await callback.message.answer(msg_text, parse_mode="Markdown")
+    await state.update_data(manual_audio_msg_id=msg.message_id)
+    await state.set_state(ProjectStates.uploading_audio)
+
+@router.message(ProjectStates.uploading_audio, F.audio | F.voice | F.document)
+async def handle_manual_audio(message: types.Message, state: FSMContext):
+    # Определяем файл
+    file_id = None
+    if message.audio: file_id = message.audio.file_id
+    elif message.voice: file_id = message.voice.file_id
+    elif message.document and message.document.mime_type.startswith('audio'): 
+        file_id = message.document.file_id
+        
+    if not file_id:
+        await message.answer("❌ Пожалуйста, пришлите аудиофайл или голосовое сообщение.")
+        return
+
+    status_msg = await message.answer("⏳ Скачиваю вашу озвучку...")
+    
+    data = await state.get_data()
+    project_id = data['project_id']
+    project_path = pm.get_project_path(project_id)
+    
+    # Создаем папку аудио если нет
+    audio_dir = project_path / "audio"
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Сохраняем (используем .wav как стандарт для пайплайна, хотя ffmpeg поймет всё)
+    file = await message.bot.get_file(file_id)
+    ext = file.file_path.split('.')[-1]
+    audio_path = str(audio_dir / f"manual_voice.{ext}")
+    
+    await message.bot.download_file(file.file_path, audio_path)
+    
+    # Обновляем проект
+    proj_data = pm.load_project(project_id)
+    proj_data['current_audio_path'] = audio_path
+    pm.save_project(project_id, proj_data)
+    
+    await status_msg.delete()
+    
+    # Удаляем инструкцию если она была
+    instr_msg_id = data.get('manual_audio_msg_id')
+    if instr_msg_id:
+        try:
+            await message.bot.delete_message(message.chat.id, instr_msg_id)
+        except: pass
+
+    await message.answer("✅ Озвучка получена и сохранена!")
+    
+    # Переходим к проверке (как и при авто-генерации)
+    await state.update_data(current_audio_path=audio_path)
+    kb = InlineKeyboardBuilder()
+    kb.button(text="✅ Одобрить", callback_data="audio_ok")
+    kb.button(text="🔄 Переделать", callback_data="audio_retry")
+    kb.adjust(2)
+    
+    msg = await message.answer_audio(
+        types.FSInputFile(audio_path), 
+        caption="🎧 Прослушайте загруженную озвучку. Всё верно?", 
+        reply_markup=kb.as_markup()
+    )
+    from bot.navigation import register_trash
+    await register_trash(msg, state)
+    await state.set_state(ProjectStates.approving_audio)
 
 @router.callback_query(F.data == "audio_ok", ProjectStates.approving_audio)
 async def approve_audio(event: types.CallbackQuery | types.Message, state: FSMContext):

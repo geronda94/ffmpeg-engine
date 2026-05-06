@@ -459,8 +459,14 @@ async def handle_web_cancel(callback: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "web_confirm", ProjectStates.searching_web_image)
 async def handle_web_confirm(callback: types.CallbackQuery, state: FSMContext):
+    if await _is_fast_click(state):
+        await callback.answer()
+        return
+        
     await callback.answer("⏳ Сохраняю...")
     
+    # Запоминаем старую клавиатуру на случай ошибки
+    old_kb = callback.message.reply_markup
     try:
         await callback.message.edit_reply_markup(reply_markup=None)
     except Exception:
@@ -495,6 +501,7 @@ async def handle_web_confirm(callback: types.CallbackQuery, state: FSMContext):
                         logger.warning(f"Invalid image: {img_err}")
                         if os.path.exists(temp_path):
                             os.remove(temp_path)
+                        await callback.message.edit_reply_markup(reply_markup=old_kb)
                         await callback.message.answer(
                             "⚠️ Файл повреждён или неверного формата. Выберите другой вариант."
                         )
@@ -503,9 +510,18 @@ async def handle_web_confirm(callback: types.CallbackQuery, state: FSMContext):
                     pm.update_asset(project_id, scene_idx, temp_path)
                     if os.path.exists(temp_path):
                         os.remove(temp_path)
+                    
+                    # При успехе удаляем старое сообщение или переходим к следующему
+                    try:
+                        await callback.message.delete()
+                    except: pass
                     await ask_for_asset(callback.message, state, scene_idx + 1)
                 else:
+                    await callback.message.edit_reply_markup(reply_markup=old_kb)
                     await callback.message.answer(f"❌ Ошибка скачивания (HTTP {resp.status})")
     except Exception as e:
         logger.error(f"Web confirm error: {e}")
+        try:
+            await callback.message.edit_reply_markup(reply_markup=old_kb)
+        except: pass
         await callback.message.answer(f"❌ Ошибка: {e}")

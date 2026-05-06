@@ -236,8 +236,8 @@ class ImageSearchAgent:
         """
         if not PIXABAY_API_KEY:
             return []
-        # Pixabay limit: 100 chars
-        clean_q = query[:100]
+        # Pixabay limit: 100 chars + strictly alphanumeric
+        clean_q = re.sub(r'[^a-zA-Z0-9\s]', '', query)[:100]
         params = {
             "key": PIXABAY_API_KEY,
             "q": clean_q,

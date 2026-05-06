@@ -534,6 +534,16 @@ async def _edit_sc_carousel_error(message: types.Message, data: dict, error_text
     except:
         await message.answer(error_text)
 
+async def _is_fast_click(state: FSMContext) -> bool:
+    """Защита от слишком частых нажатий (debounce) в конструкторе сцен."""
+    now = time.time()
+    data = await state.get_data()
+    last_click = data.get("_last_sc_click", 0)
+    if now - last_click < 0.6:
+        return True
+    await state.update_data(_last_sc_click=now)
+    return False
+
 @router.callback_query(F.data.startswith("sc_snav_"), ProjectStates.standalone_searching_web)
 async def handle_sc_search_nav(callback: types.CallbackQuery, state: FSMContext):
     """Навигация по карусели."""
@@ -547,7 +557,12 @@ async def handle_sc_search_nav(callback: types.CallbackQuery, state: FSMContext)
     elif action == "next":
         idx = (idx + 1) % len(results)
     elif action == "select":
+        if await _is_fast_click(state):
+            await callback.answer()
+            return
+
         await callback.answer("⏳ Скачиваю файл...")
+        old_kb = callback.message.reply_markup
         try:
             await callback.message.edit_reply_markup(reply_markup=None)
         except Exception:
@@ -559,7 +574,7 @@ async def handle_sc_search_nav(callback: types.CallbackQuery, state: FSMContext)
         try:
             import aiohttp
             async with aiohttp.ClientSession() as session:
-                async with session.get(photo['url']) as resp:
+                async with session.get(photo['url'], timeout=aiohttp.ClientTimeout(total=30)) as resp:
                     if resp.status == 200:
                         with open(local_path, "wb") as f:
                             f.write(await resp.read())
@@ -572,11 +587,22 @@ async def handle_sc_search_nav(callback: types.CallbackQuery, state: FSMContext)
                         collected = data.get("sc_elements", {})
                         collected[el["id"]] = local_path
                         await state.update_data(sc_elements=collected, sc_element_idx=el_idx + 1)
-                        await callback.message.delete()
+                        
+                        # При успехе удаляем сообщение карусели
+                        try:
+                            await callback.message.delete()
+                        except: pass
+                        
                         await _ask_next_element(callback.message, state)
                         return
+                    else:
+                        await callback.message.edit_reply_markup(reply_markup=old_kb)
+                        await callback.answer(f"❌ Ошибка HTTP {resp.status}", show_alert=True)
         except Exception as e:
             logger.error(f"Failed to download search result: {e}")
+            try:
+                await callback.message.edit_reply_markup(reply_markup=old_kb)
+            except: pass
             await callback.answer("❌ Ошибка при скачивании файла.", show_alert=True)
         return
 

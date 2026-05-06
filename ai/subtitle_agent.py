@@ -142,7 +142,7 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
             "",
             "[V4+ Styles]",
             "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-            "Style: Default,DejaVu Sans Bold,72,&H0000FFFF,&H00FFFFFF,&H80333333,&H00000000,-1,0,0,0,100,100,0,0,1,3,1.5,2,30,30,180,1",
+            "Style: Default,DejaVu Sans Bold,62,&H0000FFFF,&H00FFFFFF,&H80333333,&H00000000,-1,0,0,0,100,100,0,0,1,3,1.5,2,30,30,130,1",
             "",
             "[Events]",
             "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"
@@ -202,7 +202,7 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
             end_str = format_ass_time(seg['end'])
             
             # Рандомная анимация (выезд)
-            target_x, target_y = 540, 1740
+            target_x, target_y = 540, 1790
             move_dur = 120
             
             side = random.choice(['left', 'right', 'bottom'])

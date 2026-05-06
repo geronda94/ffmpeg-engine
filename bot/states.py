@@ -47,4 +47,5 @@ class ProjectStates(StatesGroup):
     waiting_for_metadata_prompt = State()
     assembling_video = State()
     approving_audio = State() # Восстановлено!
+    uploading_audio = State() # Новое!
     rendering = State()

@@ -77,6 +77,7 @@ async def ask_for_tts_engine(message: types.Message, state: FSMContext):
         kb = InlineKeyboardBuilder()
         for engine_id, engine_data in presets['tts_engines'].items():
             kb.button(text=engine_data['name'], callback_data=f"ttsengine_{engine_id}")
+        kb.button(text="📁 Загрузить свою озвучку", callback_data="tts_manual")
         kb.adjust(1)
         await message.answer(
             "🎉 **Все материалы собраны!**\n\nКаким способом будем озвучивать?", 
