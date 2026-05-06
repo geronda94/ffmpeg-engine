@@ -72,7 +72,22 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
     # 2. ТАЙМИНГИ (Whisper)
     scenes_data = proj_data.get('scenes', [])
     has_timing = all('start' in s and 'end' in s for s in scenes_data)
-    
+
+    # FIX #1: Если проект является переводом родительского — всегда пересчитываем тайминги через Whisper.
+    # Новое аудио на другом языке имеет другую длительность — кешированные тайминги родителя бессмысленны.
+    is_translated = bool(proj_data.get('parent_project_id'))
+    if is_translated and has_timing:
+        logger.warning("⚠️ Project is a translation — forcing Whisper re-timing (cached timings belong to parent language).")
+        has_timing = False
+        for s in scenes_data:
+            s.pop('start', None)
+            s.pop('end', None)
+
+    # FIX #2: Для переводных проектов очищаем старые whisper_segments — они от другого языка
+    # и полностью неприменимы для генерации субтитров нового видео.
+    if is_translated:
+        proj_data.pop('whisper_segments', None)
+
     if has_timing:
         logger.info("Timings found in JSON, skipping Whisper...")
         scenes = scenes_data

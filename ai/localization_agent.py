@@ -49,11 +49,17 @@ async def translate_project_content(script: str, scenes: list, metadata: dict, t
         for item in result.get("translated_scenes", []):
             idx = item.get("id")
             if idx is not None and idx < len(new_scenes):
-                new_scenes[idx]["text_segment"] = item.get("text")
-                if "start" in new_scenes[idx]:
-                    del new_scenes[idx]["start"]
-                if "end" in new_scenes[idx]:
-                    del new_scenes[idx]["end"]
+                new_text = item.get("text", "")
+                new_scenes[idx]["text_segment"] = new_text
+                # FIX #4: Пересчитываем estimated_duration по длине нового текста
+                new_scenes[idx]["estimated_duration"] = max(2.5, round(len(new_text) / 13.0 + 0.5, 1))
+
+        # FIX #3: Безусловно очищаем тайминги у ВСЕХ сцен (защита от пропущенных LLM-ом сцен).
+        # Это критично: если хотя бы одна сцена сохранит start/end от родителя,
+        # pipeline_manager пропустит Whisper и использует чужие тайминги.
+        for s in new_scenes:
+            s.pop('start', None)
+            s.pop('end', None)
 
         return {
             "script": result.get("translated_script"),

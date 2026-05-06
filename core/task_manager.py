@@ -75,7 +75,7 @@ class RenderTaskManager:
                     
                     if proj_data and proj_data.get('burn_subtitles', False):
                         logger.info(f"Worker: Burning subtitles for {project_id}...")
-                        from ai.subtitle_agent import generate_srt_from_project, burn_subtitles
+                        from ai.subtitle_agent import generate_ass_from_project, burn_subtitles
                         
                         if 'whisper_segments' not in proj_data:
                             logger.info("Worker: Generating missing Whisper segments...")
@@ -86,7 +86,7 @@ class RenderTaskManager:
                             pm_local.save_project(project_id, proj_data)
                             
                         project_path = pm_local.get_project_path(project_id)
-                        srt_path = str(project_path / "subtitles.srt")
+                        ass_path = str(project_path / "subtitles.ass")
                         output_path = str(project_path / "video_with_subtitles.mp4")
                         
                         scenes_for_srt = proj_data['scenes']
@@ -94,16 +94,16 @@ class RenderTaskManager:
                         for i, s in enumerate(scenes_for_srt):
                             s['allow_montage_effects'] = assets.get(str(i), {}).get('allow_montage_effects', True)
                         
-                        srt_res = generate_srt_from_project(scenes_for_srt, proj_data['whisper_segments'], srt_path)
-                        if srt_res:
-                            res_path = await asyncio.to_thread(burn_subtitles, video_path, srt_path, output_path)
+                        ass_res = generate_ass_from_project(scenes_for_srt, proj_data['whisper_segments'], ass_path)
+                        if ass_res:
+                            res_path = await asyncio.to_thread(burn_subtitles, video_path, ass_path, output_path)
                             if res_path and os.path.exists(res_path):
                                 video_path = res_path
                                 logger.info(f"Worker: Subtitles burned successfully: {res_path}")
                             else:
                                 logger.error("Worker: Failed to burn subtitles")
                         else:
-                            logger.error("Worker: Failed to generate SRT")
+                            logger.error("Worker: Failed to generate ASS")
 
                     task['status'] = "completed"
                     task['video_path'] = video_path

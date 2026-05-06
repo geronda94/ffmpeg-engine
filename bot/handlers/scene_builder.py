@@ -336,9 +336,9 @@ async def handle_sc_search_query(message: types.Message, state: FSMContext):
     await register_trash(message, state)
     await register_trash(status, state)
     
-    # Оптимизация запроса через ИИ
-    queries = await optimize_query_ai(user_query)
-    results = await image_search_agent.search_images(queries)
+    # Оптимизация запроса через ИИ (возвращает (queries, color))
+    queries, color = await optimize_query_ai(user_query)
+    results = await image_search_agent.search_images(queries, color=color, source_type="all")
     
     await status.delete()
     
@@ -347,7 +347,8 @@ async def handle_sc_search_query(message: types.Message, state: FSMContext):
         await register_trash(msg, state)
         return
         
-    await state.update_data(sc_search_results=results, sc_search_idx=0)
+    await state.update_data(sc_search_results=results, sc_search_idx=0,
+                            sc_search_queries=queries, sc_search_color=color, sc_search_source="all")
     await state.set_state(ProjectStates.standalone_searching_web)
     
     # Создаем сообщение карусели
@@ -364,18 +365,37 @@ async def show_sc_search_result(message: types.Message, state: FSMContext):
     color = data.get('sc_search_color')
     
     if not results: return
-    
-    source_map = {"all": "🌀 Микс", "pexels": "📸 Pexels", "pixabay": "📸 Pixabay", "ai": "🤖 AI"}
-    mode_text = source_map.get(source, "Источник")
+
+    # Явные кнопки источников (активный помечен ✓)
+    src_labels = {
+        "all":     ("🌀", "Все"),
+        "pexels":  ("📸", "Pexels"),
+        "pixabay": ("🖼", "Pixabay"),
+        "ai":      ("🤖", "AI Gen"),
+    }
+
+    photo = results[idx]
+    src_id = photo.get('source', source)
+    s_emoji, s_name = src_labels.get(src_id, ("📷", src_id.capitalize()))
     color_text = f" | 🎨 {color}" if color else ""
+
+    caption = (
+        f"🖼 **Вариант {idx+1}/{len(results)}**\n"
+        f"{s_emoji} {s_name}{color_text}\n"
+        f"📷 {photo.get('photographer', 'Unknown')}\n\n"
+        f"Нравится это изображение?"
+    )
 
     kb = InlineKeyboardBuilder()
     kb.button(text="⬅️ Назад", callback_data="sc_snav_prev")
     kb.button(text="✅ Выбрать", callback_data="sc_snav_select")
     kb.button(text="Вперед ➡️", callback_data="sc_snav_next")
-    kb.button(text=f"🔄 {mode_text}{color_text}", callback_data="sc_search_toggle_source")
+    # Явные кнопки источников
+    for src_id_btn, (emoji, name) in src_labels.items():
+        mark = " ✓" if src_id_btn == source else ""
+        kb.button(text=f"{emoji} {name}{mark}", callback_data=f"sc_src_{src_id_btn}")
     kb.button(text="🔙 К выбору источника", callback_data="sc_search_back_to_src")
-    kb.adjust(3, 1, 1)
+    kb.adjust(3, 4, 1)
 
     attempts = 0
     max_attempts = min(5, len(results))
@@ -419,27 +439,100 @@ async def show_sc_search_result(message: types.Message, state: FSMContext):
 
     await message.answer("❌ Эти варианты недоступны. Попробуйте другой запрос или загрузите файл локально.")
 
-@router.callback_query(F.data == "sc_search_toggle_source", ProjectStates.standalone_searching_web)
-async def handle_sc_search_toggle_source(callback: types.CallbackQuery, state: FSMContext):
-    """Переключение источника в конструкторе сцен."""
+@router.callback_query(F.data.startswith("sc_src_"), ProjectStates.standalone_searching_web)
+async def handle_sc_source_switch(callback: types.CallbackQuery, state: FSMContext):
+    """Переключение на конкретный источник в конструкторе сцен."""
+    new_source = callback.data.replace("sc_src_", "")
     data = await state.get_data()
-    current = data.get('sc_search_source', 'all')
     queries = data.get('sc_search_queries', [])
     color = data.get('sc_search_color')
-    
-    order = ["all", "pexels", "pixabay", "ai"]
-    next_source = order[(order.index(current) + 1) % len(order)]
-    
-    await callback.answer(f"🔎 Ищу в: {next_source.upper()}...")
-    
-    results = await image_search_agent.search_images(queries, source_type=next_source, color=color)
-    
+
+    if new_source == data.get('sc_search_source', 'all'):
+        await callback.answer("Уже выбран этот источник")
+        return
+
+    src_name = {"all": "Все", "pexels": "Pexels", "pixabay": "Pixabay", "ai": "AI Gen"}.get(new_source, new_source)
+    await callback.answer(f"🔎 Ищу в {src_name}...")
+
+    # Показываем статус поиска в подписи
+    try:
+        await _edit_sc_carousel_status(callback.message, data, f"🔄 Поиск в {src_name}...")
+    except:
+        pass
+
+    try:
+        results = await image_search_agent.search_images(queries, source_type=new_source, color=color)
+    except Exception as e:
+        await _edit_sc_carousel_error(callback.message, data, f"❌ Ошибка поиска в {src_name}: {e}")
+        return
+
     if not results:
-        await callback.answer("❌ В этом источнике пусто.", show_alert=True)
+        await _edit_sc_carousel_error(callback.message, data, f"❌ В {src_name} ничего не нашлось.")
+        return
+
+    await state.update_data(sc_search_results=results, sc_search_idx=0, sc_search_source=new_source)
+    await show_sc_search_result(callback.message, state)
+
+
+async def _edit_sc_carousel_status(message: types.Message, data: dict, status_text: str):
+    """Обновляет подпись в конструкторе сцен временным статусом."""
+    results = data.get("sc_search_results", [])
+    idx = data.get("sc_search_idx", 0)
+    source = data.get("sc_search_source", "all")
+    if not results: return
+    
+    photo = results[idx]
+    caption = (
+        f"🖼 **Вариант {idx+1}/{len(results)}**\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"{status_text}\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"📷 {photo.get('photographer', 'Unknown')}"
+    )
+    src_labels = {"all": ("🌀", "Все"), "pexels": ("📸", "Pexels"), "pixabay": ("🖼", "Pixabay"), "ai": ("🤖", "AI Gen")}
+    kb = InlineKeyboardBuilder()
+    kb.button(text="⬅️ Назад", callback_data="sc_snav_prev")
+    kb.button(text="✅ Выбрать", callback_data="sc_snav_select")
+    kb.button(text="Вперед ➡️", callback_data="sc_snav_next")
+    for s_id, (emoji, name) in src_labels.items():
+        mark = " ✓" if s_id == source else ""
+        kb.button(text=f"{emoji} {name}{mark}", callback_data=f"sc_src_{s_id}")
+    kb.button(text="🔙 К выбору источника", callback_data="sc_search_back_to_src")
+    kb.adjust(3, 4, 1)
+    
+    await message.edit_caption(caption=caption, reply_markup=kb.as_markup())
+
+
+async def _edit_sc_carousel_error(message: types.Message, data: dict, error_text: str):
+    """Показывает ошибку в подписи конструктора сцен."""
+    results = data.get("sc_search_results", [])
+    idx = data.get("sc_search_idx", 0)
+    source = data.get("sc_search_source", "all")
+    if not results:
+        await message.answer(error_text)
         return
         
-    await state.update_data(sc_search_results=results, sc_search_idx=0, sc_search_source=next_source)
-    await show_sc_search_result(callback.message, state)
+    photo = results[idx]
+    caption = (
+        f"🖼 **Вариант {idx+1}/{len(results)}**\n\n"
+        f"{error_text}\n\n"
+        f"Попробуйте другой источник или уточните запрос."
+    )
+    src_labels = {"all": ("🌀", "Все"), "pexels": ("📸", "Pexels"), "pixabay": ("🖼", "Pixabay"), "ai": ("🤖", "AI Gen")}
+    kb = InlineKeyboardBuilder()
+    kb.button(text="⬅️ Назад", callback_data="sc_snav_prev")
+    kb.button(text="✅ Выбрать", callback_data="sc_snav_select")
+    kb.button(text="Вперед ➡️", callback_data="sc_snav_next")
+    for s_id, (emoji, name) in src_labels.items():
+        mark = " ✓" if s_id == source else ""
+        kb.button(text=f"{emoji} {name}{mark}", callback_data=f"sc_src_{s_id}")
+    kb.button(text="🔙 К выбору источника", callback_data="sc_search_back_to_src")
+    kb.adjust(3, 4, 1)
+    
+    try:
+        await message.edit_caption(caption=caption, reply_markup=kb.as_markup())
+    except:
+        await message.answer(error_text)
 
 @router.callback_query(F.data.startswith("sc_snav_"), ProjectStates.standalone_searching_web)
 async def handle_sc_search_nav(callback: types.CallbackQuery, state: FSMContext):
@@ -455,6 +548,10 @@ async def handle_sc_search_nav(callback: types.CallbackQuery, state: FSMContext)
         idx = (idx + 1) % len(results)
     elif action == "select":
         await callback.answer("⏳ Скачиваю файл...")
+        try:
+            await callback.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
         photo = results[idx]
         os.makedirs("temp/sc_builder", exist_ok=True)
         local_path = f"temp/sc_builder/search_{int(time.time())}.jpg"

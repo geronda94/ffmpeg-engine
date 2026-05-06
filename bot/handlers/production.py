@@ -317,7 +317,7 @@ async def handle_add_subtitles(callback: types.CallbackQuery):
     status_msg = await callback.message.answer("🖋 Вшиваю субтитры (это займет около минуты)...")
     
     try:
-        from ai.subtitle_agent import generate_srt_from_project, burn_subtitles
+        from ai.subtitle_agent import generate_ass_from_project, burn_subtitles
         
         # ФИКС: Если данных Whisper нет (старый проект), прогоняем его сейчас
         if 'whisper_segments' not in proj_data:
@@ -338,21 +338,22 @@ async def handle_add_subtitles(callback: types.CallbackQuery):
                 return
 
         project_path = pm.get_project_path(project_id)
-        srt_path = str(project_path / "subtitles.srt")
+        ass_path = str(project_path / "subtitles.ass")
         output_path = str(project_path / "video_with_subtitles.mp4")
         
-        # 1. Генерируем SRT (пропуская динамику)
+        # 1. Генерируем ASS (пропуская динамику + анимация выезда)
         scenes_for_srt = proj_data['scenes']
         assets = proj_data.get('assets', {})
         for i, s in enumerate(scenes_for_srt):
             s['allow_montage_effects'] = assets.get(str(i), {}).get('allow_montage_effects', True)
-        srt_res = generate_srt_from_project(scenes_for_srt, proj_data['whisper_segments'], srt_path)
-        if not srt_res:
-            await status_msg.edit_text("❌ Ошибка при генерации файла субтитров.")
+        
+        ass_res = generate_ass_from_project(scenes_for_srt, proj_data['whisper_segments'], ass_path)
+        if not ass_res:
+            await status_msg.edit_text("❌ Ошибка при генерации файла анимированных субтитров.")
             return
             
         # 2. Вшиваем в видео
-        res_path = await asyncio.to_thread(burn_subtitles, video_path, srt_path, output_path)
+        res_path = await asyncio.to_thread(burn_subtitles, video_path, ass_path, output_path)
         
         if res_path and os.path.exists(res_path):
             from ai.metadata_agent import format_hashtags

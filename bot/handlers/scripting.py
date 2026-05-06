@@ -22,13 +22,9 @@ def split_text(text: str, max_length: int = 4000):
     return [text[i:i+max_length] for i in range(0, len(text), max_length)]
 
 
-def get_script_style_prompt(style_id: str):
-    try:
-        presets = get_config("script_presets")
-        for s in presets['styles']:
-            if s['id'] == style_id: return s['prompt']
-    except: pass
-    return ""
+def get_style_id(state_data: dict) -> str:
+    """Возвращает style_id из состояния FSM, с fallback на 'narrative'."""
+    return state_data.get('script_style', 'narrative')
 
 
 async def refine_script_ai(old_script: str, user_wish: str, lang: str, style_prompt: str):
@@ -60,18 +56,18 @@ async def refine_storyboard_ai(script: str, current_scenes: list, user_wish: str
 @router.message(ProjectStates.writing_topic)
 async def handle_topic_v4(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    style_prompt = get_script_style_prompt(data.get('script_style', 'narrative'))
+    style_id = get_style_id(data)
     status = await message.answer("✍️ Составляю сценарий...")
-    prompt = f"Topic: {message.text}. {style_prompt}"
     
     project_id = data.get('project_id')
     proj = pm.load_project(project_id) if project_id else {}
     lang = proj.get('language') or data.get('language', 'Russian')
     
-    script_data = await asyncio.to_thread(generate_script, prompt, lang)
+    script_data = await asyncio.to_thread(generate_script, message.text, lang, 60, style_id)
     
     proj = pm.load_project(data['project_id'])
     proj['script'] = script_data['script']
+    proj['script_style'] = style_id  # сохраняем стиль в проект для последующих агентов
     pm.save_project(data['project_id'], proj)
     
     await state.update_data(script_data=script_data)
@@ -172,13 +168,14 @@ async def start_storyboard(callback: types.CallbackQuery, state: FSMContext):
             
         script = proj_data.get('script') or data.get('script_data', {}).get('script')
         lang = proj_data.get('language') or data.get('language', 'Russian')
+        style_id = proj_data.get('script_style') or get_style_id(data)
         
         if not script:
             await status.edit_text("❌ Ошибка: Сценарий пуст. Попробуйте сначала создать текст.")
             return
 
         try:
-            res = await asyncio.to_thread(generate_storyboard, script, lang)
+            res = await asyncio.to_thread(generate_storyboard, script, lang, style_id)
             new_scenes = res.get('scenes', [])
             
             if not new_scenes:

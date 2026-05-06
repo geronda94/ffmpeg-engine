@@ -6,24 +6,29 @@
   ],
   "styles": [
     {
-      "id": "news", 
-      "name": "📺 Новостной", 
-      "prompt": "Style: Professional news broadcast. Serious tone, objective reporting, clear and structured information."
+      "id": "news",
+      "name": "📺 Новостной",
+      "prompt": "Style: Professional news broadcast. Write like a breaking news anchor: lead with the most important fact, use short declarative sentences, cite specific numbers and sources, maintain objectivity, end with a clear takeaway. Hook: start with a shocking statistic or 'Только что выяснилось...' type opener. Rhythm: fast, punchy, zero filler words."
     },
     {
-      "id": "scientific", 
-      "name": "🎓 Научно-популярный", 
-      "prompt": "Style: Educational documentary. Explaining complex things simply, using facts, curious and engaging tone."
+      "id": "scientific",
+      "name": "🎓 Научно-популярный",
+      "prompt": "Style: Educational documentary in the tradition of Vsauce and Kurzgesagt. Start with a surprising paradox or counterintuitive question. Use the 'explain like I am 5' principle but maintain scientific accuracy. Structure: (1) Mind-bending hook question, (2) Why the obvious answer is wrong, (3) The real scientific explanation with vivid everyday analogies, (4) A mind-expanding conclusion. Avoid jargon without explanation. Tone: curious, enthusiastic, intellectually honest."
     },
     {
-      "id": "narrative", 
-      "name": "📖 Повествовательный", 
-      "prompt": "Style: Storytelling/Blog. Personal, emotional, uses 'I' and 'you', descriptive and immersive."
+      "id": "narrative",
+      "name": "📖 Повествовательный",
+      "prompt": "Style: Personal storytelling / first-person blog. Write in 'I' voice as if speaking directly to one person. Use sensory details (what you saw, felt, heard). Build emotional tension: start in the middle of the action, circle back to context, then deliver the insight. End with a reflective question for the viewer. Rhythm: conversational, with natural pauses like 'знаешь', 'представь', 'и вот тут...'. Pure flowing narrative, no lists."
     },
     {
-      "id": "hype", 
-      "name": "🔥 Хайповый/Рекламный", 
-      "prompt": "Style: Viral marketing/Ad. Short punchy sentences, lots of energy, calls to action, emotional hooks."
+      "id": "hype",
+      "name": "🔥 Хайповый/Рекламный",
+      "prompt": "Style: Viral marketing / high-energy ad. Every sentence must create urgency or FOMO. Use power words: 'НИКТО не знает', 'это изменит всё', 'пока не удалили'. Max 8 words per sentence. Use repetition for emphasis. Structure: (1) Shocking claim, (2) Pain point the viewer feels, (3) Solution reveal, (4) Social proof or scarcity, (5) Hard call to action. Energy level: 11 out of 10."
+    },
+    {
+      "id": "orthodox",
+      "name": "☦️ Православный",
+      "prompt": "Style: Orthodox Christian insight delivered in the voice of a theologian-educator — an expert in Orthodox theology, church dogmatics, patristics, AND modern science and psychology, in the manner of Магистр Богословия Александр Проченко. Goal: reveal a profound Orthodox spiritual truth through the lens of natural laws, scientific facts, or universal human experience — showing that faith and reason illuminate each other. Structure: (1) Open with a striking everyday observation, scientific fact, or psychological pattern that any secular person immediately recognizes. (2) Gradually reveal the deeper spiritual reality behind it — grounded in Holy Scripture, the Church Fathers, or Orthodox tradition. (3) Connect it to a concrete practical truth about the human soul, relationships, or the meaning of life. (4) Close with a simple, clear Orthodox insight that leaves the viewer with peace and inner clarity, never with guilt or fear. Tone: warm, intellectually rigorous, deeply human, never preachy or condescending. Use theological terms like 'душа', 'благодать', 'смирение', 'Промысл Божий', 'любовь' naturally, not as slogans. Reference Holy Fathers when appropriate — Серафим Саровский, Иоанн Лествичник, Феофан Затворник, Паисий Святогорец, Антоний Сурожский. Language: rich but fully accessible to a secular viewer who has never opened a theology textbook. Always find a surprising angle that makes even a skeptic think."
     }
   ]
 }
