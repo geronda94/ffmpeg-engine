@@ -46,11 +46,10 @@ def generate_srt_from_project(scenes: list, whisper_segments: list, output_path:
             text = scene.get('text_segment', '').strip()
             if not text: continue
 
-            # Находим, когда в этой сцене реально звучала речь (по данным Whisper)
+            # Находим сегменты Whisper, которые хотя бы частично попадают в эту сцену
             scene_whisper = [
                 s for s in whisper_segments 
-                if s['start'] >= scene['start'] - 0.5 
-                and s['end'] <= scene['end'] + 0.5
+                if (s['start'] < scene['end'] and s['end'] > scene['start'])
             ]
 
             if not scene_whisper:
@@ -142,7 +141,7 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
             "",
             "[V4+ Styles]",
             "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-            "Style: Default,DejaVu Sans Bold,62,&H0000FFFF,&H00FFFFFF,&H80333333,&H00000000,-1,0,0,0,100,100,0,0,1,3,1.5,2,30,30,130,1",
+            "Style: Default,DejaVu Sans Bold,62,&H0000FFFF,&H00FFFFFF,&H80333333,&H00000000,-1,0,0,0,100,100,0,0,1,3,1.5,2,120,120,520,1",
             "",
             "[Events]",
             "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"
@@ -158,8 +157,7 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
 
             scene_whisper = [
                 s for s in whisper_segments 
-                if s['start'] >= scene['start'] - 0.5 
-                and s['end'] <= scene['end'] + 0.5
+                if (s['start'] < scene['end'] and s['end'] > scene['start'])
             ]
 
             if not scene_whisper:
@@ -201,8 +199,10 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
             start_str = format_ass_time(seg['start'])
             end_str = format_ass_time(seg['end'])
             
-            # Рандомная анимация (выезд)
-            target_x, target_y = 540, 1790
+            # Динамически рассчитываем Y на основе MarginV (520)
+            # 1920 - 520 = 1400
+            margin_v = 520
+            target_x, target_y = 540, 1920 - margin_v
             move_dur = 120
             
             side = random.choice(['left', 'right', 'bottom'])
@@ -211,7 +211,7 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
             elif side == 'right':
                 start_x, start_y = 1480, target_y
             else: # bottom
-                start_x, start_y = target_x, 2100
+                start_x, start_y = target_x, 1920 + 200
 
             anim_tag = f"{{\\move({start_x}, {target_y}, {target_x}, {target_y}, 0, {move_dur})}}"
             
@@ -251,7 +251,7 @@ def burn_subtitles(video_path: str, srt_path: str, output_path: str) -> str | No
         if is_ass:
             vf = f"subtitles='{clean_srt_path}':fontsdir='{fonts_dir}'"
         else:
-            style = "FontName=DejaVu Sans Bold,FontSize=16,PrimaryColour=&H00FFFFFF&,OutlineColour=&H80333333&,BorderStyle=1,Outline=0.8,Shadow=0.5,Alignment=2,MarginV=20,MarginR=30,MarginL=30"
+            style = "FontName=DejaVu Sans Bold,FontSize=16,PrimaryColour=&H00FFFFFF&,OutlineColour=&H80333333&,BorderStyle=1,Outline=0.8,Shadow=0.5,Alignment=2,MarginV=520,MarginR=120,MarginL=120"
             vf = f"subtitles='{clean_srt_path}':fontsdir='{fonts_dir}':force_style='{style}'"
         
         cmd = [

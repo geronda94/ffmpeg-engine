@@ -108,7 +108,7 @@ class BaseMontageEngine:
 
     def render(self, scenes, audio_path, output_path, preset, progress_callback=None, render_threads=4):
         try:
-            audio = AudioFileClip(audio_path).with_volume_scaled(1.3)
+            audio = AudioFileClip(audio_path).with_volume_scaled(2.5) # Усиленный звук для TikTok/Reels
             final_clips = []
             trans_cfg = preset.get('transition', {})
 
@@ -156,8 +156,9 @@ class BaseMontageEngine:
                 size=(self.width, self.height), color=(0, 0, 0)
             ).with_duration(audio.duration)
             
-            video_track = CompositeVideoClip([bg_base] + final_clips, size=(self.width, self.height))
-            final_video = video_track.with_audio(audio).with_duration(audio.duration)
+            video_track = CompositeVideoClip([bg_base] + final_clips, size=(self.width, self.height), use_bgclip=True)
+            # Гарантируем, что аудио - это ТОЛЬКО наш голос, без микширования с пустотой
+            final_video = video_track.with_audio(audio)
             
             temp_audio = os.path.join("temp", f"temp_audio_{os.path.basename(output_path)}.m4a")
             render_logger = TelegramProgressLogger(callback=progress_callback) if progress_callback else "bar"
@@ -167,6 +168,7 @@ class BaseMontageEngine:
                 fps=self.fps, 
                 codec="libx264", 
                 audio_codec="aac",
+                audio_bitrate="192k", # Повышаем качество звука
                 temp_audiofile=temp_audio,
                 remove_temp=True,
                 threads=render_threads,

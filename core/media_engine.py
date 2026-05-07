@@ -70,6 +70,15 @@ class MediaEngine:
             # Затемняем фон
             bg = bg.with_effects([vfx.LumContrast(lum=self.DEFAULT_LUM)])
             
+            # Добавляем "модную" зернистость (Grain) к размытию
+            def _add_grain(get_frame, t):
+                frame = get_frame(t).astype(np.int16)
+                # Генерируем легкий шум (интенсивность 8)
+                noise = np.random.randint(-8, 8, frame.shape, dtype=np.int16)
+                return np.clip(frame + noise, 0, 255).astype(np.uint8)
+            
+            bg = bg.transform(_add_grain)
+            
             # Фикс длительности: фон должен быть равен контенту
             final_duration = clip.duration
             if final_duration:

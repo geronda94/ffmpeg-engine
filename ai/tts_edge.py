@@ -35,27 +35,27 @@ async def optimize_text_for_tts(text: str, lang: str, rate: str = "+0%"):
 
         guidelines = {
             "Russian": (
-                "LINGUISTIC GUIDELINES FOR RUSSIAN:\n"
-                "1. PRESERVE ORTHOGRAPHY: Maintain strict morphological spelling (e.g., 'солнце', 'его'). NEVER use phonetic spelling ('сонце', 'ево'). The neural engine handles automatic reduction perfectly.\n"
-                "2. MANDATORY 'Ё': Always restore 'ё' where it belongs ('ещё', 'всё'). This is the most critical hint for the engine.\n"
-                "3. PROACTIVE ACCENTUATION: Use capitalization for the stressed vowel (e.g., 'зАмок', 'красИвый', 'переключИла') to ensure correct and natural pronunciation. Prioritize complex words, long words, and ambiguous homographs. Do not mark every single word, but be proactive where the engine might stumble.\n"
-                "4. PUNCTUATION AS RHYTHM: Use '...' for long pauses and ',' for breathing points.\n"
+                "ИНСТРУКЦИИ ДЛЯ РУССКОГО ЯЗЫКА:\n"
+                "1. МИНИМАЛИЗМ: Современные нейросети (Edge TTS) отлично знают ударения сами. НЕ ставь ударения в обычных словах.\n"
+                "2. ЗАПРЕТ НА СИМВОЛЫ: КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО использовать знаки ударения (юникод-символ \\u0301). Это ломает озвучку.\n"
+                "3. УДАРЕНИЯ ЧЕРЕЗ CAPS: Используй заглавную букву (н-р, 'зАмок') ТОЛЬКО в омонимах или редких именах, где возможна ошибка. В обычном тексте это НЕ НУЖНО.\n"
+                "4. БУКВА 'Ё': Всегда восстанавливай 'ё' (ещё, влюблён, самолёт). Это критически важно для правильной фонетики.\n"
+                "5. ЕСТЕСТВЕННЫЙ РИТМ: Используй знаки препинания для пауз. Избегай длинных цепочек заглавных букв или спецсимволов. Текст должен выглядеть как обычный литературный текст, за исключением буквы 'ё' и редких уточнений ударения.\n"
             ),
             "English": (
                 "LINGUISTIC GUIDELINES FOR ENGLISH:\n"
-                "1. STANDARD ORTHOGRAPHY: Do not use eye-dialect or phonetic spelling. The neural engine (e.g., Andrew) handles reduction, linking, and aspiration perfectly based on standard spelling.\n"
-                "2. PHRASAL RHYTHM: Use ',' to mark natural pauses in long sentences. Use '...' for transitions between ideas.\n"
-                "3. EMPHASIS: Use standard capitalization ONLY for words that require strong emotional emphasis to change the sentence's meaning.\n"
+                "1. NATURAL FLOW: Aim for a conversational, smooth delivery. Use punctuation to guide rhythm.\n"
+                "2. PUNCTUATION: Use commas for brief pauses and periods for full stops. Use ellipses (...) sparingly, only for significant transitions.\n"
+                "3. NO PHONETIC SPELLING: Keep standard spelling; the neural engine handles linking and reductions automatically.\n"
             ),
             "Romanian": (
                 "LINGUISTIC GUIDELINES FOR ROMANIAN:\n"
-                "1. DIACRITICS: Ensure all diacritics (ă, â, î, ș, ț) are perfectly placed. They are critical for correct phoneme selection.\n"
-                "2. MELODIC FLOW: Romanian is a syllable-timed language; use punctuation to guide the engine's intonation curves.\n"
+                "1. DIACRITICS: Ensure all diacritics (ă, â, î, ș, ț) are perfectly placed.\n"
+                "2. RHYTHM: Use commas to mark natural breath points.\n"
             ),
             "Georgian": (
                 "LINGUISTIC GUIDELINES FOR GEORGIAN:\n"
-                "1. SCRIPT INTEGRITY: Maintain the original Mkhedruli script. Do not attempt phonetic approximations.\n"
-                "2. SEGMENTATION: Georgian sentences can be dense; use commas to help the engine find natural breaking points for breath.\n"
+                "1. SCRIPT: Maintain original script. Use punctuation to help the engine find natural pauses.\n"
             )
         }
 

@@ -14,18 +14,28 @@ def get_model():
         _model = whisper.load_model("base")
     return _model
 
-def align_scenes_with_audio(scenes: list, audio_path: str):
+def align_scenes_with_audio(scenes: list, audio_path: str, whisper_segments: list = None, language: str = None):
     """
     Сравнивает текст сцен с аудио через Whisper и проставляет точные тайминги.
     """
     try:
-        model = get_model()
-        logger.info(f"Transcribing audio for timing: {audio_path}")
-        
-        result = model.transcribe(audio_path, verbose=False)
-        segments = result.get('segments', [])
-        
-        total_duration = segments[-1]['end'] if segments else 0.0
+        if whisper_segments is not None:
+            segments = whisper_segments
+            # Получаем общую длительность из сегментов (или из аудио, если сегменты пустые)
+            total_duration = segments[-1]['end'] if segments else 0.0
+            logger.info(f"Using provided Whisper segments for timing ({len(segments)} segments)")
+        else:
+            model = get_model()
+            logger.info(f"Transcribing audio for timing: {audio_path} (lang={language})")
+            
+            # Если язык указан, помогаем Whisper-у
+            transcribe_kwargs = {"verbose": False}
+            if language:
+                transcribe_kwargs["language"] = language
+                
+            result = model.transcribe(audio_path, **transcribe_kwargs)
+            segments = result.get('segments', [])
+            total_duration = segments[-1]['end'] if segments else 0.0
         
         # Подсчет длины оригинального текста и текста от Whisper
         total_chars = sum(len(scene.get('text_segment', '')) for scene in scenes)
@@ -55,42 +65,54 @@ def align_scenes_with_audio(scenes: list, audio_path: str):
                 processed_scenes[-1]['end'] = round(total_duration, 3)
             return processed_scenes
 
-        current_time = 0.0
+        # 1. Создаем карту соответствия каждого символа Whisper-текста временной метке
+        char_to_time = []
+        for seg in segments:
+            seg_text = "".join(filter(str.isalnum, seg['text'].lower()))
+            if not seg_text:
+                continue
+            
+            start_t = seg['start']
+            end_t = seg['end']
+            duration = end_t - start_t
+            
+            # Распределяем время сегмента между его символами
+            char_dur = duration / len(seg_text)
+            for i in range(len(seg_text)):
+                char_to_time.append(start_t + (i * char_dur))
+
+        # 2. Проходим по сценам и находим их границы в этой карте
+        current_char_idx = 0
         processed_scenes = []
         
-        seg_ptr = 0
         for i, scene in enumerate(scenes):
-            scene_text = scene.get('text_segment', "").lower().strip()
-            clean_scene_text = "".join(filter(str.isalnum, scene_text))
+            scene_text = "".join(filter(str.isalnum, scene.get('text_segment', "").lower()))
             
-            # Каждая следующая сцена должна начинаться там, где закончилась предыдущая,
-            # чтобы закрывать паузы тишины и не создавать черных кадров.
-            if i == 0:
-                # Первая сцена ВСЕГДА начинается в 0.0, чтобы не было черного кадра в начале
-                scene_start = 0.0
-            else:
-                scene_start = processed_scenes[-1]['end']
-            
-            if not clean_scene_text:
-                scene['start'] = round(scene_start, 3)
-                scene['end'] = round(scene_start + 1.0, 3)
+            if not scene_text:
+                # Если текста нет, берем 1 секунду от текущего момента
+                start_t = char_to_time[current_char_idx] if current_char_idx < len(char_to_time) else total_duration
+                scene['start'] = round(start_t, 3)
+                scene['end'] = round(start_t + 1.0, 3)
                 processed_scenes.append(scene)
                 continue
 
-            accumulated_clean = ""
-            while seg_ptr < len(segments):
-                seg_text = "".join(filter(str.isalnum, segments[seg_ptr]['text'].lower()))
-                accumulated_clean += seg_text
-                current_time = segments[seg_ptr]['end']
-                seg_ptr += 1
-                
-                # Поиск вхождения текста (с допуском на ошибки распознавания)
-                if len(accumulated_clean) >= len(clean_scene_text) - 2:
-                    break
+            # Находим начало и конец сцены в массиве таймингов
+            start_idx = current_char_idx
+            end_idx = min(len(char_to_time) - 1, current_char_idx + len(scene_text))
             
-            scene['start'] = round(scene_start, 3)
-            scene['end'] = round(current_time, 3)
+            # Первая сцена всегда от 0
+            if i == 0:
+                scene['start'] = 0.0
+            else:
+                # Начинаем там, где кончилась предыдущая, или где реально начался текст
+                real_start = char_to_time[start_idx] if start_idx < len(char_to_time) else total_duration
+                prev_end = processed_scenes[-1]['end']
+                scene['start'] = round(max(prev_end, real_start), 3)
+
+            scene['end'] = round(char_to_time[end_idx] if end_idx < len(char_to_time) else total_duration, 3)
+            
             processed_scenes.append(scene)
+            current_char_idx = end_idx + 1 # Сдвигаемся на следующий текст
             
         # Гарантируем, что последняя сцена идет до конца аудио
         if processed_scenes:

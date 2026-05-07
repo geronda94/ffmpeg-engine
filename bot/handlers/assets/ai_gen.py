@@ -20,7 +20,10 @@ pm = ProjectManager()
 
 @router.callback_query(F.data == "asset_ai", StateFilter(ProjectStates.collecting_assets, ProjectStates.approving_asset))
 async def ai_asset_choice(callback: types.CallbackQuery, state: FSMContext):
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     data = await state.get_data()
     project_id = data.get('project_id')
     idx = data.get('current_scene_idx', 0)
@@ -47,7 +50,10 @@ async def ai_asset_choice(callback: types.CallbackQuery, state: FSMContext):
             proj_data = pm.load_project(project_id)
             new_path = proj_data['assets'][str(idx)]['path']
 
-            await status.delete()
+            try:
+                await status.delete()
+            except Exception:
+                pass
             kb = InlineKeyboardBuilder()
             kb.button(text="✅ Подтвердить", callback_data="asset_confirm")
             kb.button(text="🖼 Сгенерировать ИИ", callback_data="asset_ai")
@@ -65,4 +71,7 @@ async def ai_asset_choice(callback: types.CallbackQuery, state: FSMContext):
             raise Exception("Generation failed")
     except Exception as e:
         logger.error(f"AI Generation failed: {e}")
-        await status.edit_text("⚠️ Ошибка генерации. Попробуйте загрузить своё.")
+        try:
+            await status.edit_text("⚠️ Ошибка генерации. Попробуйте загрузить своё.")
+        except Exception:
+            pass

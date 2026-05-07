@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>Media Factory Structure - RO Segment</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f4f9; color: #333; padding: 20px; }
+        .container { max-width: 1100px; margin: auto; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; font-size: 2rem; border-bottom: 4px solid #c5a059; padding-bottom: 15px; margin-bottom: 40px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+        .card { border: 1px solid #e1e1e1; border-radius: 15px; display: flex; flex-direction: column; transition: 0.3s; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        .card-header { padding: 20px; color: white; font-weight: bold; font-size: 1.2rem; border-radius: 14px 14px 0 0; }
+        .card-body { padding: 25px; flex-grow: 1; }
+        
+        /* Цвета веток */
+        .hospodar { background: #5d6d7e; } /* Хозяйка */
+        .sanatate { background: #76a08a; } /* Здоровье */
+        .familie { background: #b07d62; }  /* Семья */
+        .spiritual { background: #c5a059; } /* Духовность */
+
+        .label { font-weight: bold; text-transform: uppercase; font-size: 0.8rem; color: #888; display: block; margin-bottom: 8px; }
+        .direction { font-style: italic; margin-bottom: 20px; color: #444; border-left: 3px solid #eee; padding-left: 12px; }
+        ul { list-style: none; padding: 0; margin-bottom: 20px; }
+        li { padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 0.95rem; }
+        li:last-child { border-bottom: none; }
+        .ca { background: #f9f9f9; padding: 12px; border-radius: 8px; font-size: 0.9rem; border: 1px dashed #ddd; }
+        
+        @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Arhitectura Media: Segment RO 45+ (YouTube & TikTok)</h1>
+
+    <div class="grid">
+        <div class="card">
+            <div class="card-header hospodar">1. GOSPODINA (Casă și Grădină)</div>
+            <div class="card-body">
+                <span class="label">Направление канала</span>
+                <div class="direction">Материальный уют и традиции быта. Создание образа экспертной хозяйки.</div>
+                <span class="label">Перечень тем</span>
+                <ul>
+                    <li>Grădinărit (Сад/Огород): сезонные советы, цветы, урожай.</li>
+                    <li>Rețete Tradiționale: выпечка, консервация, секреты кухни.</li>
+                    <li>Ordinea în Casă: уют, текстиль, натуральная уборка.</li>
+                    <li>Economia Casnică: бережливость и качество вещей.</li>
+                </ul>
+                <div class="ca"><strong>ЦА:</strong> Женщины, для которых дом — это их королевство. Ценят практичность и уют.</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header sanatate">2. ECHILIBRU (Sănătate și Vitalitate)</div>
+            <div class="card-body">
+                <span class="label">Направление канала</span>
+                <div class="direction">Здоровье после 45. Мягкое похудение, энергия и забота о теле.</div>
+                <span class="label">Перечень тем</span>
+                <ul>
+                    <li>Slăbire Sănătoasă: питание без жестких диет для зрелого возраста.</li>
+                    <li>Remedii Naturale: фитотерапия, "аптека" из сада.</li>
+                    <li>Energia Zilei: как не уставать, суставы, легкая гимнастика.</li>
+                    <li>Postul și Corpul: как правильно поститься без вреда для здоровья.</li>
+                </ul>
+                <div class="ca"><strong>ЦА:</strong> Женщины 45+, желающие сохранить активность и красоту без агрессивной химии.</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header familie">3. FAMILIA (Relații și Generații)</div>
+            <div class="card-body">
+                <span class="label">Направление канала</span>
+                <div class="direction">Психология отношений и конфликт поколений. Виральный контент.</div>
+                <span class="label">Перечень тем</span>
+                <ul>
+                    <li>Relația cu Copiii: как отпустить детей, но остаться близкими.</li>
+                    <li>Nepoții: воспитание, радости и трудности роли бабушки.</li>
+                    <li>Soacră și Noră: как сохранить мир и границы в большой семье.</li>
+                    <li>Singurătatea: как найти новый смысл, когда гнездо опустело.</li>
+                </ul>
+                <div class="ca"><strong>ЦА:</strong> Женщины, чья главная ценность — семья. Ищут поддержки и мудрых советов.</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header spiritual">4. SUFLET (Credință și Tradiție)</div>
+            <div class="card-body">
+                <span class="label">Направление канала</span>
+                <div class="direction">Духовный фундамент. Православие как образ жизни и защиты ценностей.</div>
+                <span class="label">Перечень тем</span>
+                <ul>
+                    <li>Înțelepciunea Sfinților: простые уроки для современной жизни.</li>
+                    <li>Rugăciunea pentru Cei Dragi: как молиться за семью.</li>
+                    <li>Sărbători și Semnificații: глубина православных традиций RO.</li>
+                    <li>Lumina Interioară: как сохранять покой среди мирового хаоса.</li>
+                </ul>
+                <div class="ca"><strong>ЦА:</strong> Глубоко верующие или ищущие опору в Боге женщины. Самая лояльная аудитория.</div>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top: 30px; padding: 20px; background: #fff9e6; border-radius: 10px; border: 1px solid #c5a059; font-size: 0.95rem; text-align: center;">
+        <strong>Механика продаж:</strong> На всех 4 каналах используется <strong>единый визуальный код</strong>. Платья — это естественная часть гардероба ведущей (хозяйки/матери/бабушки). Продаем не "товар", а <strong>статус достойной женщины</strong>, которая успешна во всех четырех сферах.
+    </div>
+</div>
+
+</body>
+</html>

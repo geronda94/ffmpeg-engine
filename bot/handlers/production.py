@@ -130,14 +130,23 @@ async def cmd_render_retry(message: types.Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("ttsengine_"), ProjectStates.choosing_tts_engine)
 async def handle_engine_choice(callback: types.CallbackQuery, state: FSMContext):
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     engine_id = callback.data.split("_")[1]
     await ask_for_tts_preset(callback.message, state, engine_id)
 
 @router.callback_query(F.data.startswith("ttspreset:"), ProjectStates.choosing_tts_preset)
 async def handle_preset_choice(callback: types.CallbackQuery, state: FSMContext):
-    await callback.answer()
-    await callback.message.edit_reply_markup(reply_markup=None)
+    try:
+        await callback.answer()
+    except Exception:
+        pass
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
     preset_id = callback.data.split(":")[1]
     preset = get_preset_by_id(preset_id)
     if not preset: return
@@ -153,7 +162,10 @@ async def handle_preset_choice(callback: types.CallbackQuery, state: FSMContext)
         
     status = await callback.message.answer(f"🎙 Генерирую озвучку...")
     audio_path = await generate_project_audio(project_id, preset)
-    await status.delete()
+    try:
+        await status.delete()
+    except Exception:
+        pass
     
     if audio_path and os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
         await state.update_data(current_audio_path=audio_path)
@@ -170,7 +182,10 @@ async def handle_preset_choice(callback: types.CallbackQuery, state: FSMContext)
 
 @router.callback_query(F.data == "tts_manual", ProjectStates.choosing_tts_engine)
 async def handle_tts_manual(callback: types.CallbackQuery, state: FSMContext):
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     data = await state.get_data()
     project_id = data.get('project_id')
     proj_data = pm.load_project(project_id)
@@ -222,7 +237,10 @@ async def handle_manual_audio(message: types.Message, state: FSMContext):
     proj_data['current_audio_path'] = audio_path
     pm.save_project(project_id, proj_data)
     
-    await status_msg.delete()
+    try:
+        await status_msg.delete()
+    except Exception:
+        pass
     
     # Удаляем инструкцию если она была
     instr_msg_id = data.get('manual_audio_msg_id')
@@ -252,9 +270,15 @@ async def handle_manual_audio(message: types.Message, state: FSMContext):
 @router.callback_query(F.data == "audio_ok", ProjectStates.approving_audio)
 async def approve_audio(event: types.CallbackQuery | types.Message, state: FSMContext):
     if isinstance(event, types.CallbackQuery):
-        await event.answer()
+        try:
+            await event.answer()
+        except Exception:
+            pass
         message = event.message
-        await message.edit_reply_markup(reply_markup=None)
+        try:
+            await message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
     else:
         message = event
     
@@ -282,9 +306,15 @@ async def approve_audio(event: types.CallbackQuery | types.Message, state: FSMCo
 
 @router.callback_query(F.data.startswith("visstyle_"), ProjectStates.choosing_visual_style)
 async def handle_visual_style_choice(callback: types.CallbackQuery, state: FSMContext):
-    await callback.answer()
-    await callback.message.edit_reply_markup(reply_markup=None)
-    style_id = callback.data.split("_", 1)[1]  # ФИКС: split("_")[1] обрезал "v_smooth_story" до "v"
+    try:
+        await callback.answer()
+    except Exception:
+        pass
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    style_id = callback.data.split("_", 1)[1]
     
     data = await state.get_data()
     proj_data = pm.load_project(data['project_id'])
@@ -296,7 +326,10 @@ async def handle_visual_style_choice(callback: types.CallbackQuery, state: FSMCo
 
 @router.callback_query(F.data.startswith("start_render:"))
 async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     subs_choice = callback.data.split(":")[1]
     data = await state.get_data()
     project_id = data.get('project_id')
@@ -313,7 +346,10 @@ async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer("❌ Ошибка: Файл озвучки не найден.")
         return
 
-    await callback.message.edit_reply_markup(reply_markup=None)
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
     
     # ДОБАВЛЯЕМ В ОЧЕРЕДЬ
     proj_data['status'] = "rendering"
@@ -346,24 +382,12 @@ async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
         reply_markup=kb.as_markup()
     )
     
-    # Очистка чата: сначала по списку trash_messages, потом по диапазону
+    # Очистка чата
     try:
-        # 1. Удаляем явно зарегистрированный мусор
         trash = data.get('trash_messages', [])
         for t_id in trash:
             try:
                 await callback.bot.delete_message(chat_id=callback.message.chat.id, message_id=t_id)
-            except Exception: pass
-
-        # 2. Дополнительная зачистка по диапазону (на всякий случай)
-        current_msg_id = callback.message.message_id
-        flow_start = data.get('flow_start_msg_id')
-        if not flow_start: flow_start = current_msg_id
-        
-        start_id = max(flow_start, current_msg_id - 100)
-        for msg_id in range(current_msg_id, start_id - 1, -1):
-            try:
-                await callback.bot.delete_message(chat_id=callback.message.chat.id, message_id=msg_id)
             except Exception: pass
     except Exception as e:
         logger.warning(f"Error clearing chat: {e}")
@@ -385,7 +409,10 @@ async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
 async def handle_add_subtitles(callback: types.CallbackQuery):
     project_id = callback.data.split(":")[1]
     logger.info(f"Button 'Add Subtitles' pressed for project: {project_id}")
-    await callback.answer("⏳ Готовлю версию с субтитрами...")
+    try:
+        await callback.answer("⏳ Готовлю версию с субтитрами...")
+    except Exception:
+        pass
     
     proj_data = pm.load_project(project_id)
     if not proj_data:
@@ -424,7 +451,6 @@ async def handle_add_subtitles(callback: types.CallbackQuery):
         ass_path = str(project_path / "subtitles.ass")
         output_path = str(project_path / "video_with_subtitles.mp4")
         
-        # 1. Генерируем ASS (пропуская динамику + анимация выезда)
         scenes_for_srt = proj_data['scenes']
         assets = proj_data.get('assets', {})
         for i, s in enumerate(scenes_for_srt):
@@ -435,7 +461,6 @@ async def handle_add_subtitles(callback: types.CallbackQuery):
             await status_msg.edit_text("❌ Ошибка при генерации файла анимированных субтитров.")
             return
             
-        # 2. Вшиваем в видео
         res_path = await asyncio.to_thread(burn_subtitles, video_path, ass_path, output_path)
         
         if res_path and os.path.exists(res_path):
@@ -458,9 +483,11 @@ async def handle_add_subtitles(callback: types.CallbackQuery):
                 parse_mode="Markdown",
                 reply_to_message_id=callback.message.message_id
             )
-            await status_msg.delete()
+            try:
+                await status_msg.delete()
+            except Exception:
+                pass
             
-            # Отправляем JSON конфиг
             json_path = pm.get_project_path(project_id) / "project.json"
             if os.path.exists(json_path):
                 doc_msg = await callback.message.answer_document(
@@ -470,7 +497,6 @@ async def handle_add_subtitles(callback: types.CallbackQuery):
                 )
                 pm.add_protected_message(doc_msg.message_id)
 
-            # Сохраняем в глобальный реестр
             pm.add_protected_message(msg.message_id)
             pm.save_project(project_id, proj_data)
             
@@ -493,6 +519,12 @@ async def handle_translate_menu_button(callback: types.CallbackQuery, state: FSM
 
 @router.callback_query(F.data == "audio_retry", ProjectStates.approving_audio)
 async def retry_audio(callback: types.CallbackQuery, state: FSMContext):
-    await callback.answer()
-    await callback.message.edit_reply_markup(reply_markup=None)
+    try:
+        await callback.answer()
+    except Exception:
+        pass
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
     await ask_for_tts_engine(callback.message, state)

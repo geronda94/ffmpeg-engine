@@ -153,10 +153,16 @@ async def show_web_search_result(message: types.Message, state: FSMContext, is_f
 async def handle_web_search_start(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     if data.get("_searching"):
-        await callback.answer("⏳ Уже идёт поиск...", show_alert=False)
+        try:
+            await callback.answer("⏳ Уже идёт поиск...", show_alert=False)
+        except Exception:
+            pass
         return
     await state.update_data(_searching=True)
-    await callback.answer("🤖 Анализирую сцену...")
+    try:
+        await callback.answer("🤖 Анализирую сцену...")
+    except Exception:
+        pass
 
     project_id = data.get("project_id")
     scene_idx = data.get("current_scene_idx", 0)
@@ -217,7 +223,10 @@ async def handle_web_search_start(callback: types.CallbackQuery, state: FSMConte
 
 @router.callback_query(F.data == "web_search_manual_ai", StateFilter(ProjectStates.collecting_assets))
 async def handle_web_search_manual_ai(callback: types.CallbackQuery, state: FSMContext):
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     msg = await callback.message.answer("⌨️ Введите описание того, что нужно найти:")
     await register_trash(msg, state)
     await state.set_state(ProjectStates.entering_query)
@@ -284,9 +293,15 @@ async def _is_fast_click(state: FSMContext) -> bool:
 @router.callback_query(F.data == "web_next", ProjectStates.searching_web_image)
 async def handle_web_next(callback: types.CallbackQuery, state: FSMContext):
     if await _is_fast_click(state):
-        await callback.answer()
+        try:
+            await callback.answer()
+        except Exception:
+            pass
         return
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     data = await state.get_data()
     results = data.get("search_results", [])
     idx = data.get("search_idx", 0)
@@ -297,9 +312,15 @@ async def handle_web_next(callback: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "web_prev", ProjectStates.searching_web_image)
 async def handle_web_prev(callback: types.CallbackQuery, state: FSMContext):
     if await _is_fast_click(state):
-        await callback.answer()
+        try:
+            await callback.answer()
+        except Exception:
+            pass
         return
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     data = await state.get_data()
     results = data.get("search_results", [])
     idx = data.get("search_idx", 0)
@@ -324,13 +345,19 @@ async def handle_web_source_switch(callback: types.CallbackQuery, state: FSMCont
     color = data.get("search_color")
 
     if new_source == current_source:
-        await callback.answer("Уже выбран этот источник", show_alert=False)
+        try:
+            await callback.answer("Уже выбран этот источник", show_alert=False)
+        except Exception:
+            pass
         return
 
     queries = data.get("search_queries", [])
     src_emoji, src_name = SOURCES.get(new_source, ("📸", "Источник"))
 
-    await callback.answer(f"🔎 Ищу в {src_name}...")
+    try:
+        await callback.answer(f"🔎 Ищу в {src_name}...")
+    except Exception:
+        pass
 
     # Чтобы пользователь видел, что что-то происходит, можем обновить текст под текущим фото
     try:
@@ -411,7 +438,10 @@ async def handle_web_toggle_color(callback: types.CallbackQuery, state: FSMConte
 
     new_color = None if current_color else data.get("search_color_original")
     action = "отключён" if not new_color else f"включён ({new_color})"
-    await callback.answer(f"🎨 Цветовой фильтр {action}")
+    try:
+        await callback.answer(f"🎨 Цветовой фильтр {action}")
+    except Exception:
+        pass
 
     try:
         results = await asyncio.wait_for(
@@ -423,7 +453,10 @@ async def handle_web_toggle_color(callback: types.CallbackQuery, state: FSMConte
         return
 
     if not results:
-        await callback.answer("❌ С этим цветом ничего не нашлось", show_alert=True)
+        try:
+            await callback.answer("❌ С этим цветом ничего не нашлось", show_alert=True)
+        except Exception:
+            pass
         return
 
     await state.update_data(search_results=results, search_idx=0, search_color=new_color)
@@ -436,7 +469,10 @@ async def handle_web_toggle_color(callback: types.CallbackQuery, state: FSMConte
 
 @router.callback_query(F.data == "web_refine_query", ProjectStates.searching_web_image)
 async def handle_web_refine_query(callback: types.CallbackQuery, state: FSMContext):
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     msg = await callback.message.answer("⌨️ Введите свой запрос для поиска:")
     await register_trash(msg, state)
     await state.set_state(ProjectStates.entering_query)
@@ -448,7 +484,10 @@ async def handle_web_refine_query(callback: types.CallbackQuery, state: FSMConte
 
 @router.callback_query(F.data == "web_cancel", ProjectStates.searching_web_image)
 async def handle_web_cancel(callback: types.CallbackQuery, state: FSMContext):
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     data = await state.get_data()
     await ask_for_asset(callback.message, state, data.get("current_scene_idx", 0))
 
@@ -460,10 +499,16 @@ async def handle_web_cancel(callback: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "web_confirm", ProjectStates.searching_web_image)
 async def handle_web_confirm(callback: types.CallbackQuery, state: FSMContext):
     if await _is_fast_click(state):
-        await callback.answer()
+        try:
+            await callback.answer()
+        except Exception:
+            pass
         return
         
-    await callback.answer("⏳ Сохраняю...")
+    try:
+        await callback.answer("⏳ Сохраняю...")
+    except Exception:
+        pass
     
     # Запоминаем старую клавиатуру на случай ошибки
     old_kb = callback.message.reply_markup

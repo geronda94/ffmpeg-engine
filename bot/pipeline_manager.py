@@ -96,16 +96,26 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
         logger.info("Timings found in JSON, skipping Whisper...")
         scenes = scenes_data
     else:
-        logger.info("Timings missing or incomplete, running Whisper...")
+        logger.info(f"Timings missing or incomplete, running Whisper (lang={proj_data.get('language')})...")
         from ai.timing_agent import get_model
         model = get_model()
+        
+        # Передаем язык, чтобы Whisper не гадал (особенно критично для Georgian/Romanian)
+        lang_code = proj_data.get('language', 'Russian')
         whisper_result = await asyncio.to_thread(
-            model.transcribe, audio_path, verbose=False
+            model.transcribe, audio_path, language=lang_code, verbose=False
         )
         whisper_segments = whisper_result.get('segments', [])
         
+        # Передаем уже полученные сегменты в агент выравнивания, чтобы не запускать Whisper второй раз
         from ai.timing_agent import align_scenes_with_audio
-        scenes = await asyncio.to_thread(align_scenes_with_audio, [s.copy() for s in scenes_data], audio_path)
+        scenes = await asyncio.to_thread(
+            align_scenes_with_audio, 
+            [s.copy() for s in scenes_data], 
+            audio_path, 
+            whisper_segments=whisper_segments,
+            language=lang_code
+        )
         
         # Сохраняем тайминги и Whisper-сегменты в проект (нужны для субтитров)
         proj_data['scenes'] = scenes
