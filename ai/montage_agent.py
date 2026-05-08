@@ -1,6 +1,7 @@
 import os
 import logging
 import moviepy.video.fx as vfx
+import moviepy.audio.fx as afx
 from moviepy import ImageClip, VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip
 from proglog import ProgressBarLogger
 from core.media_engine import MediaEngine
@@ -106,9 +107,10 @@ class BaseMontageEngine:
         self.media_engine = MediaEngine(width, height, fps)
         os.makedirs("temp", exist_ok=True)
 
-    def render(self, scenes, audio_path, output_path, preset, progress_callback=None, render_threads=4):
+    def render(self, scenes, audio_path, output_path, preset, progress_callback=None, sound_map=None, render_threads=4):
         try:
-            audio = AudioFileClip(audio_path).with_volume_scaled(2.3) # Оптимальный баланс громкости без хрипа
+            # Сбрасываем усиление до 1.0, так как финальное 'уплотнение' звука делается через dynaudnorm в FFmpeg
+            audio = AudioFileClip(audio_path).with_volume_scaled(1.0) 
             final_clips = []
             trans_cfg = preset.get('transition', {})
 
@@ -156,8 +158,7 @@ class BaseMontageEngine:
                 size=(self.width, self.height), color=(0, 0, 0)
             ).with_duration(audio.duration)
             
-            video_track = CompositeVideoClip([bg_base] + final_clips, size=(self.width, self.height), use_bgclip=True)
-            # Гарантируем, что аудио - это ТОЛЬКО наш голос, без микширования с пустотой
+            # --- САУНД-ДИЗАЙН (Отключен по просьбе пользователя) ---
             final_video = video_track.with_audio(audio)
             
             temp_audio = os.path.join("temp", f"temp_audio_{os.path.basename(output_path)}.m4a")
@@ -203,4 +204,4 @@ def run_montage(scenes, audio_path, output_path, preset, progress_callback=None,
         engine = WideMontageEngine()
     else:
         engine = VerticalMontageEngine()
-    return engine.render(scenes, audio_path, output_path, preset, progress_callback, render_threads=render_threads)
+    return engine.render(scenes, audio_path, output_path, preset, progress_callback, sound_map=sound_map, render_threads=render_threads)
