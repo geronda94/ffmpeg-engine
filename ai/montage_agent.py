@@ -109,8 +109,8 @@ class BaseMontageEngine:
 
     def render(self, scenes, audio_path, output_path, preset, progress_callback=None, sound_map=None, render_threads=4):
         try:
-            # Сбрасываем усиление до 1.0, так как финальное 'уплотнение' звука делается через dynaudnorm в FFmpeg
-            audio = AudioFileClip(audio_path).with_volume_scaled(1.0) 
+            # Озвучка: нормализуем и ставим умеренный уровень (1.2) вместо хрипящего 2.3
+            audio = AudioFileClip(audio_path).with_effects([afx.AudioNormalize()]).with_volume_scaled(1.5) 
             final_clips = []
             trans_cfg = preset.get('transition', {})
 
@@ -176,7 +176,6 @@ class BaseMontageEngine:
                 remove_temp=True,
                 threads=render_threads,
                 preset="veryfast",
-                ffmpeg_params=["-af", "dynaudnorm"], # Переносим нормализацию сюда, чтобы она была ВСЕГДА
                 logger=render_logger
             )
             return True
