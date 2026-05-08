@@ -158,6 +158,8 @@ class BaseMontageEngine:
                 size=(self.width, self.height), color=(0, 0, 0)
             ).with_duration(audio.duration)
             
+            video_track = CompositeVideoClip([bg_base] + final_clips, size=(self.width, self.height), use_bgclip=True)
+            
             # --- САУНД-ДИЗАЙН (Отключен по просьбе пользователя) ---
             final_video = video_track.with_audio(audio)
             
