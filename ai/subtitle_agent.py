@@ -141,7 +141,7 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
             "",
             "[V4+ Styles]",
             "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-            "Style: Default,DejaVu Sans Bold,62,&H0000FFFF,&H00FFFFFF,&H80333333,&H00000000,-1,0,0,0,100,100,0,0,1,3,1.5,2,120,120,520,1",
+            "Style: Default,DejaVu Sans Bold,62,&H0000FFFF,&H00FFFFFF,&H80333333,&H00000000,-1,0,0,0,100,100,0,0,1,3,1.5,2,120,120,450,1",
             "",
             "[Events]",
             "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"
@@ -199,9 +199,9 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
             start_str = format_ass_time(seg['start'])
             end_str = format_ass_time(seg['end'])
             
-            # Динамически рассчитываем Y на основе MarginV (520)
-            # 1920 - 520 = 1400
-            margin_v = 520
+            # Динамически рассчитываем Y на основе MarginV (450)
+            # 1920 - 450 = 1470
+            margin_v = 450
             target_x, target_y = 540, 1920 - margin_v
             move_dur = 120
             
@@ -251,7 +251,7 @@ def burn_subtitles(video_path: str, srt_path: str, output_path: str) -> str | No
         if is_ass:
             vf = f"subtitles='{clean_srt_path}':fontsdir='{fonts_dir}'"
         else:
-            style = "FontName=DejaVu Sans Bold,FontSize=16,PrimaryColour=&H00FFFFFF&,OutlineColour=&H80333333&,BorderStyle=1,Outline=0.8,Shadow=0.5,Alignment=2,MarginV=520,MarginR=120,MarginL=120"
+            style = "FontName=DejaVu Sans Bold,FontSize=16,PrimaryColour=&H00FFFFFF&,OutlineColour=&H80333333&,BorderStyle=1,Outline=0.8,Shadow=0.5,Alignment=2,MarginV=450,MarginR=120,MarginL=120"
             vf = f"subtitles='{clean_srt_path}':fontsdir='{fonts_dir}':force_style='{style}'"
         
         cmd = [
