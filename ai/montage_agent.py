@@ -176,6 +176,7 @@ class BaseMontageEngine:
                 remove_temp=True,
                 threads=render_threads,
                 preset="veryfast",
+                ffmpeg_params=["-af", "dynaudnorm"], # Переносим нормализацию сюда, чтобы она была ВСЕГДА
                 logger=render_logger
             )
             return True

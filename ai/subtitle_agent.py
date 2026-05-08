@@ -258,8 +258,7 @@ def burn_subtitles(video_path: str, srt_path: str, output_path: str) -> str | No
             "ffmpeg", "-y",
             "-i", video_path,
             "-vf", vf,
-            "-af", "dynaudnorm", # Динамическая нормализация звука (делает голос громким и плотным)
-            "-c:a", "aac", "-b:a", "192k",
+            "-c:a", "copy",
             output_path
         ]
         
