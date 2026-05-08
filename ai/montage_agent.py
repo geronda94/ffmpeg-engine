@@ -108,7 +108,7 @@ class BaseMontageEngine:
 
     def render(self, scenes, audio_path, output_path, preset, progress_callback=None, render_threads=4):
         try:
-            audio = AudioFileClip(audio_path).with_volume_scaled(2.5) # Усиленный звук для TikTok/Reels
+            audio = AudioFileClip(audio_path).with_volume_scaled(2.3) # Оптимальный баланс громкости без хрипа
             final_clips = []
             trans_cfg = preset.get('transition', {})
 
