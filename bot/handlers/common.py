@@ -202,7 +202,7 @@ async def start_new_project(message: types.Message, state: FSMContext):
 @router.callback_query(F.data.startswith("lang_"), ProjectStates.choosing_language)
 async def choose_lang(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    lang = callback.data.split("_")[1]
+    lang = callback.data.split("_", 1)[1]
     data = await state.get_data()
     proj = pm.load_project(data['project_id'])
     proj['language'] = lang
@@ -217,13 +217,13 @@ async def choose_lang(callback: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("format_"), ProjectStates.choosing_format)
 async def choose_format(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    fmt = callback.data.split("_")[1]
+    fmt = callback.data.split("_", 1)[1]
     data = await state.get_data()
     proj = pm.load_project(data['project_id'])
     proj['video_format'] = fmt
     pm.save_project(data['project_id'], proj)
     
-    presets = get_config("script_presets")
+    presets = get_config("script_presets", ttl=0)
     kb = InlineKeyboardBuilder()
     for mode in presets['modes']:
         kb.button(text=mode['name'], callback_data=f"scrmode_{mode['id']}")
@@ -234,14 +234,14 @@ async def choose_format(callback: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("scrmode_"), ProjectStates.choosing_script_mode)
 async def choose_script_mode(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    mode = callback.data.split("_")[1]
+    mode = callback.data.split("_", 1)[1]
     await state.update_data(script_mode=mode)
     
     if mode == "manual":
         await callback.message.edit_text("✍️ Пришлите ваш готовый текст для видео:")
         await state.set_state(ProjectStates.writing_manual_script)
     else:
-        presets = get_config("script_presets")
+        presets = get_config("script_presets", ttl=0)
         kb = InlineKeyboardBuilder()
         for s in presets['styles']:
             kb.button(text=s['name'], callback_data=f"scrstyle_{s['id']}")
@@ -252,7 +252,7 @@ async def choose_script_mode(callback: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("scrstyle_"), ProjectStates.choosing_script_style)
 async def choose_script_style(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    style_id = callback.data.split("_")[1]
+    style_id = callback.data.split("_", 1)[1]
     await state.update_data(script_style=style_id)
     
     data = await state.get_data()
