@@ -151,14 +151,19 @@ async def handle_resume_project(callback: types.CallbackQuery, state: FSMContext
         await callback.message.answer("🔄 Восстанавливаю: выбор параметров...")
         await start_new_project(callback.message, state) 
     elif status == "script_ready" or not proj.get('scenes'):
-        # Если текст готов, но сцен нет — идем к выбору режима раскадровки
         await state.update_data(script_data={"script": proj.get('script', '')})
+        presets = get_config("script_presets", ttl=0)
+        pacing = presets.get("scene_pacing", {})
         kb = InlineKeyboardBuilder()
-        kb.button(text="🤖 Авто-раскадровка", callback_data="stmode_auto")
-        kb.button(text="💡 Свои идеи", callback_data="stmode_ideas")
+        for pid, pdata in pacing.items():
+            kb.button(text=pdata["name"], callback_data=f"pace_{pid}")
+        kb.button(text="💡 Свои идеи для сцен", callback_data="stmode_ideas")
         kb.adjust(1)
-        await callback.message.answer("🔄 Восстанавливаю: создание раскадровки...\n\nКак подготовим сцены?", reply_markup=kb.as_markup())
-        await state.set_state(ProjectStates.choosing_storyboard_mode)
+        await callback.message.answer(
+            "🔄 Восстанавливаю: создание раскадровки...\n\nВыберите темп сцен:",
+            reply_markup=kb.as_markup()
+        )
+        await state.set_state(ProjectStates.choosing_scene_pacing)
     elif status == "collecting_assets":
         # Ищем первую сцену без ассета
         scenes = proj.get('scenes', [])
@@ -207,7 +212,29 @@ async def choose_lang(callback: types.CallbackQuery, state: FSMContext):
     proj = pm.load_project(data['project_id'])
     proj['language'] = lang
     pm.save_project(data['project_id'], proj)
-    
+
+    profiles = get_config("channel_context", ttl=0).get("profiles", [])
+    kb = InlineKeyboardBuilder()
+    for p in profiles:
+        kb.button(text=p.get("name", p["id"]), callback_data=f"chanprof_{p['id']}")
+    kb.adjust(1)
+    await callback.message.edit_text(
+        "📺 **Выберите профиль канала**\n\n"
+        "Это определит стиль контента, манеру повествования и подачу:",
+        reply_markup=kb.as_markup()
+    )
+    await state.set_state(ProjectStates.choosing_channel_profile)
+
+
+@router.callback_query(F.data.startswith("chanprof_"), ProjectStates.choosing_channel_profile)
+async def choose_channel_profile(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    profile_id = callback.data.split("chanprof_")[1]
+    data = await state.get_data()
+    proj = pm.load_project(data['project_id'])
+    proj['channel_profile'] = profile_id
+    pm.save_project(data['project_id'], proj)
+
     kb = InlineKeyboardBuilder()
     kb.button(text="📱 Вертикальное (9:16)", callback_data="format_vertical")
     kb.button(text="📺 Широкое (16:9)", callback_data="format_wide")

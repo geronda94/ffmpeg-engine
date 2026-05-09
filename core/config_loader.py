@@ -44,3 +44,18 @@ def reload_config(name: str) -> dict:
     path = _resolve_path(name)
     _cache.pop(path, None)
     return get_config(name, ttl=0)
+
+
+def get_channel_profile(profile_id: str = None) -> dict:
+    data = get_config("channel_context", ttl=0)
+    profiles = data.get("profiles")
+    if profiles is None:
+        return data
+    if profile_id:
+        match = next((p for p in profiles if p["id"] == profile_id), None)
+        if match:
+            return match
+    return profiles[0] if profiles else {}
+
+
+DEFAULT_CHANNEL_PROFILE = "educational"

@@ -1,26 +1,16 @@
 import logging
 from ai.llm_client import achat_json
-from core.config_loader import get_config
+from core.config_loader import get_channel_profile
 
 logger = logging.getLogger(__name__)
 
 
-async def generate_metadata(script, lang="Russian", user_instruction=""):
-    """
-    Генерирует заголовок, описание и теги для видео на основе сценария и пользовательских предпочтений.
-    """
+async def generate_metadata(script, lang="Russian", user_instruction="", channel_ctx: dict = None):
     try:
-        context = {
-            "channel_topic": "General content",
-            "tone_of_voice": "Engaging",
-            "avoid_topics": [],
-            "target_platform": "YouTube/TikTok/Reels"
-        }
-        try:
-            channel = get_config("channel_context")
-            context.update(channel)
-        except Exception:
-            pass
+        if channel_ctx:
+            context = channel_ctx
+        else:
+            context = get_channel_profile()
 
         style_instruction = f"STYLE INSTRUCTION: {user_instruction}\n" if user_instruction else ""
 

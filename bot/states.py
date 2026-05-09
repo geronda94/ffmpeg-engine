@@ -3,6 +3,7 @@ from aiogram.fsm.state import State, StatesGroup
 class ProjectStates(StatesGroup):
     # Настройка проекта
     choosing_language = State()
+    choosing_channel_profile = State()
     choosing_format = State()
     
     # Работа со сценарием
@@ -14,6 +15,7 @@ class ProjectStates(StatesGroup):
     
     # Работа с раскадровкой (Диалог с Агентом Сцен)
     choosing_storyboard_mode = State()
+    choosing_scene_pacing = State()
     refining_storyboard = State()
     
     # Сбор материалов

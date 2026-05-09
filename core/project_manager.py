@@ -37,6 +37,8 @@ class ProjectManager:
             "status": "created",
             "video_format": "vertical",
             "language": "Russian",
+            "channel_profile": "educational",
+            "scene_pacing": "normal",
             "script": "",
             "scenes": [],
             "assets": {},
@@ -136,6 +138,61 @@ class ProjectManager:
         new_scene['estimated_duration'] = max(2.5, round(len(t2) / 13.0 + 0.5, 1))
         
         data['scenes'].insert(idx + 1, new_scene)
+        data['status'] = "needs_retiming"
+        self.save_project(project_id, data)
+        return True
+
+    def _calc_scene_duration(self, text: str, pacing_mode: str = "normal") -> float:
+        from core.config_loader import get_config
+        presets = get_config("script_presets", ttl=0)
+        pacing = presets.get("scene_pacing", {}).get(pacing_mode, presets.get("scene_pacing", {}).get("normal", {}))
+        formula = pacing.get("duration_formula", "max(2.5, round(len(text) / 13.0 + 0.5, 1))")
+        min_dur = pacing.get("min_duration", 2.5)
+        max_dur = pacing.get("max_duration", 5.0)
+        try:
+            dur = eval(formula, {"text": text, "round": round, "max": max, "min": min, "len": len})
+        except Exception:
+            dur = max(2.5, round(len(text) / 13.0 + 0.5, 1))
+        return max(min_dur, min(max_dur, dur))
+
+    def redistribute_timings(self, project_id: str, scene_idx: int = None, custom_duration: float = None, target_total: float = None):
+        data = self.load_project(project_id)
+        if not data or not data.get('scenes'):
+            return False
+
+        scenes = data['scenes']
+        pacing = data.get('scene_pacing', 'normal')
+
+        if scene_idx is not None and custom_duration is not None and 0 <= scene_idx < len(scenes):
+            old_dur = scenes[scene_idx].get('estimated_duration', 3.0)
+            scenes[scene_idx]['estimated_duration'] = custom_duration
+            diff = old_dur - custom_duration
+
+            if diff != 0:
+                other_indices = [i for i in range(len(scenes)) if i != scene_idx]
+                total_other = sum(scenes[i].get('estimated_duration', 3.0) for i in other_indices)
+                if total_other > 0:
+                    for i in other_indices:
+                        cur = scenes[i].get('estimated_duration', 3.0)
+                        ratio = cur / total_other
+                        adjusted = cur + diff * ratio
+                        min_d = max(1.5, self._calc_scene_duration(scenes[i].get('text_segment', ''), pacing) * 0.5)
+                        adjusted = max(min_d, adjusted)
+                        scenes[i]['estimated_duration'] = round(adjusted, 1)
+
+        elif target_total is not None:
+            total_text = sum(len(s.get('text_segment', '')) for s in scenes)
+            if total_text > 0:
+                for s in scenes:
+                    text_len = len(s.get('text_segment', ''))
+                    ratio = text_len / total_text
+                    dur = target_total * ratio
+                    min_d = self._calc_scene_duration(s.get('text_segment', ''), pacing)
+                    scenes[i]['estimated_duration'] = round(max(min_d, dur), 1)
+
+        for s in scenes:
+            s.pop('start', None)
+            s.pop('end', None)
         data['status'] = "needs_retiming"
         self.save_project(project_id, data)
         return True

@@ -7,7 +7,7 @@ from ai.timing_agent import align_scenes_with_audio
 from ai.montage_agent import run_montage
 from ai.metadata_agent import generate_metadata
 from core.project_manager import ProjectManager
-from core.config_loader import get_config
+from core.config_loader import get_config, get_channel_profile
 
 logger = logging.getLogger(__name__)
 # Инициализируем менеджер один раз
@@ -63,7 +63,8 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
     # 1. СЕО-МЕТАДАННЫЕ
     if 'metadata' not in proj_data:
         logger.info("Generating SEO metadata...")
-        meta = await generate_metadata(proj_data.get('script', ''), proj_data.get('language', 'Russian'))
+        channel_ctx = get_channel_profile(proj_data.get('channel_profile'))
+        meta = await generate_metadata(proj_data.get('script', ''), proj_data.get('language', 'Russian'), channel_ctx=channel_ctx)
         proj_data['metadata'] = meta
         pm.save_project(project_id, proj_data)
     else:

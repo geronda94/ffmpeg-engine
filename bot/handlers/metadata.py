@@ -5,6 +5,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.states import ProjectStates
 from ai.metadata_agent import generate_metadata
 from core.project_manager import ProjectManager
+from core.config_loader import get_channel_profile
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -83,8 +84,8 @@ async def run_metadata_generation(message: types.Message, state: FSMContext, ins
         script = "General interesting facts and stories."
 
     try:
-        # Вызываем асинхронный агент
-        metadata = await generate_metadata(script, lang, user_instruction=instruction)
+        channel_ctx = get_channel_profile(project_data.get('channel_profile')) if project_id else None
+        metadata = await generate_metadata(script, lang, user_instruction=instruction, channel_ctx=channel_ctx)
         
         # Сохраняем в проект
         if project_id:
