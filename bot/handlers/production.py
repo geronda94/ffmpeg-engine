@@ -291,15 +291,42 @@ async def approve_audio(event: types.CallbackQuery | types.Message, state: FSMCo
         return
         
     v_format = proj_data.get('video_format', 'vertical')
-    
+    channel_prof = proj_data.get('channel_profile', 'educational')
+
+    suffix = 'w_' if v_format == 'wide' else 'v_'
+    channel_to_style = {
+        'orthodox': f"{suffix}orthodox",
+        'tech_business': f"{suffix}tech",
+        'entertainment': f"{suffix}feminine",
+        'educational': f"{suffix}mixed_ai",
+    }
+    recommended = channel_to_style.get(channel_prof, f"{suffix}mixed_ai")
+
+    proj_data['visual_style'] = recommended
+    pm.save_project(data['project_id'], proj_data)
+
     v_config = get_config("rendering_presets")
-    styles = v_config.get(v_format, v_config['vertical'])
-    
+    styles = [s for s in v_config.get(v_format, v_config['vertical']) if s.get('mode') == 'ai']
+
+    if not styles:
+        styles = v_config.get(v_format, v_config['vertical'])
+
+    rec_name = next((s['name'] for s in styles if s['id'] == recommended), styles[0]['name'] if styles else recommended)
+
     kb = InlineKeyboardBuilder()
     for s in styles:
-        kb.button(text=s['name'], callback_data=f"visstyle_{s['id']}")
+        label = s['name']
+        if s['id'] == recommended:
+            label = f"✅ {label} (рекомендован)"
+        kb.button(text=label, callback_data=f"visstyle_{s['id']}")
     kb.adjust(1)
-    msg = await message.answer(f"🎨 Выберите стиль монтажа для {'вертикального' if v_format=='vertical' else 'широкого'} video:", reply_markup=kb.as_markup())
+    
+    msg = await message.answer(
+        f"🎨 **Стиль монтажа**\n\n"
+        f"Для вашего канала подобран стиль: **{rec_name}**\n"
+        f"Можете оставить его по умолчанию или выбрать другой:",
+        reply_markup=kb.as_markup()
+    )
     from bot.navigation import register_trash
     await register_trash(msg, state)
     await state.set_state(ProjectStates.choosing_visual_style)

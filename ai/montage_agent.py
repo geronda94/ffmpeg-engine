@@ -1,12 +1,14 @@
 import os
 import logging
-import moviepy.video.fx as vfx
 import moviepy.audio.fx as afx
-from moviepy import ImageClip, VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip
+from moviepy import AudioFileClip, CompositeVideoClip, ColorClip, AudioClip, concatenate_audioclips
 from proglog import ProgressBarLogger
 from core.media_engine import MediaEngine
+from core.transitions import apply as apply_transition
+from core.effects import collect_overlays
 
 logger = logging.getLogger(__name__)
+
 
 class TelegramProgressLogger(ProgressBarLogger):
     def __init__(self, callback=None):
@@ -17,86 +19,98 @@ class TelegramProgressLogger(ProgressBarLogger):
     def callback(self, **kwargs):
         if not self.tg_callback:
             return
-            
+
         main_bar = self.bars.get('tqdm') or self.bars.get('video')
-        
+
         if main_bar and main_bar.get('total'):
             bar_data = main_bar
         else:
             active_bars = [b for b in self.bars.values() if b.get('total', 0) > 0 and b['index'] < b['total']]
             if not active_bars:
                 active_bars = [b for b in self.bars.values() if b.get('total', 0) > 0]
-            
-            if not active_bars: return
+
+            if not active_bars:
+                return
             bar_data = active_bars[-1]
 
         percent = int((bar_data['index'] / bar_data['total']) * 100)
-        
+
         if percent != self.last_percent and (percent % 5 == 0 or percent == 100):
             self.last_percent = percent
             self.tg_callback(percent)
 
 
-def _apply_transition(clip, transition_cfg, is_first: bool, engine_width: int, engine_height: int):
-    if is_first:
-        return clip
-    trans_type = transition_cfg.get('type', 'crossfade')
-    duration = transition_cfg.get('duration', 0.5)
-    if duration <= 0:
-        return clip
+def _build_bg_music(sound_map, video_duration):
+    if not sound_map:
+        return None
 
-    if trans_type == 'crossfade':
-        return clip.with_effects([vfx.CrossFadeIn(duration)])
+    bg = sound_map.get("bg_music")
+    if not bg or not bg.get("path"):
+        return None
 
-    elif trans_type == 'fade_black':
-        return clip.with_effects([vfx.FadeIn(duration)])
+    path = bg["path"]
+    volume = bg.get("volume", 0.30)
+    loopable = bg.get("loopable", True)
+    dur_sec = bg.get("duration_sec", 30)
 
-    elif trans_type == 'blur_dissolve':
-        # В MoviePy 2.x vfx.Blur отсутствует. Используем обычный кроссфейд.
-        return clip.with_effects([vfx.CrossFadeIn(duration)])
+    if not os.path.exists(path):
+        logger.warning(f"Music file not found: {path}")
+        return None
 
-    elif trans_type == 'slide_left':
-        center_x = (engine_width - clip.w) / 2
-        center_y = (engine_height - clip.h) / 2
-        def _slide_pos(t):
-            if t > duration:
-                return (center_x, center_y)
-            frac = 1 - t / duration
-            from core.animation_utils import ease_out_cubic, lerp
-            eased = ease_out_cubic(1 - frac)
-            return (lerp(engine_width, center_x, eased), center_y)
-        return clip.with_position(_slide_pos)
+    track = AudioFileClip(path)
+    track_dur = track.duration
 
-    elif trans_type == 'slide_right':
-        center_x = (engine_width - clip.w) / 2
-        center_y = (engine_height - clip.h) / 2
-        def _slide_pos(t):
-            if t > duration:
-                return (center_x, center_y)
-            frac = 1 - t / duration
-            from core.animation_utils import ease_out_cubic, lerp
-            eased = ease_out_cubic(1 - frac)
-            return (lerp(-clip.w, center_x, eased), center_y)
-        return clip.with_position(_slide_pos)
+    if track_dur <= 0:
+        return None
 
-    elif trans_type == 'zoom_in_out':
-        zoom_strength = transition_cfg.get('zoom_strength', 0.4)
-        orig_w = clip.w
-        orig_h = clip.h
-        def _zoom_func(t):
-            if t > duration:
-                return 1.0
-            frac = t / duration
-            from core.animation_utils import ease_in_out_cubic, lerp
-            eased = ease_in_out_cubic(frac)
-            return lerp(1.0 + zoom_strength, 1.0, eased)
-        zoomed = clip.with_effects([vfx.Resize(_zoom_func)])
-        def _center_pos(t):
-            z = _zoom_func(t)
-            return (-orig_w * (z - 1.0) / 2, -orig_h * (z - 1.0) / 2)
-        return zoomed.with_position(_center_pos)
+    if not loopable or track_dur >= video_duration:
+        clip = track.with_duration(min(video_duration, track_dur))
+        return clip.with_volume_scaled(volume)
 
-    return clip
+    segments = []
+    remaining = video_duration
+    fade_out = 2.0
+    fade_in = 1.5
+    gap = 1.0
+
+    loop_count = 0
+    while remaining > 0 and loop_count < 50:
+        loop_count += 1
+        is_first = len(segments) == 0
+
+        if not is_first:
+            silence = AudioClip(lambda t: 0, duration=gap)
+            segments.append(silence)
+            remaining -= gap
+
+        if remaining <= 0:
+            break
+
+        is_last = remaining <= track_dur + fade_out
+        seg_dur = min(track_dur, remaining + fade_out) if is_last else track_dur
+        seg = track.subclipped(0, seg_dur).with_duration(seg_dur)
+
+        if is_first and is_last:
+            seg = seg.with_effects([afx.AudioFadeOut(min(fade_out, seg_dur * 0.5))])
+        elif is_last:
+            fi = min(fade_in, seg_dur * 0.3)
+            fo = min(fade_out, seg_dur * 0.5)
+            seg = seg.with_effects([afx.AudioFadeIn(fi), afx.AudioFadeOut(fo)])
+        elif is_first:
+            seg = seg.with_effects([afx.AudioFadeOut(min(fade_out, seg_dur * 0.5))])
+        else:
+            fi = min(fade_in, seg_dur * 0.3)
+            fo = min(fade_out, seg_dur * 0.5)
+            seg = seg.with_effects([afx.AudioFadeIn(fi), afx.AudioFadeOut(fo)])
+
+        segments.append(seg)
+        remaining -= seg_dur
+
+    if not segments:
+        return None
+
+    result = concatenate_audioclips(segments) if len(segments) > 1 else segments[0]
+    return result.with_volume_scaled(volume)
 
 
 class BaseMontageEngine:
@@ -109,15 +123,15 @@ class BaseMontageEngine:
 
     def render(self, scenes, audio_path, output_path, preset, progress_callback=None, sound_map=None, render_threads=4):
         try:
-            # Озвучка: нормализуем и ставим умеренный уровень (1.2) вместо хрипящего 2.3
-            audio = AudioFileClip(audio_path).with_effects([afx.AudioNormalize()]).with_volume_scaled(1.5) 
+            voice = AudioFileClip(audio_path).with_effects([afx.AudioNormalize()]).with_volume_scaled(1.5)
+            video_duration = voice.duration
             final_clips = []
             trans_cfg = preset.get('transition', {})
+            preset_effects = preset.get('effects', [])
 
             for i, scene in enumerate(scenes):
                 start_time = scene['start']
-                
-                # Длительность наложения (overhang) зависит от перехода СЛЕДУЮЩЕЙ сцены
+
                 if i < len(scenes) - 1:
                     next_scene = scenes[i+1]
                     next_trans = next_scene.get('transition', trans_cfg)
@@ -125,53 +139,65 @@ class BaseMontageEngine:
                     total_dur = next_start - start_time
                     overhang = next_trans.get('duration', 0.5)
                 else:
-                    total_dur = audio.duration - start_time
+                    total_dur = video_duration - start_time
                     overhang = 0
-                
+
                 total_dur += overhang
+                total_dur = max(0.5, total_dur)
 
                 logger.info(f"--- Processing Scene {i} ---")
                 logger.info(f"Asset: {scene['asset_path']} | Duration: {total_dur}s")
 
+                effects_list = scene.get('effects', preset_effects)
+
                 clip = self.media_engine.process_asset(
-                    scene['asset_path'], 
-                    total_dur, 
+                    scene['asset_path'],
+                    total_dur,
                     mode=scene.get("resize_mode", preset.get("resize_mode", "fit")),
                     offset=scene.get('start_offset', 0),
                     allow_effects=scene.get('allow_montage_effects', True),
-                    effects=scene.get('effects', preset.get('effects', []))
+                    effects=effects_list
                 )
-                
-                clip = clip.with_start(start_time)
-                # Приоритет переходу из сцены, затем из пресета
-                scene_trans = scene.get('transition', trans_cfg)
-                clip = _apply_transition(clip, scene_trans, i == 0, self.width, self.height)
-                
-                final_clips.append(clip)
-                logger.info(f"Scene {i} added successfully.")
 
-            # Явный чёрный фон на всё время видео.
-            # После удаления base-слоя из process_asset, нужно гарантировать
-            # что CompositeVideoClip имеет полное покрытие без прозрачных зон.
-            from moviepy import ColorClip
+                clip = clip.with_start(start_time)
+
+                scene_trans = scene.get('transition', trans_cfg)
+                clip = apply_transition(clip, scene_trans, i == 0, self.width, self.height)
+
+                final_clips.append(clip)
+
+                overlay_clips = collect_overlays(effects_list, self.width, self.height, total_dur)
+                for ocl in overlay_clips:
+                    final_clips.append(ocl.with_start(start_time))
+
+                logger.info(f"Scene {i} added successfully. Overlays: {len(overlay_clips)}")
+
             bg_base = ColorClip(
                 size=(self.width, self.height), color=(0, 0, 0)
-            ).with_duration(audio.duration)
-            
+            ).with_duration(video_duration)
+
             video_track = CompositeVideoClip([bg_base] + final_clips, size=(self.width, self.height), use_bgclip=True)
-            
-            # --- САУНД-ДИЗАЙН (Отключен по просьбе пользователя) ---
-            final_video = video_track.with_audio(audio)
-            
+
+            bg_music = _build_bg_music(sound_map, video_duration)
+            if bg_music:
+                from moviepy import CompositeAudioClip
+                final_audio = CompositeAudioClip([voice, bg_music.with_start(0)])
+                logger.info(f"Background music applied at volume {sound_map.get('bg_music', {}).get('volume', 0.30)}")
+            else:
+                final_audio = voice
+                logger.info("No background music, using voice-only audio.")
+
+            final_video = video_track.with_audio(final_audio)
+
             temp_audio = os.path.join("temp", f"temp_audio_{os.path.basename(output_path)}.m4a")
             render_logger = TelegramProgressLogger(callback=progress_callback) if progress_callback else "bar"
 
             final_video.write_videofile(
-                output_path, 
-                fps=self.fps, 
-                codec="libx264", 
+                output_path,
+                fps=self.fps,
+                codec="libx264",
                 audio_codec="aac",
-                audio_bitrate="192k", # Повышаем качество звука
+                audio_bitrate="192k",
                 temp_audiofile=temp_audio,
                 remove_temp=True,
                 threads=render_threads,
@@ -183,7 +209,7 @@ class BaseMontageEngine:
             logger.error(f"Render failed: {e}", exc_info=True)
             return False
         finally:
-            if 'audio' in locals() and hasattr(audio, 'close'): audio.close()
+            if 'voice' in locals() and hasattr(voice, 'close'): voice.close()
             if 'final_video' in locals() and hasattr(final_video, 'close'): final_video.close()
             if 'video_track' in locals() and hasattr(video_track, 'close'): video_track.close()
             if 'final_clips' in locals():

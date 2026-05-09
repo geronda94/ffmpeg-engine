@@ -66,12 +66,26 @@ def _build_scene_duration_instruction(pacing_mode: str) -> str:
     wpm = pacing.get("wpm", 180)
     min_dur = pacing.get("min_duration", 2.5)
     max_dur = pacing.get("max_duration", 5.0)
+
+    max_chars_per_scene = {240: 48, 180: 72, 140: 96}.get(wpm, 72)
+
+    pacing_hints = {
+        "super_dynamic": "CRITICAL: Keep text_segments VERY short — max 40-50 characters each. Every sentence should be its own scene. If a segment has 2 sentences, SPLIT it into 2 scenes.",
+        "normal": "Good balance: 50-80 characters per text_segment. One complex sentence or two short sentences max.",
+        "slow": "Allow longer text_segments: 70-120 characters. Full sentences and flowing prose are fine.",
+    }
+    hint = pacing_hints.get(pacing_mode, "")
+
     return (
-        f"### SCENE LENGTH RULES ({pacing_mode}):\n"
-        f"- Each scene should contain approximately {wpm} words per minute of spoken content.\n"
+        f"### STRICT SCENE LENGTH RULES — {pacing_mode.upper()} MODE:\n"
         f"- Target scene duration: {min_dur}-{max_dur} seconds.\n"
-        f"- Use the text_segment length to naturally control scene duration.\n"
-        f"- Split longer text segments into multiple scenes, merge very short ones.\n"
+        f"- Maximum spoken content speed: {wpm} words per minute.\n"
+        f"- Maximum text_segment length: ~{max_chars_per_scene} characters.\n"
+        f"{hint}\n"
+        f"- VIOLATION CHECK: if a text_segment has more than {max_chars_per_scene} chars, "
+        f"you MUST split it into two or more scenes.\n"
+        f"- Merge only if text is under 15 characters and doesn't make sense alone.\n"
+        f"- Priority: more short scenes > fewer long scenes. The viewer should feel rapid pacing.\n"
     )
 
 

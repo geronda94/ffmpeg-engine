@@ -15,6 +15,9 @@ CONFIG_PATHS = {
     "channel_context": "config/channel_context.json",
     "audio_library": "config/audio_library.json",
     "ui_plates": "config/ui_plates.json",
+    "effects_registry": "config/effects_registry.json",
+    "transitions_registry": "config/transitions_registry.json",
+    "music_library": "config/music_library.json",
 }
 
 

@@ -138,15 +138,17 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
     w, h = (1920, 1080) if v_format == 'wide' else (1080, 1920)
 
     # 4. СМЕШАННЫЙ МОНТАЖ (MIXED AI)
-    if style_id in ['v_mixed_ai', 'w_mixed_ai']:
-        logger.info("Mixed AI Style detected. Planning montage with Director Agent...")
+    director_styles = ['v_mixed_ai', 'w_mixed_ai', 'v_orthodox', 'v_tech', 'v_feminine']
+    if style_id in director_styles:
+        logger.info(f"AI Director Style '{style_id}' detected. Planning montage...")
         from ai.montage_director_agent import montage_director
-        
-        # Планируем эффекты на основе текста
+
         montage_plan = await montage_director.plan_montage(
-            proj_data.get('script', ''), 
+            proj_data.get('script', ''),
             scenes,
-            proj_data.get('language', 'Russian')
+            proj_data.get('language', 'Russian'),
+            channel_profile_id=proj_data.get('channel_profile'),
+            pacing_mode=proj_data.get('scene_pacing', 'normal')
         )
         
         # Применяем план к сценам (в памяти для этого рендера)
@@ -207,10 +209,13 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
         logger.error("No scenes were added to agent! Rendering aborted.")
         return None
 
-    # 5. САУНД-ДИЗАЙН
+    # 5. САУНД-ДИЗАЙН (музыка + эффекты)
     from ai.sound_design_agent import SoundDesignAgent
     sound_agent = SoundDesignAgent()
-    sound_map = await sound_agent.generate_sound_map(proj_data.get('script', ''), scenes)
+    sound_map = await sound_agent.generate_sound_map(
+        proj_data.get('script', ''), scenes,
+        channel_profile=proj_data.get('channel_profile')
+    )
     if sound_map:
         logger.info(f"Sound Map generated: {len(sound_map.get('sfx_placements', []))} effects added.")
     else:

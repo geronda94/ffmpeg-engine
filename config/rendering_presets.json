@@ -61,8 +61,36 @@
     },
     {
       "id": "v_mixed_ai",
+      "mode": "ai",
       "name": "🤖 AI Смешанный (Умный)",
       "description": "ИИ-режиссёр анализирует каждую сцену и подбирает эффекты индивидуально.",
+      "resize_mode": "fit",
+      "effects": [],
+      "transition": { "type": "crossfade", "duration": 0.5 }
+    },
+    {
+      "id": "v_orthodox",
+      "mode": "ai",
+      "name": "☦️ Православный (Атмосферный)",
+      "description": "Глубокие, медитативные эффекты. Light leak, дрейф, хроматическая аберрация.",
+      "resize_mode": "fit",
+      "effects": [],
+      "transition": { "type": "blur_dissolve", "duration": 0.6 }
+    },
+    {
+      "id": "v_tech",
+      "mode": "ai",
+      "name": "💻 IT (Динамичный)",
+      "description": "Чёткие движения, snap-zoom, глитч-переходы. Современный технологичный стиль.",
+      "resize_mode": "fit",
+      "effects": [],
+      "transition": { "type": "slide_left", "duration": 0.3 }
+    },
+    {
+      "id": "v_feminine",
+      "mode": "ai",
+      "name": "🌸 Женский (Тёплый)",
+      "description": "Мягкие переходы, световые засветки, плавные зуммы. Уютная кинематографичность.",
       "resize_mode": "fit",
       "effects": [],
       "transition": { "type": "crossfade", "duration": 0.5 }
@@ -107,11 +135,39 @@
     },
     {
       "id": "w_mixed_ai",
+      "mode": "ai",
       "name": "🤖 AI Смешанный (Умный)",
       "description": "ИИ-режиссёр анализирует каждую сцену и подбирает эффекты индивидуально.",
       "resize_mode": "fit",
       "effects": [],
       "transition": { "type": "crossfade", "duration": 0.5 }
+    },
+    {
+      "id": "w_orthodox",
+      "mode": "ai",
+      "name": "☦️ Православный (Атмосферный)",
+      "description": "Глубокие, медитативные эффекты для широкого формата.",
+      "resize_mode": "fit",
+      "effects": [],
+      "transition": { "type": "blur_dissolve", "duration": 0.7 }
+    },
+    {
+      "id": "w_tech",
+      "mode": "ai",
+      "name": "💻 IT (Динамичный)",
+      "description": "Технологичные эффекты и переходы для широкого формата.",
+      "resize_mode": "fit",
+      "effects": [],
+      "transition": { "type": "slide_left", "duration": 0.3 }
+    },
+    {
+      "id": "w_feminine",
+      "mode": "ai",
+      "name": "🌸 Женский (Тёплый)",
+      "description": "Мягкие эффекты для широкого формата.",
+      "resize_mode": "fit",
+      "effects": [],
+      "transition": { "type": "crossfade", "duration": 0.6 }
     }
   ]
 }

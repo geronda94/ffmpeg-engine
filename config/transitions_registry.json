@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "transitions": [
+    {
+      "id": "crossfade",
+      "name": "Кроссфейд",
+      "description": "Плавное растворение сцены",
+      "default_params": {"duration": 0.5},
+      "max_scene_ratio": 0.25,
+      "channel_tags": ["all"],
+      "category": "standard"
+    },
+    {
+      "id": "fade_black",
+      "name": "Затемнение",
+      "description": "Уход в чёрный и выход из чёрного",
+      "default_params": {"duration": 0.5},
+      "max_scene_ratio": 0.25,
+      "channel_tags": ["all"],
+      "category": "standard"
+    },
+    {
+      "id": "blur_dissolve",
+      "name": "Размытое растворение",
+      "description": "Кинематографичный переход через размытие",
+      "default_params": {"duration": 0.6, "blur_iterations": 3},
+      "max_scene_ratio": 0.20,
+      "channel_tags": ["orthodox", "women"],
+      "category": "cinematic"
+    },
+    {
+      "id": "slide_left",
+      "name": "Слайд влево",
+      "description": "Сцена уезжает влево, следующая выезжает следом",
+      "default_params": {"duration": 0.4},
+      "max_scene_ratio": 0.15,
+      "channel_tags": ["tech", "entertainment"],
+      "category": "dynamic"
+    },
+    {
+      "id": "slide_right",
+      "name": "Слайд вправо",
+      "description": "Сцена уезжает вправо, следующая выезжает следом",
+      "default_params": {"duration": 0.4},
+      "max_scene_ratio": 0.15,
+      "channel_tags": ["tech", "entertainment"],
+      "category": "dynamic"
+    },
+    {
+      "id": "slide_up",
+      "name": "Слайд вверх",
+      "description": "Сцена уезжает вверх — индустриальный вид перехода",
+      "default_params": {"duration": 0.4},
+      "max_scene_ratio": 0.15,
+      "channel_tags": ["tech", "entertainment"],
+      "category": "dynamic"
+    },
+    {
+      "id": "slide_down",
+      "name": "Слайд вниз",
+      "description": "Сцена уезжает вниз",
+      "default_params": {"duration": 0.4},
+      "max_scene_ratio": 0.15,
+      "channel_tags": ["tech", "entertainment"],
+      "category": "dynamic"
+    },
+    {
+      "id": "zoom_in_out",
+      "name": "Зум-переход",
+      "description": "Сцена отдаляется, новая приближается",
+      "default_params": {"duration": 0.5, "zoom_strength": 0.4},
+      "max_scene_ratio": 0.15,
+      "channel_tags": ["tech", "entertainment"],
+      "category": "dynamic"
+    },
+    {
+      "id": "glitch_transition",
+      "name": "Глитч-переход",
+      "description": "RGB-сплит и блочный сдвиг на стыке сцен — цифровой стиль",
+      "default_params": {"duration": 0.35, "intensity": 0.6},
+      "max_scene_ratio": 0.12,
+      "channel_tags": ["tech", "entertainment"],
+      "category": "glitch"
+    },
+    {
+      "id": "whip_pan",
+      "name": "Whip Pan (смаз)",
+      "description": "Быстрый горизонтальный смаз камеры — очень энергичный переход",
+      "default_params": {"duration": 0.3, "direction": "left", "blur_intensity": 20},
+      "max_scene_ratio": 0.10,
+      "channel_tags": ["tech", "entertainment"],
+      "category": "dynamic"
+    }
+  ]
+}

@@ -107,85 +107,12 @@ class MediaEngine:
             return res
 
     def apply_preset_effects(self, clip, effects_data):
-        from core.animation_utils import (
-            ken_burns_zoom, smooth_pulse_lum, parallax_pan_x
-        )
+        from core.effects import apply_many
         clip_dur = clip.duration
-
         for effect in effects_data:
             eff_type = effect if isinstance(effect, str) else effect.get("type", "")
             logger.info(f"✨ [MediaEngine] Applying effect: {eff_type} (config: {effect})")
-
-            if eff_type in ("ken_burns", "ken_burns_fast"):
-                zoom_from, zoom_to = 1.0, (1.25 if eff_type == "ken_burns_fast" else 1.15)
-                start_frac, end_frac = (0.10 if eff_type == "ken_burns_fast" else 0.15), (0.50 if eff_type == "ken_burns_fast" else 0.75)
-                if isinstance(effect, dict):
-                    zoom_from, zoom_to = effect.get("zoom_from", zoom_from), effect.get("zoom_to", zoom_to)
-                    start_frac, end_frac = effect.get("start_frac", start_frac), effect.get("end_frac", end_frac)
-
-                cw, ch = clip.w, clip.h
-                max_z = max(zoom_from, zoom_to)
-                big_w, big_h = int(cw * max_z) + 4, int(ch * max_z) + 4
-                
-                def _make_kb_frame(src, bw, bh, ow, oh, d, zf, zt, sf, ef, is_mask=False):
-                    def _frame(t):
-                        z = ken_burns_zoom(t, d, zf, zt, sf, ef)
-                        new_w, new_h = max(1, int(ow * z)), max(1, int(oh * z))
-                        if is_mask:
-                            if src is not None:
-                                raw = src.get_frame(t)
-                                img = _PILImage.fromarray((raw * 255).astype(np.uint8), mode="L")
-                                scaled = np.array(img.resize((new_w, new_h), _PILImage.BILINEAR)) / 255.0
-                            else:
-                                scaled = np.ones((new_h, new_w), dtype=np.float64)
-                            canvas = np.zeros((bh, bw), dtype=np.float64)
-                        else:
-                            raw = src.get_frame(t)
-                            img = _PILImage.fromarray(raw.astype(np.uint8))
-                            scaled = np.array(img.resize((new_w, new_h), _PILImage.BILINEAR))
-                            canvas = np.zeros((bh, bw, 3), dtype=np.uint8)
-                        
-                        x1, y1 = (bw - new_w) // 2, (bh - new_h) // 2
-                        canvas[y1:y1+new_h, x1:x1+new_w] = scaled[:new_h, :new_w]
-                        return canvas
-                    return _frame
-
-                kb_fn = _make_kb_frame(clip, big_w, big_h, cw, ch, clip_dur, zoom_from, zoom_to, start_frac, end_frac)
-                new_clip = VideoClip(frame_function=kb_fn, duration=clip_dur)
-                new_clip.size = (big_w, big_h)
-                
-                mask_src = clip.mask if clip.mask else ColorClip(size=(cw, ch), color=1.0, is_mask=True).with_duration(clip_dur)
-                mask_fn = _make_kb_frame(mask_src, big_w, big_h, cw, ch, clip_dur, zoom_from, zoom_to, start_frac, end_frac, is_mask=True)
-                new_mask = VideoClip(frame_function=mask_fn, duration=clip_dur, is_mask=True)
-                new_clip = new_clip.with_mask(new_mask)
-                clip = new_clip
-
-            elif eff_type == "pulse":
-                frequency, amplitude = 1.5, 6.0
-                if isinstance(effect, dict):
-                    frequency, amplitude = effect.get("frequency", frequency), effect.get("amplitude", amplitude)
-                def _pulse_transform(get_frame, t):
-                    frame = get_frame(t)
-                    lum_shift = smooth_pulse_lum(t, frequency, amplitude)
-                    return np.clip(frame.astype(np.float32) + lum_shift, 0, 255).astype(np.uint8)
-                clip = clip.transform(_pulse_transform)
-
-            elif eff_type == "parallax":
-                direction = effect.get("direction", "left") if isinstance(effect, dict) else "left"
-                strength = effect.get("strength", 0.08) if isinstance(effect, dict) else 0.08
-                pad_factor = 1.0 + strength * 2.5
-                pan_clip = clip.resized(width=int(clip.w * pad_factor), height=int(clip.h * pad_factor))
-                _cx, _cy = (clip.w - pan_clip.w) / 2, (clip.h - pan_clip.h) / 2
-                def _make_par_pos(cx, cy, pw, dire, stre, dur):
-                    from core.animation_utils import parallax_pan_x
-                    def _pos(t):
-                        px = parallax_pan_x(t, pw, dur, dire, stre, 0.1, 0.8)
-                        return (int(cx + px), int(cy))
-                    return _pos
-                positioned_pan = pan_clip.with_position(_make_par_pos(_cx, _cy, pan_clip.w, direction, strength, clip_dur))
-                clip = CompositeVideoClip([positioned_pan], size=(clip.w, pan_clip.h)).with_duration(clip_dur)
-
-        return clip
+        return apply_many(clip, effects_data, clip_dur, engine=self)
 
     def process_asset(self, asset_path, duration, mode="fit", offset=0, allow_effects=True, effects=None):
         logger.info(f"Processing asset: {asset_path} (dur: {duration}s, offset: {offset}s)")

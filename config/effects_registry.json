@@ -1,0 +1,163 @@
+{
+  "version": 1,
+  "effects": [
+    {
+      "id": "ken_burns",
+      "name": "Плавный зум (Ken Burns)",
+      "description": "Медленное приближение камеры, классика сторителлинга",
+      "category": "zoom",
+      "layer": "content",
+      "default_params": {"zoom_from": 1.0, "zoom_to": 1.15, "start_frac": 0.15, "end_frac": 0.75},
+      "min_scene_duration": 3.0,
+      "channel_tags": ["all"],
+      "intensity": "subtle"
+    },
+    {
+      "id": "ken_burns_fast",
+      "name": "Быстрый зум",
+      "description": "Энергичное приближение, для динамичных сцен",
+      "category": "zoom",
+      "layer": "content",
+      "default_params": {"zoom_from": 1.0, "zoom_to": 1.25, "start_frac": 0.10, "end_frac": 0.50},
+      "min_scene_duration": 2.0,
+      "channel_tags": ["tech", "entertainment"],
+      "intensity": "moderate"
+    },
+    {
+      "id": "ken_burns_pan",
+      "name": "Зум с панорамой",
+      "description": "Приближение + одновременный горизонтальный сдвиг, эффект полёта камеры",
+      "category": "zoom",
+      "layer": "content",
+      "default_params": {
+        "zoom_from": 1.0, "zoom_to": 1.18,
+        "pan_direction": "left", "pan_strength": 0.06,
+        "start_frac": 0.10, "end_frac": 0.80
+      },
+      "min_scene_duration": 3.5,
+      "channel_tags": ["orthodox", "tech", "women"],
+      "intensity": "subtle"
+    },
+    {
+      "id": "snap_zoom",
+      "name": "Рывок (Snap Zoom)",
+      "description": "Резкий скачок масштаба в начале сцены — привлекает внимание",
+      "category": "zoom",
+      "layer": "content",
+      "default_params": {"zoom_target": 1.35, "snap_duration": 0.15, "settle_duration": 0.35},
+      "min_scene_duration": 2.0,
+      "channel_tags": ["tech", "entertainment"],
+      "intensity": "moderate"
+    },
+    {
+      "id": "zoom_out_reveal",
+      "name": "Раскрытие (Zoom Out)",
+      "description": "Начинается с крупного плана и медленно отдаляется",
+      "category": "zoom",
+      "layer": "content",
+      "default_params": {"zoom_from": 1.25, "zoom_to": 1.0, "start_frac": 0.05, "end_frac": 0.85},
+      "min_scene_duration": 3.0,
+      "channel_tags": ["orthodox", "women"],
+      "intensity": "subtle"
+    },
+    {
+      "id": "chromatic_aberration",
+      "name": "Хроматическая аберрация",
+      "description": "Тонкое цветовое искажение по краям кадра — дорогой кинематографичный вид",
+      "category": "color",
+      "layer": "content",
+      "default_params": {"strength": 0.003, "edge_only": true},
+      "min_scene_duration": 3.0,
+      "channel_tags": ["orthodox", "tech"],
+      "intensity": "subtle"
+    },
+    {
+      "id": "drift",
+      "name": "Медленный дрейф",
+      "description": "Непрерывное медленное движение камеры в сторону",
+      "category": "motion",
+      "layer": "content",
+      "default_params": {"direction": "left", "speed": 0.03, "start_frac": 0.0, "end_frac": 1.0},
+      "min_scene_duration": 4.5,
+      "channel_tags": ["orthodox", "women"],
+      "intensity": "subtle"
+    },
+    {
+      "id": "parallax",
+      "name": "Параллакс",
+      "description": "Горизонтальная панорама с небольшим движением — уже существует",
+      "category": "motion",
+      "layer": "content",
+      "default_params": {"direction": "left", "strength": 0.08, "start_frac": 0.0, "end_frac": 1.0},
+      "min_scene_duration": 3.0,
+      "channel_tags": ["all"],
+      "intensity": "subtle"
+    },
+    {
+      "id": "pulse",
+      "name": "Пульсация яркости",
+      "description": "Мягкое изменение яркости, привлекает внимание",
+      "category": "color",
+      "layer": "content",
+      "default_params": {"frequency": 1.5, "amplitude": 6.0},
+      "min_scene_duration": 2.0,
+      "channel_tags": ["tech", "entertainment"],
+      "intensity": "moderate"
+    },
+    {
+      "id": "shake_decay",
+      "name": "Тряска с затуханием",
+      "description": "Резкое движение камеры, которое быстро успокаивается — для импактных моментов",
+      "category": "motion",
+      "layer": "content",
+      "default_params": {"intensity": 12.0, "decay": 6.0, "duration": 0.4},
+      "min_scene_duration": 2.0,
+      "channel_tags": ["tech", "entertainment"],
+      "intensity": "moderate"
+    },
+    {
+      "id": "glitch_rgb_split",
+      "name": "RGB-сплит (тонкий)",
+      "description": "Разделение RGB-каналов с небольшим сдвигом — цифровая эстетика",
+      "category": "glitch",
+      "layer": "content",
+      "default_params": {"max_offset": 4.0, "pulse_frequency": 0.0, "decay": 0.0},
+      "min_scene_duration": 2.0,
+      "channel_tags": ["tech"],
+      "intensity": "subtle"
+    },
+    {
+      "id": "glitch_block_shift",
+      "name": "Блочный сдвиг",
+      "description": "Кадр делится на горизонтальные полосы со случайным сдвигом",
+      "category": "glitch",
+      "layer": "content",
+      "default_params": {"blocks": 7, "max_shift": 8.0, "duration": 0.25, "decay": 5.0},
+      "min_scene_duration": 2.0,
+      "channel_tags": ["tech", "entertainment"],
+      "intensity": "moderate"
+    },
+    {
+      "id": "vignette_breathe",
+      "name": "Дышащая виньетка",
+      "description": "Затемнение краёв медленно пульсирует — создаёт глубину и атмосферу",
+      "category": "atmosphere",
+      "layer": "overlay",
+      "default_params": {"max_opacity": 0.35, "frequency": 0.5, "feather": 0.4},
+      "min_scene_duration": 4.0,
+      "channel_tags": ["orthodox", "women"],
+      "intensity": "subtle"
+    },
+    {
+      "id": "light_leak",
+      "name": "Световая засветка",
+      "description": "Тёплая световая засветка с угла — органическое киноощущение",
+      "category": "atmosphere",
+      "layer": "overlay",
+      "default_params": {"side": "top_left", "color": [255, 215, 179], "opacity": 0.12, "falloff": 1.5},
+      "min_scene_duration": 3.0,
+      "channel_tags": ["orthodox", "women"],
+      "intensity": "subtle"
+    }
+  ]
+}

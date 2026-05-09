@@ -101,6 +101,7 @@ async def handle_translation_choice(callback: types.CallbackQuery, state: FSMCon
             proj_data['status'] = "translated"
             
             pm.save_project(new_id, proj_data)
+            pm.recalc_scene_durations(new_id)
 
             
             # Кнопки для продолжения или перевода на ЕЩЕ ОДИН язык

@@ -100,6 +100,18 @@ class ProjectManager:
         self.save_project(new_id, proj_data)
         return new_id
 
+    def recalc_scene_durations(self, project_id: str):
+        data = self.load_project(project_id)
+        if not data:
+            return False
+        pacing = data.get('scene_pacing', 'normal')
+        for scene in data.get('scenes', []):
+            text = scene.get('text_segment', '')
+            scene['estimated_duration'] = self._calc_scene_duration(text, pacing)
+        data['status'] = "needs_retiming"
+        self.save_project(project_id, data)
+        return True
+
     def save_project(self, project_id: str, data: dict):
         path = self.get_project_path(project_id) / "project.json"
         data["updated_at"] = datetime.now().isoformat()
