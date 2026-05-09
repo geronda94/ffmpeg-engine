@@ -20,7 +20,7 @@
       "layer": "content",
       "default_params": {"zoom_from": 1.0, "zoom_to": 1.25, "start_frac": 0.10, "end_frac": 0.50},
       "min_scene_duration": 2.0,
-      "channel_tags": ["tech", "entertainment"],
+      "channel_tags": ["tech_business", "entertainment"],
       "intensity": "moderate"
     },
     {
@@ -35,7 +35,7 @@
         "start_frac": 0.10, "end_frac": 0.80
       },
       "min_scene_duration": 3.5,
-      "channel_tags": ["orthodox", "tech", "women"],
+      "channel_tags": ["orthodox", "tech_business", "women"],
       "intensity": "subtle"
     },
     {
@@ -46,7 +46,7 @@
       "layer": "content",
       "default_params": {"zoom_target": 1.35, "snap_duration": 0.15, "settle_duration": 0.35},
       "min_scene_duration": 2.0,
-      "channel_tags": ["tech", "entertainment"],
+      "channel_tags": ["tech_business", "entertainment"],
       "intensity": "moderate"
     },
     {
@@ -68,7 +68,7 @@
       "layer": "content",
       "default_params": {"strength": 0.003, "edge_only": true},
       "min_scene_duration": 3.0,
-      "channel_tags": ["orthodox", "tech"],
+      "channel_tags": ["orthodox", "tech_business"],
       "intensity": "subtle"
     },
     {
@@ -101,7 +101,7 @@
       "layer": "content",
       "default_params": {"frequency": 1.5, "amplitude": 6.0},
       "min_scene_duration": 2.0,
-      "channel_tags": ["tech", "entertainment"],
+      "channel_tags": ["tech_business", "entertainment"],
       "intensity": "moderate"
     },
     {
@@ -112,7 +112,7 @@
       "layer": "content",
       "default_params": {"intensity": 12.0, "decay": 6.0, "duration": 0.4},
       "min_scene_duration": 2.0,
-      "channel_tags": ["tech", "entertainment"],
+      "channel_tags": ["tech_business", "entertainment"],
       "intensity": "moderate"
     },
     {
@@ -123,7 +123,7 @@
       "layer": "content",
       "default_params": {"max_offset": 4.0, "pulse_frequency": 0.0, "decay": 0.0},
       "min_scene_duration": 2.0,
-      "channel_tags": ["tech"],
+      "channel_tags": ["tech_business"],
       "intensity": "subtle"
     },
     {
@@ -134,7 +134,7 @@
       "layer": "content",
       "default_params": {"blocks": 7, "max_shift": 8.0, "duration": 0.25, "decay": 5.0},
       "min_scene_duration": 2.0,
-      "channel_tags": ["tech", "entertainment"],
+      "channel_tags": ["tech_business", "entertainment"],
       "intensity": "moderate"
     },
     {

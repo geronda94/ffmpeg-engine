@@ -34,7 +34,7 @@
       "description": "Сцена уезжает влево, следующая выезжает следом",
       "default_params": {"duration": 0.4},
       "max_scene_ratio": 0.15,
-      "channel_tags": ["tech", "entertainment"],
+      "channel_tags": ["tech_business", "entertainment"],
       "category": "dynamic"
     },
     {
@@ -43,7 +43,7 @@
       "description": "Сцена уезжает вправо, следующая выезжает следом",
       "default_params": {"duration": 0.4},
       "max_scene_ratio": 0.15,
-      "channel_tags": ["tech", "entertainment"],
+      "channel_tags": ["tech_business", "entertainment"],
       "category": "dynamic"
     },
     {
@@ -52,7 +52,7 @@
       "description": "Сцена уезжает вверх — индустриальный вид перехода",
       "default_params": {"duration": 0.4},
       "max_scene_ratio": 0.15,
-      "channel_tags": ["tech", "entertainment"],
+      "channel_tags": ["tech_business", "entertainment"],
       "category": "dynamic"
     },
     {
@@ -61,7 +61,7 @@
       "description": "Сцена уезжает вниз",
       "default_params": {"duration": 0.4},
       "max_scene_ratio": 0.15,
-      "channel_tags": ["tech", "entertainment"],
+      "channel_tags": ["tech_business", "entertainment"],
       "category": "dynamic"
     },
     {
@@ -70,7 +70,7 @@
       "description": "Сцена отдаляется, новая приближается",
       "default_params": {"duration": 0.5, "zoom_strength": 0.4},
       "max_scene_ratio": 0.15,
-      "channel_tags": ["tech", "entertainment"],
+      "channel_tags": ["tech_business", "entertainment"],
       "category": "dynamic"
     },
     {
@@ -79,7 +79,7 @@
       "description": "RGB-сплит и блочный сдвиг на стыке сцен — цифровой стиль",
       "default_params": {"duration": 0.35, "intensity": 0.6},
       "max_scene_ratio": 0.12,
-      "channel_tags": ["tech", "entertainment"],
+      "channel_tags": ["tech_business", "entertainment"],
       "category": "glitch"
     },
     {
@@ -88,7 +88,7 @@
       "description": "Быстрый горизонтальный смаз камеры — очень энергичный переход",
       "default_params": {"duration": 0.3, "direction": "left", "blur_intensity": 20},
       "max_scene_ratio": 0.10,
-      "channel_tags": ["tech", "entertainment"],
+      "channel_tags": ["tech_business", "entertainment"],
       "category": "dynamic"
     }
   ]
