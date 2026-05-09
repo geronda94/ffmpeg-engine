@@ -1,10 +1,13 @@
 import os
 import json
 import logging
+from pathlib import Path
 from ai.llm_client import achat_json
 from core.config_loader import get_config, get_channel_profile
 
 logger = logging.getLogger(__name__)
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _filter_tracks(tracks, channel_id: str):
@@ -140,10 +143,30 @@ class SoundDesignAgent:
 
         try:
             sound_map = await achat_json(user_prompt=prompt)
-            return self._enrich_with_paths(sound_map, music_tracks, music_cfg)
+            enriched = self._enrich_with_paths(sound_map, music_tracks, music_cfg)
+            if enriched and enriched.get("bg_music", {}).get("path"):
+                return enriched
+            logger.warning("Sound map has no bg_music path, using fallback track")
         except Exception as e:
             logger.error(f"Sound Design Agent Error: {e}")
+
+        return self._fallback_music(music_tracks, music_cfg)
+
+    def _fallback_music(self, music_tracks, music_cfg):
+        if not music_tracks:
             return None
+        t = music_tracks[0]
+        base = music_cfg.get("base_path", "assets/audio_library/music")
+        return {
+            "bg_music": {
+                "id": t["id"],
+                "path": str(_PROJECT_ROOT / base / t["path"]),
+                "volume": music_cfg.get("default_volume", 0.30),
+                "duration_sec": t.get("duration_sec", 30),
+                "loopable": t.get("loopable", True),
+            },
+            "sfx_placements": []
+        }
 
     def _enrich_with_paths(self, sound_map, music_tracks, music_cfg):
         all_sfx = {}
@@ -156,13 +179,13 @@ class SoundDesignAgent:
             for t in music_tracks:
                 if t["id"] == bg_id:
                     base = music_cfg.get("base_path", "assets/audio_library/music")
-                    sound_map["bg_music"]["path"] = os.path.join(base, t["path"])
+                    sound_map["bg_music"]["path"] = str(_PROJECT_ROOT / base / t["path"])
                     sound_map["bg_music"]["duration_sec"] = t.get("duration_sec", 30)
                     sound_map["bg_music"]["loopable"] = t.get("loopable", True)
 
         for sfx in sound_map.get("sfx_placements", []):
             sfx_id = sfx.get("id")
             if sfx_id in all_sfx:
-                sfx["path"] = os.path.join(self.library["base_path"], all_sfx[sfx_id])
+                sfx["path"] = str(_PROJECT_ROOT / self.library["base_path"] / all_sfx[sfx_id])
 
         return sound_map

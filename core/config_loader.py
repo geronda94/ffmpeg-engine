@@ -18,6 +18,7 @@ CONFIG_PATHS = {
     "effects_registry": "config/effects_registry.json",
     "transitions_registry": "config/transitions_registry.json",
     "music_library": "config/music_library.json",
+    "preview_presets": "config/preview_presets.json",
 }
 
 

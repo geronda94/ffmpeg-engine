@@ -43,6 +43,7 @@ class ProjectStates(StatesGroup):
     
     # Финал (Озвучка и Рендер)
     choosing_visual_style = State()
+    approving_preview = State()
     choosing_tts_engine = State()
     choosing_tts_preset = State()
     choosing_metadata_style = State()

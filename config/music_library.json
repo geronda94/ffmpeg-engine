@@ -2,10 +2,10 @@
   "library_name": "Content Factory Music Library",
   "version": "1.0",
   "base_path": "assets/audio_library/music",
-  "default_volume": 0.30,
+  "default_volume": 0.12,
   "fade_in_duration": 1.5,
-  "fade_out_duration": 2.0,
-  "loop_gap": 1.0,
+  "fade_out_duration": 1,
+  "loop_gap": 0.1,
   "tracks": [
     {
       "id": "bells_of_the_high_nave",

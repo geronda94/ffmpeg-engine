@@ -42,7 +42,7 @@ def _get_style_prompt(style_id: str) -> str:
 
 def generate_script(topic: str, language: str = "Russian",
                     duration: int = 60, style_id: str = "narrative",
-                    channel_ctx: dict = None):
+                    channel_ctx: dict = None, feedback: str = ""):
     if channel_ctx:
         channel_context = channel_ctx
     else:
@@ -72,5 +72,13 @@ def generate_script(topic: str, language: str = "Russian",
         f"Target duration: {duration} seconds\n"
         f"Language: {language}"
     )
+    if feedback:
+        user_prompt += (
+            f"\n\n--- CRITICAL REVISION NOTES ---\n"
+            f"The previous script was rejected by quality review. "
+            f"Here is what MUST be fixed:\n{feedback}\n"
+            f"Rewrite the script fixing ALL these issues while keeping the original topic.\n"
+            f"DO NOT repeat the same mistakes. Check against the rules above."
+        )
 
     return chat_json(system_prompt=system_prompt, user_prompt=user_prompt)

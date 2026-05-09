@@ -286,6 +286,30 @@ async def approve_audio(event: types.CallbackQuery | types.Message, state: FSMCo
     proj_data = pm.load_project(data['project_id'])
     
     if proj_data.get('visual_style'):
+        if not proj_data.get('preview_text'):
+            from ai.preview_agent import generate_preview_text
+            status = await message.answer("⚡ Генерирую превью...")
+            preview = await generate_preview_text(
+                proj_data.get('script', ''),
+                proj_data.get('language', 'Russian'),
+                channel_profile=proj_data.get('channel_profile'),
+                style_id=proj_data.get('script_style')
+            )
+            await status.delete()
+            if preview.get('preview_text'):
+                proj_data['preview_text'] = preview['preview_text']
+                proj_data['preview_highlight'] = preview.get('highlight_word', '')
+                pm.save_project(data['project_id'], proj_data)
+            from ai.preview_designer_agent import design_preview_colors
+            colors = await design_preview_colors(
+                proj_data.get('assets', {}).get('0', {}).get('path', ''),
+                proj_data.get('preview_text', ''),
+                channel_name=proj_data.get('channel_profile', ''),
+                script_snippet=proj_data.get('script', '')
+            )
+            if colors:
+                proj_data['preview_colors'] = colors
+                pm.save_project(data['project_id'], proj_data)
         from bot.navigation import ask_for_metadata_style
         await ask_for_metadata_style(message, state)
         return
@@ -348,8 +372,102 @@ async def handle_visual_style_choice(callback: types.CallbackQuery, state: FSMCo
     proj_data['visual_style'] = style_id
     pm.save_project(data['project_id'], proj_data)
     
+    from ai.preview_agent import generate_preview_text
+    status = await callback.message.answer("⚡ Генерирую превью для видео...")
+    preview = await generate_preview_text(
+        proj_data.get('script', ''),
+        proj_data.get('language', 'Russian'),
+        channel_profile=proj_data.get('channel_profile'),
+        style_id=proj_data.get('script_style')
+    )
+    await status.delete()
+    
+    preview_text = preview.get('preview_text', '')
+    hl_word = preview.get('highlight_word', '')
+    
+    if preview_text:
+        proj_data['preview_text'] = preview_text
+        proj_data['preview_highlight'] = hl_word
+        pm.save_project(data['project_id'], proj_data)
+    
+    from ai.preview_designer_agent import design_preview_colors
+    colors = await design_preview_colors(
+        proj_data.get('assets', {}).get('0', {}).get('path', ''),
+        preview_text,
+        channel_name=proj_data.get('channel_profile', ''),
+        script_snippet=proj_data.get('script', '')
+    )
+    proj_data['preview_colors'] = colors
+    pm.save_project(data['project_id'], proj_data)
+    
+    kb = InlineKeyboardBuilder()
+    kb.button(text="✅ Одобрить превью", callback_data="approve_preview")
+    kb.button(text="🔄 Сгенерировать ещё", callback_data="regenerate_preview")
+    kb.adjust(2)
+    
+    await callback.message.answer(
+        f"🎬 **Превью для первого кадра:**\n\n"
+        f"`{preview_text or 'Не удалось сгенерировать'}`\n\n"
+        f"Нравится?",
+        reply_markup=kb.as_markup()
+    )
+    await state.set_state(ProjectStates.approving_preview)
+
+
+@router.callback_query(F.data == "approve_preview", ProjectStates.approving_preview)
+async def approve_preview(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
     from bot.navigation import ask_for_metadata_style
     await ask_for_metadata_style(callback.message, state)
+
+
+@router.callback_query(F.data == "regenerate_preview", ProjectStates.approving_preview)
+async def regenerate_preview(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    proj_data = pm.load_project(data['project_id'])
+    
+    status = await callback.message.answer("⚡ Генерирую новый вариант...")
+    from ai.preview_agent import generate_preview_text
+    preview = await generate_preview_text(
+        proj_data.get('script', ''),
+        proj_data.get('language', 'Russian'),
+        channel_profile=proj_data.get('channel_profile'),
+        style_id=proj_data.get('script_style')
+    )
+    await status.delete()
+    
+    preview_text = preview.get('preview_text', '')
+    hl_word = preview.get('highlight_word', '')
+    
+    if preview_text:
+        proj_data['preview_text'] = preview_text
+        proj_data['preview_highlight'] = hl_word
+        pm.save_project(data['project_id'], proj_data)
+
+    from ai.preview_designer_agent import design_preview_colors
+    colors = await design_preview_colors(
+        proj_data.get('assets', {}).get('0', {}).get('path', ''),
+        preview_text,
+        channel_name=proj_data.get('channel_profile', ''),
+        script_snippet=proj_data.get('script', '')
+    )
+    proj_data['preview_colors'] = colors
+    pm.save_project(data['project_id'], proj_data)
+    
+    kb = InlineKeyboardBuilder()
+    kb.button(text="✅ Одобрить", callback_data="approve_preview")
+    kb.button(text="🔄 Ещё раз", callback_data="regenerate_preview")
+    kb.adjust(2)
+    
+    await callback.message.answer(
+        f"🎬 **Новое превью:**\n\n`{preview_text}`\n\nНравится?",
+        reply_markup=kb.as_markup()
+    )
 
 @router.callback_query(F.data.startswith("start_render:"))
 async def start_final_render(callback: types.CallbackQuery, state: FSMContext):
@@ -483,7 +601,14 @@ async def handle_add_subtitles(callback: types.CallbackQuery):
         for i, s in enumerate(scenes_for_srt):
             s['allow_montage_effects'] = assets.get(str(i), {}).get('allow_montage_effects', True)
         
-        ass_res = generate_ass_from_project(scenes_for_srt, proj_data['whisper_segments'], ass_path)
+        whisper_segments = proj_data['whisper_segments']
+        if proj_data.get('preview_text'):
+            from core.config_loader import get_config
+            preview_dur = get_config("preview_presets", ttl=0).get('display_duration', 3.0)
+            whisper_segments = [s for s in whisper_segments if s['end'] > preview_dur]
+            logger.info(f"Preview active: filtered {len(proj_data['whisper_segments']) - len(whisper_segments)} early subtitles during preview")
+        
+        ass_res = generate_ass_from_project(scenes_for_srt, whisper_segments, ass_path)
         if not ass_res:
             await status_msg.edit_text("❌ Ошибка при генерации файла анимированных субтитров.")
             return

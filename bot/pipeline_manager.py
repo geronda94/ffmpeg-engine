@@ -204,6 +204,11 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
             "transition": scene.get('transition', {})
         })
 
+    if scenes_for_agent and proj_data.get('preview_text'):
+        scenes_for_agent[0]['preview_text'] = proj_data['preview_text']
+        scenes_for_agent[0]['preview_highlight'] = proj_data.get('preview_highlight', '')
+        scenes_for_agent[0]['preview_colors'] = proj_data.get('preview_colors', {})
+
     logger.info(f"Total scenes for agent: {len(scenes_for_agent)}/{len(scenes)}")
     if not scenes_for_agent:
         logger.error("No scenes were added to agent! Rendering aborted.")

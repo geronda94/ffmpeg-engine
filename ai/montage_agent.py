@@ -123,7 +123,7 @@ class BaseMontageEngine:
 
     def render(self, scenes, audio_path, output_path, preset, progress_callback=None, sound_map=None, render_threads=4):
         try:
-            voice = AudioFileClip(audio_path).with_effects([afx.AudioNormalize()]).with_volume_scaled(1.5)
+            voice = AudioFileClip(audio_path).with_volume_scaled(2.0)
             video_duration = voice.duration
             final_clips = []
             trans_cfg = preset.get('transition', {})

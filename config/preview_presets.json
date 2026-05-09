@@ -1,0 +1,36 @@
+{
+  "version": 2,
+  "max_words": 4,
+  "min_words": 2,
+  "display_duration": 3.0,
+  "font_size": 68,
+  "position": {
+    "x_offset_pct": 0.08,
+    "y_center": true,
+    "width_min_pct": 0.55,
+    "width_max_pct": 0.72
+  },
+  "glass": {
+    "opacity": 0.30,
+    "grain_strength": 8,
+    "padding_x": 36,
+    "padding_y": 26,
+    "corner_radius": 14,
+    "border_width": 0,
+    "border_opacity": 0.15,
+    "gradient": {
+      "enabled": true,
+      "direction": "diagonal",
+      "fallback_from": "#2A1F35",
+      "fallback_to": "#1A1220"
+    }
+  },
+  "text_colors": {
+    "fallback_primary": "#F5F0E8",
+    "fallback_accent": "#D4A843"
+  },
+  "animation": {
+    "type": "fade_in",
+    "duration": 0.6
+  }
+}

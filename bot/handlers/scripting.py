@@ -8,6 +8,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.states import ProjectStates
 from ai.script_writer import generate_script
 from ai.storyboarder import generate_storyboard
+from ai.script_reviewer import review_script
 from ai.llm_client import chat_json
 from bot.navigation import ask_for_asset
 from core.project_manager import ProjectManager
@@ -110,6 +111,23 @@ async def handle_topic_v4(message: types.Message, state: FSMContext):
     from core.config_loader import get_channel_profile
     channel_ctx = get_channel_profile(proj.get('channel_profile'))
     script_data = await asyncio.to_thread(generate_script, message.text, lang, 60, style_id, channel_ctx)
+
+    review = await review_script(script_data['script'], style_id, lang)
+    retries = 0
+    while not review.get('pass') and retries < 2:
+        retries += 1
+        logger.warning(f"Script review failed ({review['total_score']}/20). Regenerating...")
+        await status.edit_text(f"✍️ Улучшаю сценарий (попытка {retries+1})...")
+        script_data = await asyncio.to_thread(
+            generate_script, message.text, lang, 60, style_id, channel_ctx,
+            feedback=review.get('suggestions', '')
+        )
+        review = await review_script(script_data['script'], style_id, lang)
+
+    if review.get('pass'):
+        logger.info(f"Script approved by reviewer ({review['total_score']}/20)")
+    else:
+        logger.warning(f"Script failed all review attempts. Using last version ({review['total_score']}/20)")
 
     proj = pm.load_project(data['project_id'])
     proj['script'] = script_data['script']
