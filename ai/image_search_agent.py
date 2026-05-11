@@ -14,43 +14,37 @@ PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "43825832-75d192135d8d083f9876e5d
 async def optimize_query_ai(visual_description: str, scene_text: str = "", style_id: str = ""):
     """
     Превращает описание сцены в набор умных поисковых запросов + цвет.
-
-    Улучшения:
-    - Принимает text_segment как дополнительный контекст
-    - Учитывает стиль (orthodox, scientific и т.д.) при выборе ключевых слов
-    - Генерирует 4 запроса: от конкретного к абстрактному
-    - Явно запрещает технические термины в запросах
     """
     from ai.llm_client import get_async_client
     try:
         client = get_async_client()
 
+        # Маппинг реальных style_id проекта → визуальные хинты для стока
+        ORTHODOX_STYLES = {"spiritual_direct", "spiritual_conflict", "theology_architect", "sacred_storyteller", "orthodox"}
+        IT_STYLES = {"it_b2b_architect"}
+
         style_hint = ""
-        if style_id == "orthodox":
+        if style_id in ORTHODOX_STYLES:
             style_hint = (
-                "STYLE CONTEXT: This is Orthodox Christian content. "
-                "Prefer queries for: nature (sunrise, mountains, forest light), "
-                "human moments (prayer hands, elderly face, child), "
-                "church architecture (golden dome, icon, candle flame). "
-                "AVOID: cartoons, abstract art, violence, secular party imagery.\n"
+                "STYLE CONTEXT: Orthodox Christian / spiritual content.\n"
+                "VISUAL TRANSLATION RULE: Do NOT search for literal religious objects. "
+                "Translate spiritual concepts into universally available stock photo subjects:\n"
+                "  'monk praying' → 'elderly man bowing head silence'\n"
+                "  'orthodox church' → 'ancient stone church golden dome exterior'\n"
+                "  'biblical scene' → 'middle eastern landscape desert sunrise'\n"
+                "  'candle prayer' → 'single candle flame dark background'\n"
+                "  'holy scripture' → 'open old book hands reading'\n"
+                "PREFER: nature (sunrise mountains, forest light, ocean), "
+                "human moments (elderly face, bowed head, clasped hands), "
+                "architecture (stone walls, arched corridor, golden dome).\n"
+                "AVOID: cartoons, icons as literal clipart, violence, modern church interiors.\n"
             )
-        elif style_id == "scientific":
+        elif style_id in IT_STYLES:
             style_hint = (
-                "STYLE CONTEXT: Scientific/educational content. "
-                "Prefer queries for: macro photography, space, microscopic, physics, nature close-ups. "
-                "AVOID: talking heads, office settings, generic corporate stock.\n"
-            )
-        elif style_id == "news":
-            style_hint = (
-                "STYLE CONTEXT: News broadcast content. "
-                "Prefer queries for: city skylines, government buildings, press conferences, data charts. "
-                "AVOID: cute or whimsical imagery.\n"
-            )
-        elif style_id == "hype":
-            style_hint = (
-                "STYLE CONTEXT: Viral/hype marketing content. "
-                "Prefer queries for: dramatic lighting, luxury items, intense faces, neon cityscape at night. "
-                "AVOID: soft pastels, calm nature, anything boring.\n"
+                "STYLE CONTEXT: IT/Business content.\n"
+                "PREFER: code on dark monitor, server room, dashboard UI, modern office, "
+                "network infrastructure, data visualization.\n"
+                "AVOID: retro tech, clipart, overly generic stock smiles.\n"
             )
 
         context_block = ""
@@ -66,13 +60,17 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
             f"queries: [query1, query2, query3, query4]\n"
             f"color: [color_name or none]\n\n"
             f"RULES FOR QUERIES:\n"
-            f"1. First query: most specific visual element (e.g. 'astronaut red planet surface')\n"
-            f"2. Second query: the key subject alone (e.g. 'astronaut space')\n"
-            f"3. Third query: the mood/atmosphere (e.g. 'red desert landscape vast')\n"
-            f"4. Fourth query: abstract/symbolic fallback (e.g. 'space exploration mystery')\n"
-            f"5. All queries in English, 2-4 words each.\n"
-            f"6. NO camera directions, NO style words (cinematic, 4k, photorealistic).\n"
-            f"7. For color: choose ONE from: red, orange, yellow, green, turquoise, blue, "
+            f"1. First query: the most specific but REALISTIC visual (must exist on stock sites like Pexels).\n"
+            f"2. Second query: the main subject simplified to 2-3 words.\n"
+            f"3. Third query: the mood or atmosphere (light, space, silence, urgency).\n"
+            f"4. Fourth query: a broad symbolic fallback (e.g. 'light darkness contrast').\n"
+            f"5. All queries in English, 2-4 words each. NO camera directions (cinematic, 4k, bokeh).\n"
+            f"6. ABSTRACTION RULE: If the literal subject is unlikely on stock photos "
+            f"(e.g. 'orthodox monk', 'biblical apostle'), replace with its visual essence "
+            f"(e.g. 'man bowed prayer silence', 'robed figure ancient path').\n"
+            f"7. ANATOMY RULE: NEVER use 'hands' or 'fingers' as the PRIMARY subject of a query "
+            f"(AI models generate anatomically broken hands). Use 'hands' only as a secondary modifier.\n"
+            f"8. For color: choose ONE from: red, orange, yellow, green, turquoise, blue, "
             f"violet, pink, brown, black, gray, white — or 'none' if not important."
         )
 
@@ -139,7 +137,10 @@ class ImageSearchAgent:
                 tasks.append(self._search_pixabay(q, 15, color))
             if source_type in ("all", "pexels"):
                 tasks.append(self._search_pexels(q, 15, color))
-            if source_type in ("all", "ai"):
+            # AI (Pollinations) доступен ТОЛЬКО при явном выборе источника 'ai'.
+            # В режиме 'all' он отключён: AI-генерация часто даёт анатомические артефакты
+            # (лишние пальцы, деформированные руки), которые портят общую выдачу.
+            if source_type == "ai":
                 tasks.append(self._search_pollinations(q, 6))
 
         responses = await asyncio.gather(*tasks, return_exceptions=True)
@@ -273,3 +274,37 @@ class ImageSearchAgent:
 
 
 image_search_agent = ImageSearchAgent()
+
+
+async def prefetch_scene_search(scene: dict, style_id: str = "") -> dict | None:
+    """
+    Выполняет полный цикл AI-оптимизации запроса + поиск по стокам для одной сцены.
+    Предназначен для запуска через asyncio.create_task (фоновый режим).
+
+    Returns:
+        {"queries": [...], "color": str|None, "results": [...]} или None при ошибке.
+    """
+    try:
+        visual = scene.get("image_prompt") or scene.get("visual_description") or ""
+        spoken = scene.get("text_segment", "")
+
+        if not visual and not spoken:
+            return None
+
+        queries, color = await asyncio.wait_for(
+            optimize_query_ai(visual, scene_text=spoken, style_id=style_id),
+            timeout=15
+        )
+        results = await asyncio.wait_for(
+            image_search_agent.search_images(queries, color=color, source_type="all"),
+            timeout=25
+        )
+        logger.info(f"Prefetch complete: {len(results)} results, queries={queries}")
+        return {"queries": queries, "color": color, "results": results}
+
+    except (asyncio.TimeoutError, TimeoutError):
+        logger.warning("prefetch_scene_search: timed out")
+        return None
+    except Exception as e:
+        logger.warning(f"prefetch_scene_search: error — {e}")
+        return None

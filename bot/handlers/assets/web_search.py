@@ -72,11 +72,16 @@ async def _run_search(
         except Exception:
             pass
 
-    results = await asyncio.wait_for(
-        image_search_agent.search_images(queries, color=color, source_type=source_type),
-        timeout=30
-    )
-    return results
+    try:
+        results = await asyncio.wait_for(
+            image_search_agent.search_images(queries, color=color, source_type=source_type),
+            timeout=30
+        )
+        return results
+    except (asyncio.TimeoutError, TimeoutError):
+        raise asyncio.TimeoutError("Stock search timed out")
+    except Exception:
+        raise
 
 
 # ─────────────────────────────────────────────────────────────
@@ -104,10 +109,18 @@ async def show_web_search_result(message: types.Message, state: FSMContext, is_f
     if photo.get("width") and photo.get("height"):
         dims = f" | {photo['width']}×{photo['height']}"
 
+    # Показываем текст сцены на языке проекта, чтобы пользователь понимал, для чего ищем
+    scene_text = data.get("search_scene_text", "")
+    scene_text_line = ""
+    if scene_text:
+        short = scene_text[:110] + "..." if len(scene_text) > 110 else scene_text
+        scene_text_line = f"\n📝 *{short}*\n"
+
     caption = (
         f"🖼 **Вариант {idx + 1}/{len(results)}**\n"
         f"{emoji} {src_name}{color_text}{dims}\n"
-        f"📷 {photo.get('photographer', 'Unknown')}\n\n"
+        f"📷 {photo.get('photographer', 'Unknown')}"
+        f"{scene_text_line}\n"
         f"Нравится? Или листай дальше:"
     )
 
@@ -138,11 +151,18 @@ async def show_web_search_result(message: types.Message, state: FSMContext, is_f
                 await state.update_data(search_idx=new_idx, _retry_count=retry + 1)
                 await show_web_search_result(message, state, is_first=is_first)
             else:
+                # Возвращаем пользователя к кнопкам, а не оставляем его зависшим
                 await state.update_data(_retry_count=0)
-                await message.answer(
-                    "⚠️ Несколько вариантов оказались недоступны. "
-                    "Попробуйте другой источник или уточните запрос."
-                )
+                try:
+                    await message.answer(
+                        "⚠️ Несколько вариантов оказались недоступны. "
+                        "Уточните запрос или выберите другой источник:",
+                        reply_markup=_source_keyboard(source, color).as_markup()
+                    )
+                except Exception:
+                    await message.answer(
+                        "⚠️ Несколько вариантов недоступны. Попробуйте другой источник или уточните запрос."
+                    )
 
 
 # ─────────────────────────────────────────────────────────────
@@ -173,10 +193,34 @@ async def handle_web_search_start(callback: types.CallbackQuery, state: FSMConte
         return
 
     scene = proj_data["scenes"][scene_idx]
-    # Передаём и visual_description и text_segment для более точного запроса
     visual = scene.get("image_prompt") or scene.get("visual_description") or "nature background"
     spoken = scene.get("text_segment", "")
     style_id = proj_data.get("script_style", "")
+
+    # Сохраняем текст сцены в FSM — будет отображаться в карусели поиска
+    await state.update_data(search_scene_text=spoken, search_scene_idx=scene_idx)
+
+    # ── ПРОВЕРЯЕМ КЕШ PREFETCH ───────────────────────────────────────────────
+    # Если фоновый prefetch уже завершился — отдаём результаты мгновенно,
+    # без запроса к AI и без запроса к стокам.
+    prefetched = data.get("prefetched_search", {})
+    cached = prefetched.get(str(scene_idx))
+    if cached and cached.get("results"):
+        logger.info(f"🚀 Cache HIT for scene {scene_idx}: {len(cached['results'])} results (instant)")
+        await state.update_data(
+            search_results=cached["results"],
+            search_queries=cached["queries"],
+            search_color=cached["color"],
+            search_source="all",
+        )
+        await state.update_data(_searching=False)
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await show_web_search_result(callback.message, state, is_first=True)
+        return
+    # ── FALLBACK: обычный поиск (кеш не успел или сцена первая) ─────────────
 
     status = await callback.message.answer("🤖 ИИ подбирает ключевые слова...")
     await register_trash(status, state)
@@ -370,6 +414,12 @@ async def handle_web_source_switch(callback: types.CallbackQuery, state: FSMCont
             image_search_agent.search_images(queries, color=color, source_type=new_source),
             timeout=30
         )
+    except (asyncio.TimeoutError, TimeoutError):
+        await _edit_carousel_error(
+            callback.message, data,
+            f"⏱ Поиск в {src_name} занял слишком долго. Попробуйте другой источник."
+        )
+        return
     except Exception as e:
         logger.error(f"Source switch error: {e}")
         await _edit_carousel_error(callback.message, data, f"❌ Ошибка поиска в {src_name}: {e}")
@@ -448,6 +498,12 @@ async def handle_web_toggle_color(callback: types.CallbackQuery, state: FSMConte
             image_search_agent.search_images(queries, color=new_color, source_type=source),
             timeout=30
         )
+    except (asyncio.TimeoutError, TimeoutError):
+        await _edit_carousel_error(
+            callback.message, data,
+            "⏱ Поиск с этим цветом занял слишком долго. Попробуйте без цветового фильтра."
+        )
+        return
     except Exception as e:
         await _edit_carousel_error(callback.message, data, f"❌ Ошибка при смене цвета: {e}")
         return

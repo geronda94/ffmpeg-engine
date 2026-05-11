@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from aiogram import types
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -20,6 +21,35 @@ async def register_trash(message: types.Message, state: FSMContext):
     if message.message_id not in trash:
         trash.append(message.message_id)
         await state.update_data(trash_messages=trash)
+
+async def _do_prefetch_and_store(state: FSMContext, scene: dict, idx: int, style_id: str):
+    """
+    Фоновый воркер: генерирует запросы + ищет по стокам для одной сцены,
+    сохраняет результат в FSM под ключом prefetched_search[idx].
+    Запускается через asyncio.create_task — не блокирует UI.
+    """
+    try:
+        from ai.image_search_agent import prefetch_scene_search
+        result = await prefetch_scene_search(scene, style_id)
+        if result and result.get("results"):
+            data = await state.get_data()
+            prefetched = data.get("prefetched_search", {})
+            prefetched[str(idx)] = result
+            await state.update_data(prefetched_search=prefetched)
+            logger.info(f"✅ Prefetch saved for scene {idx}: {len(result['results'])} results")
+    except Exception as e:
+        logger.warning(f"_do_prefetch_and_store error (scene {idx}): {e}")
+
+
+def _log_task_exception(task: asyncio.Task):
+    """
+    done_callback для asyncio.create_task.
+    Перехватывает исключение задачи, чтобы подавить спам asyncio
+    «Exception in callback None()» + 'NoneType' object is not callable.
+    """
+    if not task.cancelled() and task.exception() is not None:
+        logger.warning(f"Background task '{task.get_name()}' failed: {task.exception()}")
+
 
 async def ask_for_asset(message: types.Message, state: FSMContext, scene_idx: int = 0):
     """Переход к сбору материалов (v10.0 Disk-First)."""
@@ -66,6 +96,21 @@ async def ask_for_asset(message: types.Message, state: FSMContext, scene_idx: in
             reply_markup=kb.as_markup()
         )
         await state.set_state(ProjectStates.collecting_assets)
+
+        # ── Фоновый prefetch следующих 2 сцен ──────────────────────────────
+        # Запускаем сразу после показа меню — не ждём результата.
+        # К моменту нажатия «Искать в сети» результаты уже будут готовы в кеше.
+        style_id = proj_data.get("script_style", "")
+        prefetched = (await state.get_data()).get("prefetched_search", {})
+        for next_idx in [scene_idx + 1, scene_idx + 2]:
+            if next_idx < len(scenes) and str(next_idx) not in prefetched:
+                task = asyncio.create_task(
+                    _do_prefetch_and_store(state, scenes[next_idx], next_idx, style_id),
+                    name=f"prefetch_scene_{next_idx}"
+                )
+                task.add_done_callback(_log_task_exception)
+                logger.info(f"🔄 Background prefetch started for scene {next_idx}")
+
     except Exception as e:
         logger.error(f"Error in ask_for_asset: {e}", exc_info=True)
 

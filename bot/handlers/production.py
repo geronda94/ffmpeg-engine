@@ -71,15 +71,47 @@ async def send_video_result(task: dict):
             kb.button(text="🌍 Перевести", callback_data=f"translate_menu:{project_id}")
             kb.adjust(1)
 
+            # Проверяем размер файла — Telegram принимает до 50 МБ через Bot API
+            file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
+            send_path = video_path
+
+            if file_size_mb > 49:
+                logger.warning(f"Video too large ({file_size_mb:.1f} MB). Compressing before send...")
+                compressed_path = video_path.replace(".mp4", "_compressed.mp4")
+                compress_cmd = [
+                    "ffmpeg", "-y", "-i", video_path,
+                    "-vcodec", "libx264", "-crf", "32",  # увеличиваем CRF для уменьшения размера
+                    "-preset", "fast",
+                    "-vf", "scale=720:-2",               # понижаем до 720p
+                    "-acodec", "aac", "-b:a", "96k",
+                    compressed_path
+                ]
+                result = await asyncio.to_thread(
+                    __import__('subprocess').run, compress_cmd,
+                    capture_output=True
+                )
+                if result.returncode == 0 and os.path.exists(compressed_path):
+                    new_size = os.path.getsize(compressed_path) / (1024 * 1024)
+                    logger.info(f"Compressed: {file_size_mb:.1f}MB → {new_size:.1f}MB")
+                    send_path = compressed_path
+                    caption += f"\n\n⚠️ _Видео сжато для отправки ({new_size:.0f} МБ). Оригинал ({file_size_mb:.0f} МБ) сохранён на сервере._"
+                else:
+                    logger.error("Compression failed, sending original (may fail)")
+
             msg = await bot.send_video(
                 user_id, 
-                FSInputFile(video_path), 
+                FSInputFile(send_path), 
                 caption=caption[:1024], 
                 parse_mode="Markdown",
                 reply_to_message_id=reply_id,
                 reply_markup=kb.as_markup(),
                 request_timeout=900
             )
+
+            # Удаляем сжатый временный файл
+            if send_path != video_path and os.path.exists(send_path):
+                os.remove(send_path)
+
             # Отправляем JSON конфиг
             json_path = pm.get_project_path(project_id) / "project.json"
             if os.path.exists(json_path):
@@ -98,7 +130,16 @@ async def send_video_result(task: dict):
             
         except Exception as e:
             logger.error(f"Failed to send video to user {user_id}: {e}")
-            await bot.send_message(user_id, f"❌ Ролик `{project_id}` готов, но не удалось отправить файл. Он сохранен на сервере.")
+            # Очищаем временный файл если остался
+            compressed = video_path.replace(".mp4", "_compressed.mp4")
+            if os.path.exists(compressed):
+                try: os.remove(compressed)
+                except: pass
+            await bot.send_message(
+                user_id,
+                f"⚠️ Ролик `{project_id}` готов, но не удалось отправить файл ({e}).\n"
+                f"📁 Файл сохранён на сервере по пути:\n`{video_path}`"
+            )
     else:
         error_msg = task.get('error', 'Неизвестная ошибка рендеринга.')
         logger.error(f"Render failed or file missing for {project_id}: {error_msg}")
