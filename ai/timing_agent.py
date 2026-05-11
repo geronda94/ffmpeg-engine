@@ -45,7 +45,6 @@ def align_scenes_with_audio(scenes: list, audio_path: str, whisper_segments: lis
         if not segments or (total_chars > 0 and total_whisper_chars < total_chars * 0.4):
             logger.warning(f"Whisper output seems inaccurate ({total_whisper_chars} vs {total_chars} chars). Using proportional timing fallback.")
             if total_duration == 0.0:
-                # Если даже длины нет, пытаемся оценить по 3 секунды на сцену
                 total_duration = len(scenes) * 3.0
             
             current_time = 0.0
@@ -54,70 +53,78 @@ def align_scenes_with_audio(scenes: list, audio_path: str, whisper_segments: lis
                 text_len = len(scene.get('text_segment', ''))
                 ratio = text_len / total_chars if total_chars > 0 else 1.0 / len(scenes)
                 duration = total_duration * ratio
-                
                 scene['start'] = round(current_time, 3)
                 scene['end'] = round(current_time + duration, 3)
                 current_time += duration
                 processed_scenes.append(scene)
-            
-            # Корректируем конец последней сцены
             if processed_scenes:
                 processed_scenes[-1]['end'] = round(total_duration, 3)
             return processed_scenes
 
-        # 1. Создаем карту соответствия каждого символа Whisper-текста временной метке
-        char_to_time = []
+        # --- НОВЫЙ АЛГОРИТМ: Привязка сцен к сегментам Whisper без дрейфа курсора ---
+        # Строим линейный список слов из Whisper-сегментов с временными метками каждого слова
+        whisper_words = []
         for seg in segments:
-            seg_text = "".join(filter(str.isalnum, seg['text'].lower()))
-            if not seg_text:
+            seg_words = seg['text'].strip().split()
+            if not seg_words:
                 continue
-            
-            start_t = seg['start']
-            end_t = seg['end']
-            duration = end_t - start_t
-            
-            # Распределяем время сегмента между его символами
-            char_dur = duration / len(seg_text)
-            for i in range(len(seg_text)):
-                char_to_time.append(start_t + (i * char_dur))
+            word_dur = (seg['end'] - seg['start']) / len(seg_words)
+            for j, w in enumerate(seg_words):
+                whisper_words.append({
+                    'word': ''.join(filter(str.isalnum, w.lower())),
+                    'start': seg['start'] + j * word_dur,
+                    'end': seg['start'] + (j + 1) * word_dur,
+                })
 
-        # 2. Проходим по сценам и находим их границы в этой карте
-        current_char_idx = 0
+        # Скользящий указатель: последовательно двигаемся по whisper_words для каждой сцены
+        # Это предотвращает дрейф — каждая сцена начинается ровно там, где закончилась предыдущая
+        w_cursor = 0
         processed_scenes = []
-        
+
         for i, scene in enumerate(scenes):
-            scene_text = "".join(filter(str.isalnum, scene.get('text_segment', "").lower()))
-            
-            if not scene_text:
-                # Если текста нет, берем 1 секунду от текущего момента
-                start_t = char_to_time[current_char_idx] if current_char_idx < len(char_to_time) else total_duration
-                scene['start'] = round(start_t, 3)
-                scene['end'] = round(start_t + 1.0, 3)
+            scene_text = scene.get('text_segment', '').strip()
+            scene_words_clean = [''.join(filter(str.isalnum, w.lower())) for w in scene_text.split()]
+            scene_words_clean = [w for w in scene_words_clean if w]
+
+            if not scene_words_clean:
+                prev_end = processed_scenes[-1]['end'] if processed_scenes else 0.0
+                scene['start'] = round(prev_end, 3)
+                scene['end'] = round(prev_end + 1.0, 3)
                 processed_scenes.append(scene)
                 continue
 
-            # Находим начало и конец сцены в массиве таймингов
-            start_idx = current_char_idx
-            end_idx = min(len(char_to_time) - 1, current_char_idx + len(scene_text))
-            
-            # Первая сцена всегда от 0
+            # Находим начало сцены: берём время первого whisper-слова начиная с курсора
             if i == 0:
-                scene['start'] = 0.0
+                scene_start = 0.0
             else:
-                # Начинаем там, где кончилась предыдущая, или где реально начался текст
-                real_start = char_to_time[start_idx] if start_idx < len(char_to_time) else total_duration
                 prev_end = processed_scenes[-1]['end']
-                scene['start'] = round(max(prev_end, real_start), 3)
+                wstart = whisper_words[w_cursor]['start'] if w_cursor < len(whisper_words) else total_duration
+                scene_start = round(max(prev_end, wstart), 3)
 
-            scene['end'] = round(char_to_time[end_idx] if end_idx < len(char_to_time) else total_duration, 3)
-            
+            # Смещаем курсор вперёд на количество слов в сцене
+            words_in_scene = len(scene_words_clean)
+            w_end_cursor = min(w_cursor + words_in_scene - 1, len(whisper_words) - 1)
+
+            if w_end_cursor < len(whisper_words):
+                scene_end = round(whisper_words[w_end_cursor]['end'], 3)
+            else:
+                scene_end = round(total_duration, 3)
+
+            # Защита: конец не может быть <= началу
+            if scene_end <= scene_start:
+                scene_end = round(scene_start + max(1.0, words_in_scene * 0.4), 3)
+
+            scene['start'] = scene_start
+            scene['end'] = scene_end
             processed_scenes.append(scene)
-            current_char_idx = end_idx + 1 # Сдвигаемся на следующий текст
-            
+
+            # Двигаем курсор за конец текущей сцены
+            w_cursor = w_end_cursor + 1
+
         # Гарантируем, что последняя сцена идет до конца аудио
         if processed_scenes:
             processed_scenes[-1]['end'] = round(total_duration, 3)
-            
+
         return processed_scenes
 
     except Exception as e:

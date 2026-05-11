@@ -100,9 +100,21 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
         logger.info(f"Timings missing or incomplete, running Whisper (lang={proj_data.get('language')})...")
         from ai.timing_agent import get_model
         model = get_model()
-        
-        # Передаем язык, чтобы Whisper не гадал (особенно критично для Georgian/Romanian)
-        lang_code = proj_data.get('language', 'Russian')
+
+        # Whisper принимает ISO 639-1 коды ("ru"), а не полные названия ("Russian").
+        # Передача полного названия заставляет Whisper игнорировать подсказку языка
+        # и транскрибировать неверно, что ломает базу для выравнивания сцен.
+        _LANG_TO_ISO = {
+            "Russian": "ru", "English": "en", "Romanian": "ro",
+            "Georgian": "ka", "Ukrainian": "uk", "Spanish": "es",
+            "German": "de", "French": "fr", "Italian": "it",
+            "Turkish": "tr", "Arabic": "ar", "Chinese": "zh",
+            "Portuguese": "pt", "Polish": "pl", "Dutch": "nl",
+        }
+        lang_name = proj_data.get('language', 'Russian')
+        lang_code = _LANG_TO_ISO.get(lang_name, lang_name.lower()[:2])
+        logger.info(f"Whisper language hint: '{lang_name}' → ISO code '{lang_code}'")
+
         whisper_result = await asyncio.to_thread(
             model.transcribe, audio_path, language=lang_code, verbose=False
         )

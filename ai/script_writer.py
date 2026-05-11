@@ -7,18 +7,30 @@ logger = logging.getLogger(__name__)
 _BASE_OUTPUT_RULES = """
 ### OUTPUT STRUCTURE (return ONLY valid JSON, no markdown):
 {
-  "title": "Catchy viral title (max 70 chars)",
+  "title": "Catchy viral title using one of the Hooks (max 70 chars)",
   "script": "The full spoken text. No stage directions, no brackets, only the words to be read.",
   "target_duration": <integer seconds>,
   "language_code": "<ISO 639-1 code>"
 }
 
-### CRITICAL ENGAGEMENT RULES:
-1. LAW OF THE FIRST SECOND: Start with the most intense/shocking/surprising part. NO intros like "Hello", "In this video", or "Have you ever wondered". Jump straight into the conflict or fact.
-2. CHAIN REACTION (The Chain): Every sentence must lead to the next. Use logical connectors (bridges): "But here's the catch...", "If so, then...", "Because of this...", "Wait, there's more...". No isolated facts.
-3. TEMPORHYTHM: Alternate sentence lengths to keep the viewer awake. Use the pattern: [Short. Short. Long/Revealing. Short/Punchy].
-4. NO "SUMMARY" SIGNALS: Never use words like "In conclusion", "Finally", "Summary", or "Overall". The end must be an open, lingering insight that leaves the viewer thinking, not a wrap-up.
-5. SPEAK TO ONE PERSON: Use "You" (Ты). No "Everyone", "People", or "Viewers".
+### АРХИТЕКТУРА УДЕРЖАНИЯ (Retention 61+ сек)
+[ПРИНЦИПЫ ЧИСТОГО СМЫСЛА]
+1. НИКАКИХ ОБЕЩАНИЙ: Убираем фразы "я расскажу", "досмотри", "ты удивишься", "привет", "сегодня обсудим". Даем только факты.
+2. НЕЯВНАЯ ПЕТЛЯ: Создаем ситуацию, требующую объяснения, и идем дальше по сюжету.
+3. СМЕРТЬ ПРИЛАГАТЕЛЬНЫМ: Заменяем оценочные прилагательные ("красивый", "чудесный") на активные глаголы (ударил, шептал, замер). Описываем действия и физику.
+
+[МАСТЕР-СТРУКТУРА (Строго 61-65 сек)]
+1. Прямой вход (0-7 сек): Озвучивание проблемы или парадокса без вступления.
+2. Градиент фактов (7-45 сек): Динамичное развитие. Короткие, рубленые фразы. Каждое предложение — новый этап. Без фраз-связок ("внимательно слушайте").
+3. Закон/Развязка (45-55 сек): Главная мысль, закон (духовный/бизнес) как формула. Без морализаторства.
+4. Loop (Петля) (55-65 сек): Мягкий CTA. Финальный вывод должен "сшиваться" с первой фразой видео, создавая бесконечный цикл (где это уместно).
+
+[ЭНЦИКЛОПЕДИЯ КРЮЧКОВ (Для первых 3-5 сек)]
+Используй один из триггеров:
+- Разрыв шаблона: Показ привычного под шокирующим углом ("Почему на иконе...").
+- Отрицательный крючок (Страх потери): Бьет в страх ошибки ("Никогда не делайте [X], пока...").
+- In Media Res: Начало с кульминации без вступления ("И в этот момент медведь...").
+- Секретное знание: Иллюзия эксклюзивной информации ("Об этом молчат в 99%...").
 """
 
 _DEFAULT_STYLE_PROMPT = (
