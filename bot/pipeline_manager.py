@@ -134,17 +134,26 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
                     if words:
                         scenes_data[i]['start'] = words[0]["start"]
                         scenes_data[i]['end'] = words[-1]["end"]
-                logger.info(f"LLM aligner: set timings for {len(aligned)} scenes")
-        
-        # Передаем уже полученные сегменты в агент выравнивания, чтобы не запускать Whisper второй раз
-        from ai.timing_agent import align_scenes_with_audio
-        scenes = await asyncio.to_thread(
-            align_scenes_with_audio, 
-            [s.copy() for s in scenes_data], 
-            audio_path, 
-            whisper_segments=whisper_segments,
-            language=lang_code
-        )
+                scenes = [s.copy() for s in scenes_data]
+                logger.info(f"LLM aligner: set timings for {len(aligned)} scenes, skipping cursor algorithm")
+            else:
+                from ai.timing_agent import align_scenes_with_audio
+                scenes = await asyncio.to_thread(
+                    align_scenes_with_audio, 
+                    [s.copy() for s in scenes_data], 
+                    audio_path, 
+                    whisper_segments=whisper_segments,
+                    language=lang_code
+                )
+        else:
+            from ai.timing_agent import align_scenes_with_audio
+            scenes = await asyncio.to_thread(
+                align_scenes_with_audio, 
+                [s.copy() for s in scenes_data], 
+                audio_path, 
+                whisper_segments=whisper_segments,
+                language=lang_code
+            )
         
         # Сохраняем тайминги и Whisper-сегменты в проект (нужны для субтитров)
         proj_data['scenes'] = scenes
