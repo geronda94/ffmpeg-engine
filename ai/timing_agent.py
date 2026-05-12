@@ -14,9 +14,10 @@ def get_model():
         _model = whisper.load_model("base")
     return _model
 
-def align_scenes_with_audio(scenes: list, audio_path: str, whisper_segments: list = None, language: str = None):
+def align_scenes_with_audio(scenes: list, audio_path: str, whisper_segments: list = None, language: str = None, use_llm_align: bool = False):
     """
     Сравнивает текст сцен с аудио через Whisper и проставляет точные тайминги.
+    При use_llm_align=True использует LLM для точного выравнивания слов сценария с Whisper-сегментами.
     """
     try:
         if whisper_segments is not None:
