@@ -70,7 +70,14 @@ def _build_scene_duration_instruction(pacing_mode: str) -> str:
     max_chars_per_scene = {240: 48, 180: 72, 140: 96}.get(wpm, 72)
 
     pacing_hints = {
-        "super_dynamic": "CRITICAL: Keep text_segments VERY short — max 40-50 characters each. Every sentence should be its own scene. If a segment has 2 sentences, SPLIT it into 2 scenes.",
+        "super_dynamic": (
+            "CRITICAL RULE: BREAK EVERY SENTENCE into its own scene. NO exceptions.\n"
+            "MAXIMUM 50 characters per text_segment. If a sentence exceeds 50 chars, "
+            "cut it at the nearest comma, dash, or natural pause.\n"
+            "Target: 15-25 scenes for a 60-second script.\n"
+            "If text has no periods, create scene breaks every 40 characters.\n"
+            "EVERY period MUST be a scene break. Two sentences = two scenes, always."
+        ),
         "normal": "Good balance: 50-80 characters per text_segment. One complex sentence or two short sentences max.",
         "slow": "Allow longer text_segments: 70-120 characters. Full sentences and flowing prose are fine.",
     }

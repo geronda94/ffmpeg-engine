@@ -117,13 +117,24 @@ class MontageDirectorAgent:
 
             channel_hint = ""
             channel_tone = channel_ctx.get("tone_of_voice", "").lower()
+
             if "духовн" in channel_tone or "глубок" in channel_tone:
-                channel_hint = (
-                    "CHANNEL STYLE: Contemplative, atmospheric. "
-                    "Prefer: light_leak, chromatic_aberration, drift, vignette_breathe, ken_burns_pan. "
-                    "Transition preference: blur_dissolve, fade_black over crossfade. "
-                    "Avoid: glitch, shake, aggressive effects."
-                )
+                if pacing_mode == "super_dynamic":
+                    channel_hint = (
+                        "CHANNEL STYLE: Contemplative, but this is DYNAMIC mode. "
+                        "Use varied effects (snap_zoom, ken_burns, chromatic_aberration, light_leak). "
+                        "Transition variety is REQUIRED: use slides (slide_left/right), "
+                        "crossfade, zoom_in_out. Avoid 3+ same transitions in a row. "
+                        "Atmosphere overlays (light_leak, vignette_breathe) can still be used "
+                        "but alternate with motion effects."
+                    )
+                else:
+                    channel_hint = (
+                        "CHANNEL STYLE: Contemplative, atmospheric. "
+                        "Prefer: light_leak, chromatic_aberration, drift, vignette_breathe, ken_burns_pan. "
+                        "Transition preference: blur_dissolve, fade_black over crossfade. "
+                        "Avoid: glitch, shake, aggressive effects."
+                    )
             elif "профессиональн" in channel_tone or "экспертн" in channel_tone:
                 channel_hint = (
                     "CHANNEL STYLE: Clean, tech-forward. "
@@ -143,12 +154,23 @@ class MontageDirectorAgent:
                 )
 
             min_types = min(3, num_scenes // 2) if num_scenes > 3 else 2
+
+            pacing_hint = ""
+            if pacing_mode == "super_dynamic":
+                pacing_hint = (
+                    "PACING RULE (super_dynamic): Each scene is 2-3 seconds. "
+                    "Use SHORT transitions (0.3-0.4s). Prefer slides over fades. "
+                    "GLITCH_TRANSITION and ZOOM_IN_OUT are encouraged for energy. "
+                    "Do not use crossfade more than once every 3 scenes."
+                )
+
             prompt = (
                 f"You are a professional video director. "
                 f"Plan the visual effects and transitions for each scene.\n\n"
                 f"FULL SCRIPT:\n{script}\n\n"
                 f"SCENES:\n{json.dumps(scenes_summary, ensure_ascii=False)}\n\n"
                 f"{channel_hint}\n\n"
+                f"{pacing_hint}\n"
                 f"SCENE PACING: {pacing_mode}\n\n"
                 f"Available effects per scene:\n"
                 f"{_format_effects_for_prompt(available_effects)}\n\n"
