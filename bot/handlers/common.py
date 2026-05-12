@@ -148,8 +148,23 @@ async def handle_resume_project(callback: types.CallbackQuery, state: FSMContext
     from bot.navigation import ask_for_asset, ask_for_tts_engine
     
     if status == "created":
-        await callback.message.answer("🔄 Восстанавливаю: выбор параметров...")
-        await start_new_project(callback.message, state) 
+        if proj.get('script') and not proj.get('scenes'):
+            await state.update_data(script_data={"script": proj.get('script', '')})
+            presets = get_config("script_presets", ttl=0)
+            pacing = presets.get("scene_pacing", {})
+            kb = InlineKeyboardBuilder()
+            for pid, pdata in pacing.items():
+                kb.button(text=pdata["name"], callback_data=f"pace_{pid}")
+            kb.button(text="💡 Свои идеи для сцен", callback_data="stmode_ideas")
+            kb.adjust(1)
+            await callback.message.answer(
+                "🔄 Восстанавливаю: создание раскадровки...\n\nВыберите темп сцен:",
+                reply_markup=kb.as_markup()
+            )
+            await state.set_state(ProjectStates.choosing_scene_pacing)
+        else:
+            await callback.message.answer("🔄 Восстанавливаю: выбор параметров...")
+            await start_new_project(callback.message, state)
     elif status == "script_ready" or not proj.get('scenes'):
         await state.update_data(script_data={"script": proj.get('script', '')})
         presets = get_config("script_presets", ttl=0)
@@ -213,6 +228,13 @@ async def choose_lang(callback: types.CallbackQuery, state: FSMContext):
     proj['language'] = lang
     pm.save_project(data['project_id'], proj)
 
+    if data.get('audio_first'):
+        await callback.message.edit_text(
+            "✅ **Язык выбран!**\n\n📝 Пришлите текст или сценарий для озвучки:"
+        )
+        await state.set_state(ProjectStates.providing_script_for_audio)
+        return
+
     profiles = get_config("channel_context", ttl=0).get("profiles", [])
     kb = InlineKeyboardBuilder()
     for p in profiles:
@@ -249,6 +271,22 @@ async def choose_format(callback: types.CallbackQuery, state: FSMContext):
     proj = pm.load_project(data['project_id'])
     proj['video_format'] = fmt
     pm.save_project(data['project_id'], proj)
+
+    if data.get('audio_first'):
+        presets = get_config("script_presets", ttl=0)
+        pacing = presets.get("scene_pacing", {})
+        kb = InlineKeyboardBuilder()
+        for pid, pdata in pacing.items():
+            kb.button(text=pdata["name"], callback_data=f"pace_{pid}")
+        kb.button(text="💡 Свои идеи для сцен", callback_data="stmode_ideas")
+        kb.adjust(1)
+        await callback.message.edit_text(
+            "📐 **Формат выбран!**\n\n"
+            "Теперь подготовим раскадровку.\nВыберите темп сцен:",
+            reply_markup=kb.as_markup()
+        )
+        await state.set_state(ProjectStates.choosing_scene_pacing)
+        return
     
     presets = get_config("script_presets", ttl=0)
     kb = InlineKeyboardBuilder()
@@ -288,3 +326,38 @@ async def choose_script_style(callback: types.CallbackQuery, state: FSMContext):
     else:
         await callback.message.edit_text("🤖 На какую тему написать сценарий?")
     await state.set_state(ProjectStates.writing_topic)
+
+
+@router.message(Command("render_audio"))
+async def cmd_render_audio(message: types.Message, state: FSMContext):
+    await state.clear()
+    dt_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    project_id = f"proj_{dt_str}"
+    user_id = str(message.chat.id)
+    pm.create_project(project_id, user_id)
+    await state.update_data(project_id=project_id, user_id=user_id, audio_first=True)
+
+    kb = InlineKeyboardBuilder()
+    kb.button(text="🇷🇺 Русский", callback_data="lang_Russian")
+    kb.button(text="🇺🇸 English", callback_data="lang_English")
+    kb.button(text="🇷🇴 Română", callback_data="lang_Romanian")
+    kb.button(text="🇬🇪 ქართული", callback_data="lang_Georgian")
+    kb.adjust(2)
+    await message.answer(
+        "🎙 **Озвучить текст и продолжить монтаж**\n\n"
+        "Сначала выберите язык, затем пришлёте текст для озвучки.\n\n"
+        "🌍 **Выберите язык:**",
+        reply_markup=kb.as_markup()
+    )
+    await state.set_state(ProjectStates.choosing_language)
+
+
+@router.message(ProjectStates.providing_script_for_audio, F.text)
+async def handle_script_for_audio(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    project_id = data.get('project_id')
+    proj = pm.load_project(project_id)
+    proj['script'] = message.text
+    pm.save_project(project_id, proj)
+    from bot.navigation import ask_for_tts_engine
+    await ask_for_tts_engine(message, state)

@@ -21,10 +21,10 @@ async def main():
     user_id = sys.argv[2] if len(sys.argv) > 2 else "default"
     
     pm = ProjectManager()
-    data = pm.load_project(project_id, user_id)
+    data = pm.load_project(project_id)
     
     if not data:
-        print(f"❌ Проект {project_id} не найден в projects/{user_id}/")
+        print(f"❌ Проект {project_id} не найден в projects/{project_id}/")
         return
 
     audio_path = data.get('current_audio_path')
@@ -38,7 +38,7 @@ async def main():
     def progress(p):
         print(f"📊 Прогресс: {p}%")
 
-    output = await render_project_video(data, audio_path, progress_callback=progress)
+    output = await render_project_video(project_id, audio_path, progress_callback=progress)
     
     if output:
         print(f"✅ Готово! Видео сохранено: {output}")

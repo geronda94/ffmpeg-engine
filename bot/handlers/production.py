@@ -326,6 +326,33 @@ async def approve_audio(event: types.CallbackQuery | types.Message, state: FSMCo
     data = await state.get_data()
     proj_data = pm.load_project(data['project_id'])
     
+    if not proj_data.get('scenes'):
+        if data.get('audio_first'):
+            profiles = get_config("channel_context", ttl=0).get("profiles", [])
+            kb = InlineKeyboardBuilder()
+            for p in profiles:
+                kb.button(text=p.get("name", p["id"]), callback_data=f"chanprof_{p['id']}")
+            kb.adjust(1)
+            await message.answer(
+                "🎬 **Аудио готово!**\n\nТеперь выберите профиль канала:",
+                reply_markup=kb.as_markup()
+            )
+            await state.set_state(ProjectStates.choosing_channel_profile)
+            return
+        presets = get_config("script_presets", ttl=0)
+        pacing = presets.get("scene_pacing", {})
+        kb = InlineKeyboardBuilder()
+        for pid, pdata in pacing.items():
+            kb.button(text=pdata["name"], callback_data=f"pace_{pid}")
+        kb.button(text="💡 Свои идеи для сцен", callback_data="stmode_ideas")
+        kb.adjust(1)
+        await message.answer(
+            "🎬 **Аудио готово!**\n\nТеперь подготовим раскадровку.\nВыберите темп сцен:",
+            reply_markup=kb.as_markup()
+        )
+        await state.set_state(ProjectStates.choosing_scene_pacing)
+        return
+    
     if proj_data.get('visual_style'):
         if not proj_data.get('preview_text'):
             from ai.preview_agent import generate_preview_text

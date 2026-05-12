@@ -12,7 +12,7 @@ from bot.pipeline_manager import render_project_video, pm
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def load_montage_presets(): 
-    with open("config/montage_presets.json", "r", encoding="utf-8") as f:
+    with open("config/rendering_presets.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 async def main():
@@ -64,8 +64,7 @@ async def main():
 
     print(f"\n🚀 ЗАПУСК РЕНДЕРИНГА: {video_format} | Стиль: {selected_style['name']}")
     
-    # Вызываем синхронизированную функцию рендеринга
-    result = await render_project_video(data, audio_path)
+    result = await render_project_video(project_id, audio_path)
     
     if result:
         print(f"\n✨ УСПЕХ! Видео сохранено: {result}")

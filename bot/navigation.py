@@ -6,6 +6,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.states import ProjectStates
 from core.project_manager import ProjectManager
 from core.config_loader import get_config
+import os
 
 logger = logging.getLogger(__name__)
 pm = ProjectManager()
@@ -71,7 +72,16 @@ async def ask_for_asset(message: types.Message, state: FSMContext, scene_idx: in
         logger.info(f"ask_for_asset: project={project_id}, idx={scene_idx}, total={len(scenes)}")
         
         if scene_idx >= len(scenes):
-            logger.info("All assets collected! Proceeding to TTS engine choice.")
+            logger.info("All assets collected!")
+            proj_check = pm.load_project(project_id)
+            if proj_check and proj_check.get('current_audio_path'):
+                audio_path = proj_check['current_audio_path']
+                if os.path.exists(audio_path):
+                    logger.info("Audio already exists, skipping TTS selection.")
+                    from bot.handlers.production import approve_audio
+                    await approve_audio(message, state)
+                    return
+            logger.info("Proceeding to TTS engine choice.")
             await ask_for_tts_engine(message, state)
             return
 

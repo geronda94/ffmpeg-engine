@@ -24,9 +24,6 @@ async def main():
         print(f"❌ Project {project_id} not found!")
         return
 
-    # Гарантируем, что ID проекта есть в данных для конвейера
-    data['project_id'] = project_id
-
     presets_data = load_presets()
     print("\n🎙  ДОСТУПНЫЕ ПРЕСЕТЫ ОЗВУЧКИ:")
     
@@ -57,7 +54,7 @@ async def main():
     
     # ВАЖНО: Мы вызываем ту же самую функцию, что и бот
     # Это гарантирует 100% синхронизацию логики
-    result_path = await generate_project_audio(data, preset)
+    result_path = await generate_project_audio(project_id, preset)
 
     if result_path:
         # Переименовываем результат для удобства теста

@@ -11,3 +11,4 @@ docs/directus_integration_blueprint.md
 env
 venv
 projects/
+temp/

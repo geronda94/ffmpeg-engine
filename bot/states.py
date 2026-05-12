@@ -27,6 +27,9 @@ class ProjectStates(StatesGroup):
     entering_query = State() # ДЛЯ РУЧНОГО ВВОДА С ИИ
     approving_asset = State()
     
+    # Audio-first flow (сначала аудио, потом раскадровка)
+    providing_script_for_audio = State()
+    
     # Динамические сцены (Интерактив)
     choosing_dynamic_preset = State()
     collecting_dynamic_element = State()

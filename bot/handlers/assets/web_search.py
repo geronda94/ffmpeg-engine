@@ -1,14 +1,17 @@
 """Обработчики веб-поиска изображений (Pexels, Pixabay, Pollinations AI)."""
 import logging
 import os
+import hashlib
 import asyncio
 import time
 import aiohttp
+from PIL import Image as _PILImage
 
 from aiogram import Router, types, F
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import FSInputFile
 
 from bot.states import ProjectStates
 from core.project_manager import ProjectManager
@@ -19,6 +22,9 @@ logger = logging.getLogger(__name__)
 router = Router()
 pm = ProjectManager()
 
+CAROUSEL_CACHE = "temp/carousel"
+os.makedirs(CAROUSEL_CACHE, exist_ok=True)
+
 # Источники: id → (emoji, название)
 SOURCES = {
     "pexels":  ("📸", "Pexels"),
@@ -27,6 +33,62 @@ SOURCES = {
     "all":     ("🌀", "Все"),
 }
 SOURCE_ORDER = ["all", "pexels", "pixabay", "ai"]
+
+
+# ─────────────────────────────────────────────────────────────
+# ЗАГРУЗКА + УМЕНЬШЕНИЕ КАРТИНОК
+# ─────────────────────────────────────────────────────────────
+
+MAX_CAROUSEL_W = 1080
+
+
+def _carousel_path(url: str) -> str:
+    h = hashlib.md5(url.encode()).hexdigest()
+    return os.path.join(CAROUSEL_CACHE, f"{h}.jpg")
+
+
+async def _download_and_resize(url: str) -> str | None:
+    local = _carousel_path(url)
+    if os.path.exists(local):
+        return local
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                if resp.status != 200:
+                    logger.warning(f"Download failed: HTTP {resp.status} for {url[:60]}")
+                    return None
+                content = await resp.read()
+
+        with open(local, "wb") as f:
+            f.write(content)
+
+        with _PILImage.open(local) as img:
+            w, h = img.size
+            if w > MAX_CAROUSEL_W:
+                ratio = MAX_CAROUSEL_W / w
+                new_h = int(h * ratio)
+                img = img.resize((MAX_CAROUSEL_W, new_h), _PILImage.LANCZOS)
+                img.save(local, "JPEG", quality=85, optimize=True)
+
+        logger.info(f"Carousel image cached: {local} ({_PILImage.open(local).size})")
+        return local
+    except Exception as e:
+        logger.warning(f"Download/resize failed for {url[:60]}: {e}")
+        if os.path.exists(local):
+            os.remove(local)
+        return None
+
+
+def _cleanup_carousel_cache():
+    try:
+        now = time.time()
+        for fname in os.listdir(CAROUSEL_CACHE):
+            path = os.path.join(CAROUSEL_CACHE, fname)
+            if now - os.path.getmtime(path) > 3600:
+                os.remove(path)
+    except Exception:
+        pass
 
 
 # ─────────────────────────────────────────────────────────────
@@ -126,14 +188,20 @@ async def show_web_search_result(message: types.Message, state: FSMContext, is_f
 
     kb = _source_keyboard(source, color)
 
+    local_path = await _download_and_resize(photo["url"])
+
     try:
         if is_first:
             msg = await message.answer_photo(
-                photo=photo["url"], caption=caption, reply_markup=kb.as_markup()
+                photo=FSInputFile(local_path) if local_path else photo["url"],
+                caption=caption, reply_markup=kb.as_markup()
             )
             await register_trash(msg, state)
         else:
-            media = types.InputMediaPhoto(media=photo["url"], caption=caption)
+            media = types.InputMediaPhoto(
+                media=FSInputFile(local_path) if local_path else photo["url"],
+                caption=caption
+            )
             await message.edit_media(media=media, reply_markup=kb.as_markup())
 
         await state.update_data(search_idx=idx, _retry_count=0)
@@ -144,25 +212,26 @@ async def show_web_search_result(message: types.Message, state: FSMContext, is_f
             return
 
         logger.warning(f"Carousel error (idx={idx}): {e}")
-        if any(k in err_str for k in ("failed to get", "wrong type", "file_reference", "url")):
-            retry = data.get("_retry_count", 0)
-            if retry < 6:
-                new_idx = (idx + 1) % len(results)
-                await state.update_data(search_idx=new_idx, _retry_count=retry + 1)
-                await show_web_search_result(message, state, is_first=is_first)
-            else:
-                # Возвращаем пользователя к кнопкам, а не оставляем его зависшим
-                await state.update_data(_retry_count=0)
-                try:
-                    await message.answer(
-                        "⚠️ Несколько вариантов оказались недоступны. "
-                        "Уточните запрос или выберите другой источник:",
-                        reply_markup=_source_keyboard(source, color).as_markup()
-                    )
-                except Exception:
-                    await message.answer(
-                        "⚠️ Несколько вариантов недоступны. Попробуйте другой источник или уточните запрос."
-                    )
+        retry = data.get("_retry_count", 0)
+        await state.update_data(_retry_count=retry + 1)
+
+        kb = InlineKeyboardBuilder()
+        kb.button(text="🔄 Попробовать снова", callback_data="web_retry_image")
+        kb.button(text="🔙 К выбору источника", callback_data="web_cancel")
+        kb.button(text="📁 Загрузить своё", callback_data="web_cancel_upload")
+        kb.adjust(1)
+
+        try:
+            await message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
+        await message.answer(
+            "⚠️ **Не удалось загрузить изображение**\n"
+            "Ссылка могла устареть или файл недоступен.\n\n"
+            "Как поступим?",
+            reply_markup=kb.as_markup()
+        )
 
 
 # ─────────────────────────────────────────────────────────────
@@ -538,6 +607,21 @@ async def handle_web_refine_query(callback: types.CallbackQuery, state: FSMConte
 # ОТМЕНА
 # ─────────────────────────────────────────────────────────────
 
+@router.callback_query(F.data == "web_retry_image", ProjectStates.searching_web_image)
+async def handle_web_retry_image(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    results = data.get("search_results", [])
+    idx = data.get("search_idx", 0)
+    retry = data.get("_retry_count", 0)
+    if retry > 15:
+        await callback.message.answer("⚠️ Слишком много ошибок. Возможно, источник недоступен.")
+        return
+    new_idx = (idx + 1) % len(results)
+    await state.update_data(search_idx=new_idx, _retry_count=retry + 1)
+    await show_web_search_result(callback.message, state)
+
+
 @router.callback_query(F.data == "web_cancel", ProjectStates.searching_web_image)
 async def handle_web_cancel(callback: types.CallbackQuery, state: FSMContext):
     try:
@@ -546,6 +630,21 @@ async def handle_web_cancel(callback: types.CallbackQuery, state: FSMContext):
         pass
     data = await state.get_data()
     await ask_for_asset(callback.message, state, data.get("current_scene_idx", 0))
+    _cleanup_carousel_cache()
+
+
+@router.callback_query(F.data == "web_cancel_upload", ProjectStates.searching_web_image)
+async def handle_web_cancel_upload(callback: types.CallbackQuery, state: FSMContext):
+    try:
+        await callback.answer()
+    except Exception:
+        pass
+    data = await state.get_data()
+    scene_idx = data.get("current_scene_idx", 0)
+    from bot.handlers.assets.manual import manual_asset_choice
+    await state.set_state(ProjectStates.collecting_assets)
+    await manual_asset_choice(callback, state)
+    _cleanup_carousel_cache()
 
 
 # ─────────────────────────────────────────────────────────────
@@ -617,6 +716,7 @@ async def handle_web_confirm(callback: types.CallbackQuery, state: FSMContext):
                         await callback.message.delete()
                     except: pass
                     await ask_for_asset(callback.message, state, scene_idx + 1)
+                    _cleanup_carousel_cache()
                 else:
                     await callback.message.edit_reply_markup(reply_markup=old_kb)
                     await callback.message.answer(f"❌ Ошибка скачивания (HTTP {resp.status})")

@@ -61,7 +61,8 @@ async def main():
         BotCommand(command="scene",          description="Создать динамическую сцену"),
         BotCommand(command="render",         description="Повторить рендер текущего проекта"),
         BotCommand(command="clean",          description="Очистить старый мусор в чате"),
-        BotCommand(command="clear_projects", description="Удалить все проекты с диска")
+        BotCommand(command="clear_projects", description="Удалить все проекты с диска"),
+        BotCommand(command="render_audio",   description="Озвучить текст и продолжить монтаж")
     ]
     try:
         await bot.set_my_commands(commands)

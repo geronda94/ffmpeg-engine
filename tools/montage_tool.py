@@ -1,21 +1,26 @@
+import sys
 import json
 import argparse
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
 from ai.montage_agent import run_montage
 
 def main():
     parser = argparse.ArgumentParser(description="Локальный инструмент для тестирования MoviePy монтажа")
     parser.add_argument("--audio", required=True, help="Путь к аудио-файлу")
     parser.add_argument("--images", nargs="+", required=True, help="Список изображений для сцен")
-    parser.add_argument("--preset", default="smooth_story", help="ID пресета из montage_presets.json")
+    parser.add_argument("--preset", default="v_smooth_story", help="ID пресета из rendering_presets.json")
     parser.add_argument("--output", default="test_output.mp4", help="Путь к результату")
     
     args = parser.parse_args()
 
     # Загружаем пресет
-    with open("config/montage_presets.json", "r", encoding="utf-8") as f:
+    with open("config/rendering_presets.json", "r", encoding="utf-8") as f:
         config = json.load(f)
-    
-    preset = next((s for s in config['styles'] if s['id'] == args.preset), config['styles'][0])
+
+    preset = next((s for s in config['vertical'] if s['id'] == args.preset), config['vertical'][0])
     
     # Формируем простые сцены для теста (равномерно распределяем время аудио)
     from ai.syncer import get_audio_duration

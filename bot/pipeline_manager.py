@@ -35,7 +35,10 @@ async def generate_project_audio(project_id: str, tts_preset: dict) -> str:
         raise ValueError("Cannot generate audio: no script or scenes found")
 
     try:
-        res = await generate_tts(full_text, audio_path, proj_data.get('language', 'Russian'), 
+        lang = proj_data.get('language', 'Russian')
+        if 'voices' in tts_preset:
+            tts_preset['voice'] = tts_preset['voices'].get(lang, tts_preset['voices'].get('English'))
+        res = await generate_tts(full_text, audio_path, lang, 
                            voice=tts_preset.get('voice'), 
                            rate=tts_preset.get('rate', '+0%'), 
                            pitch=tts_preset.get('pitch', '+0Hz'))
