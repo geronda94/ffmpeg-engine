@@ -80,10 +80,10 @@ async def send_video_result(task: dict):
                 compressed_path = video_path.replace(".mp4", "_compressed.mp4")
                 compress_cmd = [
                     "ffmpeg", "-y", "-i", video_path,
-                    "-vcodec", "libx264", "-crf", "32",  # увеличиваем CRF для уменьшения размера
-                    "-preset", "fast",
+                    "-vcodec", "libx264", "-crf", "26",  # Оптимизируем сжатие: 26 вместо 32 для лучшего качества
+                    "-preset", "medium",                 # medium дает лучшее сжатие чем fast при том же качестве
                     "-vf", "scale=720:-2",               # понижаем до 720p
-                    "-acodec", "aac", "-b:a", "96k",
+                    "-acodec", "aac", "-b:a", "128k",    # чуть повышаем битрейт аудио (128 вместо 96)
                     compressed_path
                 ]
                 result = await asyncio.to_thread(
