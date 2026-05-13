@@ -11,15 +11,24 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _filter_tracks(tracks, channel_id: str):
-    allowed = []
+    priority = []
+    regular = []
     for t in tracks:
         tags = t.get("channel_tags", [])
         blacklist = t.get("channel_blacklist", [])
         if channel_id in blacklist:
             continue
+        
+        is_priority = (t.get("priority_for") and channel_id in t["priority_for"])
+        
         if channel_id in tags or "all" in tags:
-            allowed.append(t)
-    return allowed
+            if is_priority:
+                priority.append(t)
+            else:
+                regular.append(t)
+                
+    # Приоритетные треки идут в начало списка
+    return priority + regular
 
 
 def _make_loop_clip(track_path, target_duration, fade_in=1.5, fade_out=2.0, gap=1.0):
@@ -116,10 +125,15 @@ class SoundDesignAgent:
                 "duration_sec": t.get("duration_sec", 30),
             })
 
+        priority_tracks = [t for t in music_tracks if t.get("priority_for") and channel_profile in t["priority_for"]]
         priority_hint = ""
-        for t in music_tracks:
-            if t.get("priority_for") and channel_profile in t["priority_for"]:
-                priority_hint = f"IMPORTANT: For this channel the track '{t['name']}' is recommended as default. Use it unless the script explicitly contradicts."
+        if priority_tracks:
+            names = ", ".join([f"'{t['name']}' (ID: {t['id']})" for t in priority_tracks])
+            priority_hint = (
+                f"CRITICAL REQUIREMENT: This channel has a BRANDED background music strategy.\n"
+                f"You MUST prioritize these tracks: {names}.\n"
+                f"Unless the script vibe is COMPLETELY opposite (e.g. high-energy action), select one of these tracks as 'bg_music'."
+            )
 
         output_example = (
             '{ "bg_music": {"id": "track_id", "volume": ' + str(music_volume) + '}, '
@@ -131,7 +145,9 @@ class SoundDesignAgent:
             f"VIDEO SCRIPT:\n{script}\n\n"
             f"SCENES:\n{json.dumps([{'idx': i, 'text': s['text_segment'], 'start': s.get('start', 0), 'end': s.get('end', 0)} for i, s in enumerate(scenes)], ensure_ascii=False)}\n\n"
             f"AVAILABLE BACKGROUND MUSIC:\n{json.dumps(music_summary, ensure_ascii=False)}\n\n"
+            f"### MUSIC POLICY ###\n"
             f"{priority_hint}\n"
+            f"####################\n\n"
             f"AVAILABLE SFX (sound effects):\n{json.dumps(library_summary, ensure_ascii=False)}\n\n"
             f"RULES:\n"
             f"1. Pick ONE background music track for the entire video. Match the mood of the script.\n"

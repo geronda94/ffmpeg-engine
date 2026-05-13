@@ -135,6 +135,23 @@
       "duration_sec": 30,
       "loopable": true,
       "loop_behavior": "fade"
+    },
+    {
+      "id": "before_the_great_morning",
+      "path": "Before_the_Great_Morning.mp3",
+      "name": "Before the Great Morning",
+      "mood": ["sacred", "hopeful", "majestic"],
+      "tempo": "slow-medium",
+      "instruments": ["choir", "strings", "ambient"],
+      "energy": "medium",
+      "vibe": "divine",
+      "description": "Величественная и светлая композиция. Идеально подходит как основной фон для православного контента.",
+      "channel_tags": ["orthodox"],
+      "channel_blacklist": [],
+      "duration_sec": 180,
+      "loopable": true,
+      "loop_behavior": "fade",
+      "priority_for": ["orthodox"]
     }
   ]
 }

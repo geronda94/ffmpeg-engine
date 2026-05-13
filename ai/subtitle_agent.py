@@ -96,12 +96,14 @@ def generate_srt_from_project(scenes: list, whisper_segments: list, output_path:
         return None
 
 
-def generate_ass_from_project(scenes: list, whisper_segments: list, output_path: str, min_start_time: float = 0.0) -> str | None:
+def generate_ass_from_project(scenes: list, whisper_segments: list, output_path: str,
+                                min_start_time: float = 0.0, aligned_words: list = None,
+                                language: str = "") -> str | None:
     def _hex_to_ass(hex_str):
-        if not hex_str or not isinstance(hex_str, str): return "&H00FFFFFF"
+        if not hex_str or not isinstance(hex_str, str): return "&H00FFFFFF&"
         h = hex_str.lstrip('#')
-        if len(h) != 6: return "&H00FFFFFF"
-        return f"&H00{h[4:6]}{h[2:4]}{h[0:2]}"
+        if len(h) != 6: return "&H00FFFFFF&"
+        return f"&H00{h[4:6]}{h[2:4]}{h[0:2]}&"
 
     try:
         def fmt(seconds):
@@ -119,6 +121,7 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
         c_prim = _hex_to_ass(s_style.get('primary_color', '#FFFFFF'))
         c_outl = _hex_to_ass(s_style.get('outline_color', '#FFD700'))
         c_shad = _hex_to_ass(s_style.get('shadow_color', '#000000'))
+        c_white = "&H00FFFFFF&"
         
         out_w = s_style.get('outline_width', 10)
         sha_w = s_style.get('shadow_width', 0)
@@ -139,8 +142,8 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
             "",
             "[V4+ Styles]",
             "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-            f"Style: CenterLine,{font_name},96,{c_prim},&H00FFFFFF,{c_outl},{c_shad},-1,0,0,0,100,100,0,0,1,{out_w},{sha_w},5,30,30,0,1",
-            f"Style: SideLine,{font_name},56,&H00FFFFFF,&H00FFFFFF,{c_outl},{c_shad},-1,0,0,0,100,100,0,0,1,1.5,0,5,30,30,0,1",
+            f"Style: CenterLine,{font_name},96,{c_prim},&H00FFFFFF&,{c_outl},{c_shad},-1,0,0,0,100,100,0,0,1,{out_w},{sha_w},5,30,30,0,1",
+            f"Style: SideLine,{font_name},56,&H00FFFFFF&,&H00FFFFFF&,{c_outl},{c_shad},-1,0,0,0,100,100,0,0,1,1.5,0,5,30,30,0,1",
             "",
             "[Events]",
             "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"
@@ -154,7 +157,7 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
             if not text:
                 continue
 
-            scene_whisper = [s for s in whisper_segments if (s['start'] < scene['end'] and s['end'] > scene['start'])]
+            scene_whisper = [s for s in whisper_segments if (float(s['start']) < float(scene['end']) and float(s['end']) > float(scene['start']))]
             if scene_whisper:
                 speech_start = min(s['start'] for s in scene_whisper)
                 speech_end = max(s['end'] for s in scene_whisper)
@@ -187,41 +190,33 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
         y_next = y_curr + y_offset
         y_below = y_next + y_offset
         anim_ms = 300
-        
-        c_hl = "&H0033CCFF&"
         c_white = "&H00FFFFFF&"
-        c_ant = "&H002C2C2C&"
-
+        c_ant = "&H002C2C2C&" # Антрацит для обводки
+        
         events = []
         for i, g in enumerate(word_groups):
-            if g['start'] < min_start_time:
-                logger.info(f"🚫 Skipping early subtitle group: '{g['text']}' at {g['start']:.2f}s (min: {min_start_time}s)")
-                continue
+            if g['start'] < min_start_time: continue
             
             s_fmt, e_fmt = fmt(g['start']), fmt(g['end'])
-            
             prev_txt = word_groups[i - 1]['text'] if i > 0 else ""
             next_txt = word_groups[i + 1]['text'] if i < len(word_groups) - 1 else ""
             curr_txt = g['text']
 
-            # Логируем каждую генерируемую строку для отладки
-            logger.info(f"📝 Subtitle event: {s_fmt} -> {e_fmt} | Text: {curr_txt}")
-
-            # Верхний ряд: становится меньше и исчезает вверх
+            # Верхний ряд: был желтым центром, становится белым боковым и уходит вверх
             events.append(
                 f"Dialogue: 0,{s_fmt},{e_fmt},SideLine,,0,0,0,,"
-                f"{{\\pos({cx},{y_curr})\\fscx100\\fscy100\\bord10\\1c{c_hl}\\3c{c_ant}"
+                f"{{\\pos({cx},{y_curr})\\fscx100\\fscy100\\bord{out_w}\\1c{c_outl}\\3c{c_ant}"
                 f"\\t(0,{anim_ms},\\pos({cx},{y_prev})\\fscx65\\fscy65\\bord1.5\\1c{c_white}\\3c{c_ant})}}"
                 f"{{\\fad(0,150)}}{prev_txt}"
             )
-            # Центральный ряд: вырастает и становится активным
+            # Центральный ряд: был белым боковым, вырастает и становится желтым центром
             events.append(
                 f"Dialogue: 0,{s_fmt},{e_fmt},CenterLine,,0,0,0,,"
                 f"{{\\pos({cx},{y_next})\\fscx65\\fscy65\\bord1.5\\1c{c_white}\\3c{c_ant}"
-                f"\\t(0,{anim_ms},\\pos({cx},{y_curr})\\fscx100\\fscy100\\bord10\\1c{c_hl}\\3c{c_ant})}}"
+                f"\\t(0,{anim_ms},\\pos({cx},{y_curr})\\fscx100\\fscy100\\bord{out_w}\\1c{c_outl}\\3c{c_ant})}}"
                 f"{{\\fad(150,0)}}{curr_txt}"
             )
-            # Нижний ряд: поднимается на место ожидания
+            # Нижний ряд: всегда белый боковой, поднимается на место ожидания
             events.append(
                 f"Dialogue: 0,{s_fmt},{e_fmt},SideLine,,0,0,0,,"
                 f"{{\\pos({cx},{y_below})\\fscx65\\fscy65\\bord1.5\\1c{c_white}\\3c{c_ant}"

@@ -132,9 +132,10 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
                 for i, ascene in enumerate(aligned):
                     words = ascene.get("words", [])
                     if words:
-                        scenes_data[i]['start'] = words[0]["start"]
-                        scenes_data[i]['end'] = words[-1]["end"]
+                        scenes_data[i]['start'] = float(words[0]["start"])
+                        scenes_data[i]['end'] = float(words[-1]["end"])
                 scenes = [s.copy() for s in scenes_data]
+                proj_data['aligned_words'] = aligned
                 logger.info(f"LLM aligner: set timings for {len(aligned)} scenes, skipping cursor algorithm")
             else:
                 from ai.timing_agent import align_scenes_with_audio
