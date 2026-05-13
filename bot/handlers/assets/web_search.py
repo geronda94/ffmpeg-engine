@@ -265,6 +265,7 @@ async def handle_web_search_start(callback: types.CallbackQuery, state: FSMConte
     visual = scene.get("image_prompt") or scene.get("visual_description") or "nature background"
     spoken = scene.get("text_segment", "")
     style_id = proj_data.get("script_style", "")
+    full_script = proj_data.get("script", "")
 
     # Сохраняем текст сцены в FSM — будет отображаться в карусели поиска
     await state.update_data(search_scene_text=spoken, search_scene_idx=scene_idx)
@@ -296,7 +297,10 @@ async def handle_web_search_start(callback: types.CallbackQuery, state: FSMConte
 
     try:
         queries, color = await asyncio.wait_for(
-            optimize_query_ai(visual, scene_text=spoken, style_id=style_id), timeout=20
+            optimize_query_ai(visual, scene_text=spoken, style_id=style_id, script=full_script,
+                              prev_scene=proj_data['scenes'][scene_idx - 1].get('text_segment', '') if scene_idx > 0 else '',
+                              next_scene=proj_data['scenes'][scene_idx + 1].get('text_segment', '') if scene_idx + 1 < len(proj_data['scenes']) else ''),
+            timeout=20
         )
         logger.info(f"Auto-search: queries={queries}, color={color}, style={style_id}")
 
@@ -353,17 +357,19 @@ async def handle_web_search_manual_query(message: types.Message, state: FSMConte
     data = await state.get_data()
     project_id = data.get("project_id")
     style_id = ""
+    full_script = ""
     if project_id:
         proj = pm.load_project(project_id)
         if proj:
             style_id = proj.get("script_style", "")
+            full_script = proj.get("script", "")
 
     status = await message.answer("🤖 ИИ подбирает ключевые слова...")
     await register_trash(status, state)
 
     try:
         queries, color = await asyncio.wait_for(
-            optimize_query_ai(user_query, style_id=style_id), timeout=20
+            optimize_query_ai(user_query, style_id=style_id, script=full_script), timeout=20
         )
         logger.info(f"Manual search: queries={queries}, color={color}")
         results = await _run_search(queries, color, "all", status_msg=status, state=state)

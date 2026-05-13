@@ -156,7 +156,8 @@ class BaseMontageEngine:
                     mode=scene.get("resize_mode", preset.get("resize_mode", "fit")),
                     offset=scene.get('start_offset', 0),
                     allow_effects=scene.get('allow_montage_effects', True),
-                    effects=effects_list
+                    effects=effects_list,
+                    mirror=scene.get('mirror', False),
                 )
 
                 clip = clip.with_start(start_time)
@@ -210,7 +211,12 @@ class BaseMontageEngine:
             bg_music = _build_bg_music(sound_map, video_duration)
             if bg_music:
                 from moviepy import CompositeAudioClip
-                final_audio = CompositeAudioClip([voice, bg_music.with_start(0)])
+                import random
+                music_offset = 0
+                if any(s.get('mirror') for s in scenes):
+                    music_offset = round(random.uniform(1.0, 3.0), 1)
+                    logger.info(f"Mirrored project: applying music offset {music_offset}s")
+                final_audio = CompositeAudioClip([voice, bg_music.with_start(music_offset)])
                 logger.info(f"Background music applied at volume {sound_map.get('bg_music', {}).get('volume', 0.30)}")
             else:
                 final_audio = voice

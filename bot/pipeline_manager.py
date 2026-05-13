@@ -239,7 +239,8 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
             "start_offset": asset_info.get('start_offset', 0),
             "allow_montage_effects": asset_info.get('allow_montage_effects', True),
             "effects": scene.get('effects', []),
-            "transition": scene.get('transition', {})
+            "transition": scene.get('transition', {}),
+            "mirror": proj_data.get('mirror_assets', False),
         })
 
     if scenes_for_agent and proj_data.get('preview_text'):

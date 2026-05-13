@@ -61,6 +61,8 @@ async def translate_project_content(script: str, scenes: list, metadata: dict, t
         for s in new_scenes:
             s.pop('start', None)
             s.pop('end', None)
+            s.pop('effects', None)
+            s.pop('transition', None)
 
         return {
             "script": result.get("translated_script"),

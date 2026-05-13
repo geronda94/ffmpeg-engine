@@ -114,7 +114,7 @@ class MediaEngine:
             logger.info(f"✨ [MediaEngine] Applying effect: {eff_type} (config: {effect})")
         return apply_many(clip, effects_data, clip_dur, engine=self)
 
-    def process_asset(self, asset_path, duration, mode="fit", offset=0, allow_effects=True, effects=None):
+    def process_asset(self, asset_path, duration, mode="fit", offset=0, allow_effects=True, effects=None, mirror=False):
         logger.info(f"Processing asset: {asset_path} (dur: {duration}s, offset: {offset}s)")
         ext = os.path.splitext(asset_path)[1].lower()
         try:
@@ -135,6 +135,13 @@ class MediaEngine:
             effects_to_apply = effects if allow_effects else None
             processed = self.smart_resize_stable(raw, mode=current_mode, effects_data=effects_to_apply)
             processed = processed.with_duration(duration)
+
+            if mirror:
+                def _hflip(get_frame, t):
+                    frame = get_frame(t)
+                    return frame[:, ::-1, :]
+                processed = processed.transform(_hflip)
+
             return processed
         except Exception as e:
             logger.error(f"Error processing asset {asset_path}: {e}")

@@ -11,7 +11,8 @@ PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "563492ad6f91700001000001bc3b392a5b
 PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "43825832-75d192135d8d083f9876e5d23")
 
 
-async def optimize_query_ai(visual_description: str, scene_text: str = "", style_id: str = ""):
+async def optimize_query_ai(visual_description: str, scene_text: str = "", style_id: str = "",
+                            script: str = "", prev_scene: str = "", next_scene: str = ""):
     """
     Превращает описание сцены в набор умных поисковых запросов + цвет.
     """
@@ -35,9 +36,13 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
                 "  'candle prayer' → 'single candle flame dark background'\n"
                 "  'holy scripture' → 'open old book hands reading'\n"
                 "PREFER: nature (sunrise mountains, forest light, ocean), "
-                "human moments (elderly face, bowed head, clasped hands), "
-                "architecture (stone walls, arched corridor, golden dome).\n"
-                "AVOID: cartoons, icons as literal clipart, violence, modern church interiors.\n"
+                "Christian/Orthodox imagery (church dome with cross, candle-lit prayer, robed elder), "
+                "architecture (stone walls, arched corridor, golden orthodox dome).\n"
+                "AVOID: Buddhist monks, Hindu temples, Islamic minarets, shaolin imagery, "
+                "eastern meditation, yoga poses, non-Christian religious symbols. "
+                "No cartoons, icons as literal clipart, violence, modern church interiors.\n"
+                "CRITICAL: Add 'christian' or 'orthodox' qualifier: 'monk' → 'christian monk', "
+                "'priest' → 'orthodox priest', 'temple' → 'orthodox church'.\n"
             )
         elif style_id in IT_STYLES:
             style_hint = (
@@ -51,26 +56,53 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
         if scene_text:
             context_block = f"SPOKEN TEXT IN THIS SCENE: \"{scene_text[:200]}\"\n"
 
+        narrative_block = ""
+        if prev_scene or next_scene:
+            narrative_block = "NARRATIVE CONTEXT:\n"
+            if prev_scene:
+                narrative_block += f"  PREVIOUS SCENE: \"{prev_scene[:150]}\"\n"
+            if next_scene:
+                narrative_block += f"  NEXT SCENE: \"{next_scene[:150]}\"\n"
+            narrative_block += "\n"
+
+        script_block = ""
+        if script:
+            script_block = f"FULL VIDEO SCRIPT CONTEXT:\n{script[:600]}\n\n"
+
         prompt = (
             f"You are a stock photo search expert. Generate optimal search queries for a video scene.\n\n"
             f"VISUAL DESCRIPTION: {visual_description[:400]}\n"
             f"{context_block}"
+            f"{script_block}"
+            f"{narrative_block}"
             f"{style_hint}\n"
             f"TASK: Output EXACTLY this format (nothing else):\n"
             f"queries: [query1, query2, query3, query4]\n"
             f"color: [color_name or none]\n\n"
             f"RULES FOR QUERIES:\n"
-            f"1. First query: the most specific but REALISTIC visual (must exist on stock sites like Pexels).\n"
-            f"2. Second query: the main subject simplified to 2-3 words.\n"
-            f"3. Third query: the mood or atmosphere (light, space, silence, urgency).\n"
-            f"4. Fourth query: a broad symbolic fallback (e.g. 'light darkness contrast').\n"
-            f"5. All queries in English, 2-4 words each. NO camera directions (cinematic, 4k, bokeh).\n"
-            f"6. ABSTRACTION RULE: If the literal subject is unlikely on stock photos "
+            f"1. CONTEXT FIRST: Use the FULL SCRIPT CONTEXT to understand the video's topic. "
+            f"Search for images that MATCH the overall topic, not just the literal scene description.\n"
+            f"2. NARRATIVE THINKING: Identify the MAIN SUBJECT (person/object) in this scene. "
+            f"If prev/next scenes are provided, keep the subject consistent — if prev scene was about a monk "
+            f"and this scene is about walking, search for 'monk walking' not just 'walking'.\n"
+            f"3. ACTION IS CONTEXT, NOT QUERY: 'he walked', 'she looked' → do NOT search for walking or looking. "
+            f"Search for WHAT they walked towards or WHO they are.\n"
+            f"4. REALITY CHECK: NEVER search for abstract, impossible, or AI-generated-looking scenes. "
+            f"If the visual description describes something that doesn't exist in stock photo "
+            f"databases (e.g. 'a tower made of light', 'cracks shaped like a cross'), "
+            f"break it down: search for each concrete element separately "
+            f"('light beams', 'tower silhouette', 'stone cracks', 'cross shape').\n"
+            f"5. First query: the most specific but REALISTIC visual (must exist on stock sites like Pexels).\n"
+            f"6. Second query: the main subject simplified to 2-3 words.\n"
+            f"7. Third query: the mood or atmosphere related to the overall script context.\n"
+            f"8. Fourth query: a broad symbolic fallback from the video's main topic.\n"
+            f"9. All queries in English, 2-4 words each. NO camera directions (cinematic, 4k, bokeh).\n"
+            f"10. ABSTRACTION RULE: If the literal subject is unlikely on stock photos "
             f"(e.g. 'orthodox monk', 'biblical apostle'), replace with its visual essence "
             f"(e.g. 'man bowed prayer silence', 'robed figure ancient path').\n"
-            f"7. ANATOMY RULE: NEVER use 'hands' or 'fingers' as the PRIMARY subject of a query "
+            f"11. ANATOMY RULE: NEVER use 'hands' or 'fingers' as the PRIMARY subject of a query "
             f"(AI models generate anatomically broken hands). Use 'hands' only as a secondary modifier.\n"
-            f"8. For color: choose ONE from: red, orange, yellow, green, turquoise, blue, "
+            f"12. For color: choose ONE from: red, orange, yellow, green, turquoise, blue, "
             f"violet, pink, brown, black, gray, white — or 'none' if not important."
         )
 
@@ -276,23 +308,23 @@ class ImageSearchAgent:
 image_search_agent = ImageSearchAgent()
 
 
-async def prefetch_scene_search(scene: dict, style_id: str = "") -> dict | None:
+async def prefetch_scene_search(scene: dict, style_id: str = "", script: str = "",
+                                  prev_scene: dict = None, next_scene: dict = None) -> dict | None:
     """
     Выполняет полный цикл AI-оптимизации запроса + поиск по стокам для одной сцены.
-    Предназначен для запуска через asyncio.create_task (фоновый режим).
-
-    Returns:
-        {"queries": [...], "color": str|None, "results": [...]} или None при ошибке.
     """
     try:
         visual = scene.get("image_prompt") or scene.get("visual_description") or ""
         spoken = scene.get("text_segment", "")
+        prev_txt = prev_scene.get("text_segment", "") if prev_scene else ""
+        next_txt = next_scene.get("text_segment", "") if next_scene else ""
 
         if not visual and not spoken:
             return None
 
         queries, color = await asyncio.wait_for(
-            optimize_query_ai(visual, scene_text=spoken, style_id=style_id),
+            optimize_query_ai(visual, scene_text=spoken, style_id=style_id, script=script,
+                              prev_scene=prev_txt, next_scene=next_txt),
             timeout=15
         )
         results = await asyncio.wait_for(

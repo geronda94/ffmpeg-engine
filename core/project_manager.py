@@ -75,16 +75,19 @@ class ProjectManager:
         proj_data['language'] = target_lang
         proj_data['status'] = "cloned"
         proj_data['parent_project_id'] = source_id
+        proj_data['mirror_assets'] = True
         
         # Очищаем результаты предыдущего рендера и тайминги
         proj_data.pop('current_audio_path', None)
         proj_data.pop('metadata', None)
         proj_data.pop('whisper_segments', None)
         
-        # Глубокая очистка таймингов в сценах
+        # Глубокая очистка таймингов и эффектов в сценах
         for scene in proj_data.get('scenes', []):
             scene.pop('start', None)
             scene.pop('end', None)
+            scene.pop('effects', None)
+            scene.pop('transition', None)
 
         
         # Обновляем пути к ассетам в новом JSON

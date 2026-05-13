@@ -23,15 +23,11 @@ async def register_trash(message: types.Message, state: FSMContext):
         trash.append(message.message_id)
         await state.update_data(trash_messages=trash)
 
-async def _do_prefetch_and_store(state: FSMContext, scene: dict, idx: int, style_id: str):
-    """
-    Фоновый воркер: генерирует запросы + ищет по стокам для одной сцены,
-    сохраняет результат в FSM под ключом prefetched_search[idx].
-    Запускается через asyncio.create_task — не блокирует UI.
-    """
+async def _do_prefetch_and_store(state: FSMContext, scene: dict, idx: int, style_id: str,
+                                   script: str = "", prev_scene: dict = None, next_scene: dict = None):
     try:
         from ai.image_search_agent import prefetch_scene_search
-        result = await prefetch_scene_search(scene, style_id)
+        result = await prefetch_scene_search(scene, style_id, script, prev_scene, next_scene)
         if result and result.get("results"):
             data = await state.get_data()
             prefetched = data.get("prefetched_search", {})
@@ -111,11 +107,15 @@ async def ask_for_asset(message: types.Message, state: FSMContext, scene_idx: in
         # Запускаем сразу после показа меню — не ждём результата.
         # К моменту нажатия «Искать в сети» результаты уже будут готовы в кеше.
         style_id = proj_data.get("script_style", "")
+        script = proj_data.get("script", "")
         prefetched = (await state.get_data()).get("prefetched_search", {})
         for next_idx in [scene_idx + 1, scene_idx + 2]:
             if next_idx < len(scenes) and str(next_idx) not in prefetched:
+                prev = scenes[next_idx - 1] if next_idx > 0 else None
+                nxt = scenes[next_idx + 1] if next_idx + 1 < len(scenes) else None
                 task = asyncio.create_task(
-                    _do_prefetch_and_store(state, scenes[next_idx], next_idx, style_id),
+                    _do_prefetch_and_store(state, scenes[next_idx], next_idx, style_id,
+                                           script, prev_scene=prev, next_scene=nxt),
                     name=f"prefetch_scene_{next_idx}"
                 )
                 task.add_done_callback(_log_task_exception)

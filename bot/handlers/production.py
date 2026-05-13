@@ -691,7 +691,10 @@ async def handle_add_subtitles(callback: types.CallbackQuery):
         
         m_start = preview_dur if proj_data.get('preview_text') else 0.0
         logger.info(f"🎤 Calling generate_ass with min_start_time={m_start}")
-        ass_res = generate_ass_from_project(scenes_for_srt, whisper_segments, ass_path, min_start_time=m_start)
+        ass_res = generate_ass_from_project(scenes_for_srt, whisper_segments, ass_path,
+                                                min_start_time=m_start,
+                                                aligned_words=proj_data.get('aligned_words'),
+                                                language=proj_data.get('language', ''))
         if not ass_res:
             await status_msg.edit_text("❌ Ошибка при генерации файла анимированных субтитров.")
             return

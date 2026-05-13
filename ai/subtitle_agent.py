@@ -150,7 +150,7 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
         ]
 
         word_groups = []
-        for scene in scenes:
+        for scene_idx, scene in enumerate(scenes):
             if not scene.get('allow_montage_effects', True):
                 continue
             text = scene.get('text_segment', '').strip()
@@ -162,26 +162,45 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
                 speech_start = min(s['start'] for s in scene_whisper)
                 speech_end = max(s['end'] for s in scene_whisper)
             else:
-                # Если сегментов нет (например, отфильтрованы для превью), 
-                # то НЕ показываем субтитры вообще для этой сцены.
                 continue
-            
+
             speech_start = max(speech_start, scene['start'])
             speech_end = min(speech_end, scene['end'])
             duration = speech_end - speech_start
             if duration <= 0:
                 continue
 
-            groups = _group_words(text.split())
-            if not groups:
-                continue
-            grp_dur = duration / len(groups)
-            for i, g in enumerate(groups):
-                word_groups.append({
-                    'text': g,
-                    'start': speech_start + i * grp_dur,
-                    'end': speech_start + (i + 1) * grp_dur,
-                })
+            words = text.split()
+            groups = _group_words(words)
+
+            if aligned_words and scene_idx < len(aligned_words):
+                aw = aligned_words[scene_idx].get("words", [])
+                if len(aw) == len(words):
+                    grp_start_idx = 0
+                    for g in groups:
+                        g_words = g.split()
+                        first_word = g_words[0]
+                        last_word = g_words[-1]
+                        g_start_idx = next((j for j, w in enumerate(aw) if w.get("word") == first_word), None)
+                        g_end_idx = next((j for j, w in enumerate(reversed(aw)) if w.get("word") == last_word), None)
+                        if g_end_idx is not None:
+                            g_end_idx = len(aw) - 1 - g_end_idx
+                        if g_start_idx is not None and g_end_idx is not None:
+                            g_start = float(aw[g_start_idx]["start"])
+                            g_end = float(aw[g_end_idx]["end"])
+                        else:
+                            g_start = speech_start + grp_start_idx * (duration / len(groups))
+                            g_end = speech_start + (grp_start_idx + 1) * (duration / len(groups))
+                        word_groups.append({'text': g, 'start': g_start, 'end': g_end})
+                        grp_start_idx += 1
+                else:
+                    grp_dur = duration / len(groups)
+                    for i, g in enumerate(groups):
+                        word_groups.append({'text': g, 'start': speech_start + i * grp_dur, 'end': speech_start + (i + 1) * grp_dur})
+            else:
+                grp_dur = duration / len(groups)
+                for i, g in enumerate(groups):
+                    word_groups.append({'text': g, 'start': speech_start + i * grp_dur, 'end': speech_start + (i + 1) * grp_dur})
 
         cx = 540
         y_curr = 1440

@@ -42,13 +42,13 @@
       "avoid_topics": ["политика", "развлечения", "слухи"],
       "default_hashtags": ["#it", "#бизнес", "#автоматизация", "#технологии"],
       "logo_path": "local_assets/logo/tech.png",
-      "preview_bg_color": "#202025",
+      "preview_bg_color": "#08090F",
       "preview_text_color": "#FFFFFF",
-      "preview_secondary_color": "#00FFCC",
+      "preview_secondary_color": "#00F2FF",
       "preview_font_path": "assets/fonts/Inter-ExtraBold.ttf",
       "subtitle_style": {
         "primary_color": "#FFFFFF",
-        "outline_color": "#00FFCC",
+        "outline_color": "#00F2FF",
         "shadow_color": "#000000",
         "outline_width": 2,
         "shadow_width": 1
