@@ -2,9 +2,9 @@
   "library_name": "Content Factory Music Library",
   "version": "1.0",
   "base_path": "assets/audio_library/music",
-  "default_volume": 0.21,
-  "fade_in_duration": 1.5,
-  "fade_out_duration": 1,
+  "default_volume": 0.18,
+  "fade_in_duration": 0.5,
+  "fade_out_duration": 0.3,
   "loop_gap": 0.1,
   "tracks": [
     {

@@ -7,7 +7,10 @@
       "tone_of_voice": "Увлекательный, экспертный, но понятный широкой аудитории. Без излишнего крика, но с интригой.",
       "target_platform": "YouTube / TikTok / Shorts",
       "avoid_topics": ["политика", "насилие", "шок-контент"],
-      "default_hashtags": ["#наука", "#интересно", "#познавательно"]
+      "default_hashtags": ["#наука", "#интересно", "#познавательно"],
+      "logo_path": "local_assets/logo/educational.png",
+      "preview_bg_color": "#2C2C2C",
+      "preview_text_color": "#FFFFFF"
     },
     {
       "id": "orthodox",
@@ -16,7 +19,19 @@
       "tone_of_voice": "Глубокий, духовный, назидательный. С уважением и любовью к традиции.",
       "target_platform": "YouTube / Shorts",
       "avoid_topics": ["политика", "скандалы", "ереси"],
-      "default_hashtags": ["#православие", "#вера", "#бог", "#духовность"]
+      "default_hashtags": ["#православие", "#вера", "#бог", "#духовность"],
+      "logo_path": "local_assets/logo/logo-orthodox-transparent.png",
+      "preview_bg_color": "#141416",
+      "preview_text_color": "#FFFFFF",
+      "preview_secondary_color": "#f7ec20",
+      "preview_font_path": "assets/fonts/Montserrat-Bold.ttf",
+      "subtitle_style": {
+        "primary_color": "#FFFFFF",
+        "outline_color": "#f7ec20",
+        "shadow_color": "#000000",
+        "outline_width": 2,
+        "shadow_width": 1
+      }
     },
     {
       "id": "tech_business",
@@ -25,7 +40,19 @@
       "tone_of_voice": "Профессиональный, экспертный, ориентированный на результат. Минимум воды, максимум пользы.",
       "target_platform": "YouTube / LinkedIn / Shorts",
       "avoid_topics": ["политика", "развлечения", "слухи"],
-      "default_hashtags": ["#it", "#бизнес", "#автоматизация", "#технологии"]
+      "default_hashtags": ["#it", "#бизнес", "#автоматизация", "#технологии"],
+      "logo_path": "local_assets/logo/tech.png",
+      "preview_bg_color": "#202025",
+      "preview_text_color": "#FFFFFF",
+      "preview_secondary_color": "#00FFCC",
+      "preview_font_path": "assets/fonts/Inter-ExtraBold.ttf",
+      "subtitle_style": {
+        "primary_color": "#FFFFFF",
+        "outline_color": "#00FFCC",
+        "shadow_color": "#000000",
+        "outline_width": 2,
+        "shadow_width": 1
+      }
     },
     {
       "id": "entertainment",
@@ -34,7 +61,10 @@
       "tone_of_voice": "Энергичный, дерзкий, эмоциональный. Захватывает с первых секунд.",
       "target_platform": "TikTok / Instagram Reels / YouTube Shorts",
       "avoid_topics": ["политика", "оскорбления"],
-      "default_hashtags": ["#интересно", "#факты", "#лайфхак"]
+      "default_hashtags": ["#интересно", "#факты", "#лайфхак"],
+      "logo_path": "local_assets/logo/entertainment.png",
+      "preview_bg_color": "#2C2C2C",
+      "preview_text_color": "#FFFFFF"
     }
   ]
 }

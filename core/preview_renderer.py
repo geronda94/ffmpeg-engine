@@ -50,107 +50,177 @@ def _hex_to_rgb(hex_str):
 
 def create_preview_overlay(asset_path, preview_text, highlight_word,
                            display_config, frame_width, frame_height,
-                           color_scheme=None, duration=3.0):
-    glass_cfg = display_config.get("glass", {})
-    grad_cfg = glass_cfg.get("gradient", {})
-    pad_x = glass_cfg.get("padding_x", 36)
-    pad_y = glass_cfg.get("padding_y", 26)
-    x_offset_pct = display_config.get("position", {}).get("x_offset_pct", 0.08)
-    width_max_pct = display_config.get("position", {}).get("width_max_pct", 0.72)
-    corner_radius = glass_cfg.get("corner_radius", 14)
-    grain_strength = glass_cfg.get("grain_strength", 8)
-    border_width = glass_cfg.get("border_width", 0)
-    border_opacity = glass_cfg.get("border_opacity", 0.15)
-    anim_dur = display_config.get("animation", {}).get("duration", 0.6)
-    display_dur = display_config.get("display_duration", 3.0)
-    font = _resolve_font()
-    font_size = display_config.get("font_size", 68)
+                           color_scheme=None, duration=3.0,
+                           logo_path=None, bg_color=None, text_color=None,
+                           secondary_color=None, custom_font_path=None):
+    """
+    Создает оверлей превью на весь экран.
+    """
+    display_dur = duration
+    
+    # 1. ЦВЕТОВАЯ СХЕМА
+    primary_hex = text_color if text_color else "#FFFFFF"
+    secondary_hex = secondary_color if secondary_color else "#FFD700"
+    bg_hex = bg_color if bg_color else (color_scheme.get("glass_from", "#2C2C2C") if color_scheme else "#2C2C2C")
+    
+    # Шрифт из конфига или дефолт
+    font = custom_font_path if custom_font_path and os.path.exists(custom_font_path) else _resolve_font()
+    base_font_size = display_config.get("font_size", 84)
+    
+    opacity = 0.85
+    bg_rgb = _hex_to_rgb(bg_hex)
+    
+    # 2. ФОН
+    bg_clip = ColorClip(size=(frame_width, frame_height), color=bg_rgb)
+    bg_clip = bg_clip.with_opacity(opacity).with_duration(duration)
+    
+    # Добавляем эффект ЗЕРНИСТОСТИ (среднее зерно)
+    def _add_grain_effect(get_frame, t):
+        frame = get_frame(t)
+        h, w = frame.shape[:2]
+        # Создаем шум меньшего разрешения для "среднего" зерна
+        # h//3 и w//3 дадут зерна размером примерно 3x3 пикселя
+        noise_h, noise_w = h // 3, w // 3
+        
+        # Генерируем шум (диапазон -12..12 для мягкости)
+        # Используем фиксированный сид для каждого кадра превью, чтобы зерно было статичным (или менялось медленно)
+        rng = np.random.RandomState(int(t * 10) % 100) # Меняем зерно 10 раз в секунду
+        noise_small = rng.randint(-14, 14, (noise_h, noise_w, 3), dtype=np.int16)
+        
+        # Масштабируем шум до размеров кадра через PIL (ближайший сосед даст четкое зерно)
+        from PIL import Image as _PILImage
+        noise_img = _PILImage.fromarray((noise_small + 14).astype(np.uint8))
+        noise_large = np.array(noise_img.resize((w, h), _PILImage.NEAREST)).astype(np.int16) - 14
+        
+        # Накладываем шум на RGB каналы
+        res = frame.copy().astype(np.int16)
+        res[..., :3] = np.clip(res[..., :3] + noise_large, 0, 255)
+        return res.astype(np.uint8)
 
-    if color_scheme:
-        primary_hex = color_scheme.get("text_primary", display_config.get("text_colors", {}).get("fallback_primary", "#F5F0E8"))
-        accent_hex = color_scheme.get("text_accent", display_config.get("text_colors", {}).get("fallback_accent", "#D4A843"))
-        glass_from_hex = color_scheme.get("glass_from", grad_cfg.get("fallback_from", "#2A1F35"))
-        glass_to_hex = color_scheme.get("glass_to", grad_cfg.get("fallback_to", "#1A1220"))
-        glass_opacity = color_scheme.get("opacity", glass_cfg.get("opacity", 0.30))
+    bg_clip = bg_clip.transform(_add_grain_effect)
+    all_layers = [bg_clip]
+
+    # 3. ЛОГОТИП
+    logo_clip = None
+    if logo_path and os.path.exists(logo_path):
+        try:
+            from PIL import Image as _PILImage
+            pil_img = _PILImage.open(logo_path).convert("RGBA")
+            img_arr = np.array(pil_img)
+            logo_clip = ImageClip(img_arr[:, :, :3]).with_duration(duration)
+            mask_arr = img_arr[:, :, 3] / 255.0
+            logo_clip.mask = ImageClip(mask_arr, is_mask=True).with_duration(duration)
+            
+            max_h = int(frame_height * 0.12)
+            if logo_clip.h > max_h:
+                logo_clip = logo_clip.resized(height=max_h)
+        except Exception as e:
+            logger.error(f"Logo error: {e}")
+
+    # 4. ТЕКСТ (АЛГОРИТМ ВЕСОВЫХ СТРОК)
+    words = preview_text.upper().split()
+    lines = []
+    curr_line = []
+    for w in words:
+        if not curr_line:
+            curr_line.append(w)
+        # Если слово длинное (>8 симв) - в отдельную строку
+        elif len(w) > 8:
+            lines.append(" ".join(curr_line))
+            curr_line = [w]
+        # Если в текущей строке уже есть слова и новое слово не супер короткое
+        elif len(curr_line) >= 2 or (len(curr_line) == 1 and len(" ".join(curr_line + [w])) > 12):
+            lines.append(" ".join(curr_line))
+            curr_line = [w]
+        else:
+            curr_line.append(w)
+    if curr_line:
+        lines.append(" ".join(curr_line))
+
+    text_clips = []
+    target_w = int(frame_width * 0.82)
+    max_scale = 1.6
+    
+    for i, ln in enumerate(lines):
+        color = primary_hex if i % 2 == 0 else secondary_hex
+        
+        # Пробный замер ширины
+        temp = TextClip(text=ln, font_size=base_font_size, color=color, font=font, method="label")
+        
+        # Динамическое масштабирование (max 1.6x)
+        scale = min(max_scale, target_w / temp.w) if temp.w > 0 else 1.0
+        f_size = int(base_font_size * scale)
+        
+        # Используем CAPTION с запасом по высоте (1.5x), чтобы буквы не обрезались снизу
+        line_h = int(f_size * 1.5)
+        tc = TextClip(
+            text=ln,
+            font_size=f_size,
+            color=color,
+            font=font,
+            method="caption",
+            size=(frame_width, line_h),
+            text_align="center"
+        ).with_duration(duration)
+        text_clips.append(tc)
+
+    # 5. КОМПОНОВКА (ПОДНЯТИЕ НА 15%)
+    line_spacing = 30 # Уменьшили на 0.75 (было 40)
+    total_text_h = sum(c.h for c in text_clips) + (len(text_clips)-1)*line_spacing
+    total_text_h += 40
+    
+    margin = 70
+    total_h = total_text_h
+    if logo_clip:
+        total_h += logo_clip.h + margin
+    
+    start_y = (frame_height - total_h) // 2
+    start_y -= int(frame_height * 0.15)
+    
+    if start_y < 110: start_y = 110
+        
+    if logo_clip:
+        lx = (frame_width - logo_clip.w) // 2
+        lw, lh = logo_clip.w, logo_clip.h
+        
+        # Анимация пульсации логотипа ОТ ЦЕНТРА
+        def logo_pulse(t):
+            return 1.0 + 0.03 * np.sin(np.pi * t)
+            
+        def logo_pos(t):
+            s = logo_pulse(t)
+            return (lx - (lw*s - lw)/2, start_y - (lh*s - lh)/2)
+            
+        logo_clip = logo_clip.with_effects([vfx.Resize(logo_pulse)])
+        all_layers.append(logo_clip.with_position(logo_pos))
+        curr_y = start_y + lh + margin
     else:
-        fallback_colors = display_config.get("text_colors", {})
-        primary_hex = fallback_colors.get("fallback_primary", "#F5F0E8")
-        accent_hex = fallback_colors.get("fallback_accent", "#D4A843")
-        glass_from_hex = grad_cfg.get("fallback_from", "#2A1F35")
-        glass_to_hex = grad_cfg.get("fallback_to", "#1A1220")
-        glass_opacity = glass_cfg.get("opacity", 0.30)
+        curr_y = start_y
 
-    before_word, hl_word, after_word = _split_preview_text(preview_text, highlight_word)
-    max_text_w = int(frame_width * width_max_pct - 2 * pad_x)
-    size_tuple = (max_text_w, None)
+    # Анимация строк текста (поочередный "всплеск" ОТ ЦЕНТРА)
+    pop_duration = 0.6
+    pop_delay = 0.3
+    
+    for i, tc in enumerate(text_clips):
+        tx = (frame_width - tc.w) // 2
+        tw, th = tc.w, tc.h
+        start_pop = i * pop_delay
+        
+        def get_scale(t, st=start_pop):
+            if st <= t <= st + pop_duration:
+                progress = (t - st) / pop_duration
+                return 1.0 + 0.08 * np.sin(np.pi * progress)
+            return 1.0
+            
+        def get_pos(t, st=start_pop, x=tx, y=curr_y, w=tw, h=th):
+            s = get_scale(t, st)
+            return (x - (w*s - w)/2, y - (h*s - h)/2)
+            
+        tc_animated = tc.with_effects([vfx.Resize(get_scale)])
+        all_layers.append(tc_animated.with_position(get_pos))
+        curr_y += th + line_spacing
 
-    text_segments = []
-    if before_word:
-        text_segments.append((before_word.strip(), primary_hex))
-    if hl_word:
-        text_segments.append((hl_word.strip(), accent_hex))
-    if after_word:
-        text_segments.append((after_word.strip(), primary_hex))
-
-    all_text_clips = []
-    total_text_h = 0
-    for txt, col in text_segments:
-        tc = TextClip(text=txt, font_size=font_size, color=col,
-                      font=font, method="caption", size=size_tuple)
-        all_text_clips.append(tc)
-        total_text_h += getattr(tc, 'h', font_size + 4) + 4
-
-    glass_w = int(frame_width * width_max_pct)
-    glass_h = total_text_h + 2 * pad_y
-    x_pos = int(frame_width * x_offset_pct)
-    y_pos = (frame_height - glass_h) // 2
-
-    glass_from_rgb = _hex_to_rgb(glass_from_hex)
-    glass_to_rgb = _hex_to_rgb(glass_to_hex)
-
-    gradient_arr = _create_gradient_texture(glass_w, glass_h, glass_from_rgb, glass_to_rgb)
-    gradient_clip = ImageClip(gradient_arr, is_mask=False).with_opacity(glass_opacity).with_duration(display_dur)
-
-    glass = gradient_clip
-
-    if corner_radius > 0:
-        mask_arr = _create_rounded_corner_mask(glass_w, glass_h, corner_radius)
-        mask_clip = ImageClip(mask_arr, is_mask=True).with_duration(display_dur)
-        glass = glass.with_mask(mask_clip)
-
-    if grain_strength > 0:
-        np.random.seed(int(os.path.getmtime(asset_path)) if os.path.exists(asset_path) else 42)
-        noise = np.random.randint(-grain_strength, grain_strength + 1, (glass_h, glass_w, 3), dtype=np.int16)
-        grain_arr = np.clip(np.zeros((glass_h, glass_w, 3), dtype=np.int16) + noise, 0, 255).astype(np.uint8)
-        grain_arr_rgba = np.zeros((glass_h, glass_w, 4), dtype=np.uint8)
-        grain_arr_rgba[:, :, :3] = grain_arr
-        grain_arr_rgba[:, :, 3] = 60
-        grain_clip = ImageClip(grain_arr_rgba, is_mask=False).with_duration(display_dur)
-        glass = CompositeVideoClip([glass, grain_clip], size=(glass_w, glass_h))
-
-    if border_width > 0:
-        border_mask = _PILImage.new('L', (glass_w, glass_h), 0)
-        bd = ImageDraw.Draw(border_mask)
-        bd.rounded_rectangle([(0, 0), (glass_w - 1, glass_h - 1)],
-                              radius=corner_radius, outline=255, width=border_width)
-        border_arr = np.zeros((glass_h, glass_w, 4), dtype=np.uint8)
-        border_rgb = _hex_to_rgb(accent_hex)
-        for i in range(3):
-            border_arr[:, :, i] = border_rgb[i]
-        border_arr[:, :, 3] = (np.array(border_mask, dtype=np.float64) * border_opacity * 255).astype(np.uint8)
-        border_clip = ImageClip(border_arr, is_mask=False).with_duration(display_dur)
-        glass = CompositeVideoClip([glass, border_clip], size=(glass_w, glass_h))
-
-    glass = glass.with_position((x_pos, y_pos))
-
-    all_clips = [glass]
-    text_y = y_pos + pad_y
-    for tc in all_text_clips:
-        t_h = getattr(tc, 'h', font_size + 4)
-        positioned = tc.with_position((x_pos + pad_x, text_y)).with_duration(display_dur)
-        all_clips.append(positioned)
-        text_y += t_h + 4
-
-    result = CompositeVideoClip(all_clips, size=(frame_width, frame_height)).with_duration(display_dur)
-    result = result.with_effects([vfx.FadeIn(anim_dur)])
+    # Сборка
+    result = CompositeVideoClip(all_layers, size=(frame_width, frame_height)).with_duration(duration)
+    return result
     return result

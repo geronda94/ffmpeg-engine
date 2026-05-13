@@ -166,6 +166,35 @@ class BaseMontageEngine:
 
                 final_clips.append(clip)
 
+                # --- NEW: ПРЕВЬЮ ОВЕРЛЕЙ ДЛЯ ПЕРВОГО КАДРА ---
+                if i == 0 and scene.get('preview_text'):
+                    try:
+                        from core.preview_renderer import create_preview_overlay
+                        from core.config_loader import get_config
+                        p_config = get_config("preview_presets")
+                        p_dur = p_config.get("display_duration", 3.0)
+                        
+                        p_overlay = create_preview_overlay(
+                            scene['asset_path'],
+                            scene['preview_text'],
+                            scene.get('preview_highlight', ''),
+                            p_config,
+                            self.width,
+                            self.height,
+                            color_scheme=scene.get('preview_colors'),
+                            duration=p_dur,
+                            logo_path=scene.get('preview_logo'),
+                            bg_color=scene.get('preview_bg_color'),
+                            text_color=scene.get('preview_text_color'),
+                            secondary_color=scene.get('preview_secondary_color'),
+                            custom_font_path=scene.get('preview_font_path')
+                        )
+                        # Добавляем в конец списка клипов, чтобы был поверх всех
+                        final_clips.append(p_overlay.with_start(0))
+                        logger.info(f"✨ Preview overlay added to final stack (duration: {p_dur}s)")
+                    except Exception as e:
+                        logger.error(f"Failed to create preview overlay: {e}", exc_info=True)
+
                 overlay_clips = collect_overlays(effects_list, self.width, self.height, total_dur)
                 for ocl in overlay_clips:
                     final_clips.append(ocl.with_start(start_time))

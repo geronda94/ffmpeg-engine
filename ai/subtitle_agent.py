@@ -96,7 +96,13 @@ def generate_srt_from_project(scenes: list, whisper_segments: list, output_path:
         return None
 
 
-def generate_ass_from_project(scenes: list, whisper_segments: list, output_path: str) -> str | None:
+def generate_ass_from_project(scenes: list, whisper_segments: list, output_path: str, min_start_time: float = 0.0) -> str | None:
+    def _hex_to_ass(hex_str):
+        if not hex_str or not isinstance(hex_str, str): return "&H00FFFFFF"
+        h = hex_str.lstrip('#')
+        if len(h) != 6: return "&H00FFFFFF"
+        return f"&H00{h[4:6]}{h[2:4]}{h[0:2]}"
+
     try:
         def fmt(seconds):
             if seconds < 0: seconds = 0
@@ -106,10 +112,24 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
             ms = int((seconds % 1) * 100)
             return f"{h}:{m:02d}:{s:02d}.{ms:02d}"
 
+        # ПОЛУЧАЕМ СТИЛЬ ИЗ КОНФИГА
+        first_scene = scenes[0] if scenes else {}
+        s_style = first_scene.get('subtitle_style', {})
+        
+        c_prim = _hex_to_ass(s_style.get('primary_color', '#FFFFFF'))
+        c_outl = _hex_to_ass(s_style.get('outline_color', '#FFD700'))
+        c_shad = _hex_to_ass(s_style.get('shadow_color', '#000000'))
+        
+        out_w = s_style.get('outline_width', 10)
+        sha_w = s_style.get('shadow_width', 0)
+        
+        # Шрифт превью или дефолт
+        font_name = "DejaVu Sans Bold" # По умолчанию в системе
+        
         if not whisper_segments:
             logger.warning("⚠️ No whisper segments!")
             return None
-
+        
         header = [
             "[Script Info]",
             "Title: Slot Machine Subtitles",
@@ -119,8 +139,8 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
             "",
             "[V4+ Styles]",
             "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-            "Style: CenterLine,DejaVu Sans Bold,94,&H0033CCFF,&H00FFFFFF,&H002C2C2C,&H00000000,-1,0,0,0,100,100,0,0,1,10,0,5,30,30,0,1",
-            "Style: SideLine,DejaVu Sans Bold,94,&H00FFFFFF,&H00FFFFFF,&H002C2C2C,&H00000000,-1,0,0,0,100,100,0,0,1,1.5,0,5,30,30,0,1",
+            f"Style: CenterLine,{font_name},96,{c_prim},&H00FFFFFF,{c_outl},{c_shad},-1,0,0,0,100,100,0,0,1,{out_w},{sha_w},5,30,30,0,1",
+            f"Style: SideLine,{font_name},56,&H00FFFFFF,&H00FFFFFF,{c_outl},{c_shad},-1,0,0,0,100,100,0,0,1,1.5,0,5,30,30,0,1",
             "",
             "[Events]",
             "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"
@@ -139,7 +159,10 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
                 speech_start = min(s['start'] for s in scene_whisper)
                 speech_end = max(s['end'] for s in scene_whisper)
             else:
-                speech_start, speech_end = scene['start'], scene['end']
+                # Если сегментов нет (например, отфильтрованы для превью), 
+                # то НЕ показываем субтитры вообще для этой сцены.
+                continue
+            
             speech_start = max(speech_start, scene['start'])
             speech_end = min(speech_end, scene['end'])
             duration = speech_end - speech_start
@@ -171,29 +194,36 @@ def generate_ass_from_project(scenes: list, whisper_segments: list, output_path:
 
         events = []
         for i, g in enumerate(word_groups):
-            s, e = fmt(g['start']), fmt(g['end'])
-
+            if g['start'] < min_start_time:
+                logger.info(f"🚫 Skipping early subtitle group: '{g['text']}' at {g['start']:.2f}s (min: {min_start_time}s)")
+                continue
+            
+            s_fmt, e_fmt = fmt(g['start']), fmt(g['end'])
+            
             prev_txt = word_groups[i - 1]['text'] if i > 0 else ""
             next_txt = word_groups[i + 1]['text'] if i < len(word_groups) - 1 else ""
             curr_txt = g['text']
 
+            # Логируем каждую генерируемую строку для отладки
+            logger.info(f"📝 Subtitle event: {s_fmt} -> {e_fmt} | Text: {curr_txt}")
+
             # Верхний ряд: становится меньше и исчезает вверх
             events.append(
-                f"Dialogue: 0,{s},{e},SideLine,,0,0,0,,"
+                f"Dialogue: 0,{s_fmt},{e_fmt},SideLine,,0,0,0,,"
                 f"{{\\pos({cx},{y_curr})\\fscx100\\fscy100\\bord10\\1c{c_hl}\\3c{c_ant}"
                 f"\\t(0,{anim_ms},\\pos({cx},{y_prev})\\fscx65\\fscy65\\bord1.5\\1c{c_white}\\3c{c_ant})}}"
                 f"{{\\fad(0,150)}}{prev_txt}"
             )
             # Центральный ряд: вырастает и становится активным
             events.append(
-                f"Dialogue: 0,{s},{e},CenterLine,,0,0,0,,"
+                f"Dialogue: 0,{s_fmt},{e_fmt},CenterLine,,0,0,0,,"
                 f"{{\\pos({cx},{y_next})\\fscx65\\fscy65\\bord1.5\\1c{c_white}\\3c{c_ant}"
                 f"\\t(0,{anim_ms},\\pos({cx},{y_curr})\\fscx100\\fscy100\\bord10\\1c{c_hl}\\3c{c_ant})}}"
                 f"{{\\fad(150,0)}}{curr_txt}"
             )
             # Нижний ряд: поднимается на место ожидания
             events.append(
-                f"Dialogue: 0,{s},{e},SideLine,,0,0,0,,"
+                f"Dialogue: 0,{s_fmt},{e_fmt},SideLine,,0,0,0,,"
                 f"{{\\pos({cx},{y_below})\\fscx65\\fscy65\\bord1.5\\1c{c_white}\\3c{c_ant}"
                 f"\\t(0,{anim_ms},\\pos({cx},{y_next})\\fscx65\\fscy65\\bord1.5\\1c{c_white}\\3c{c_ant})}}"
                 f"{{\\fad(150,0)}}{next_txt}"

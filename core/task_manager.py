@@ -94,7 +94,32 @@ class RenderTaskManager:
                         for i, s in enumerate(scenes_for_srt):
                             s['allow_montage_effects'] = assets.get(str(i), {}).get('allow_montage_effects', True)
                         
-                        ass_res = generate_ass_from_project(scenes_for_srt, proj_data['whisper_segments'], ass_path)
+                        # ФИЛЬТРАЦИЯ ДЛЯ ПРЕВЬЮ (ДУБЛИРУЕМ ЛОГИКУ ИЗ PRODUCTION)
+                        m_start = 0.0
+                        
+                        # Агрессивная проверка на наличие превью
+                        has_preview = False
+                        if proj_data.get('preview_text'):
+                            has_preview = True
+                        elif proj_data.get('scenes') and proj_data['scenes'][0].get('preview_text'):
+                            has_preview = True
+                            
+                        if has_preview:
+                            from core.config_loader import get_config
+                            preview_dur = get_config("preview_presets", ttl=0).get('display_duration', 3.0)
+                            
+                            w_segments = proj_data.get('whisper_segments', [])
+                            filtered = []
+                            for s in w_segments:
+                                if s['end'] <= preview_dur: continue
+                                if s['start'] < preview_dur: s['start'] = preview_dur
+                                filtered.append(s)
+                            
+                            proj_data['whisper_segments'] = filtered
+                            m_start = preview_dur
+                            logger.info(f"Worker: Subtitles strictly filtered for preview ({m_start}s)")
+
+                        ass_res = generate_ass_from_project(scenes_for_srt, proj_data['whisper_segments'], ass_path, min_start_time=m_start)
                         if ass_res:
                             res_path = await asyncio.to_thread(burn_subtitles, video_path, ass_path, output_path)
                             if res_path and os.path.exists(res_path):

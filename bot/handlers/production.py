@@ -670,13 +670,28 @@ async def handle_add_subtitles(callback: types.CallbackQuery):
             s['allow_montage_effects'] = assets.get(str(i), {}).get('allow_montage_effects', True)
         
         whisper_segments = proj_data['whisper_segments']
-        if proj_data.get('preview_text'):
+        first_scene = proj_data['scenes'][0] if proj_data.get('scenes') else {}
+        if first_scene.get('preview_text'):
             from core.config_loader import get_config
             preview_dur = get_config("preview_presets", ttl=0).get('display_duration', 3.0)
-            whisper_segments = [s for s in whisper_segments if s['end'] > preview_dur]
-            logger.info(f"Preview active: filtered {len(proj_data['whisper_segments']) - len(whisper_segments)} early subtitles during preview")
+            
+            filtered_segments = []
+            for s in whisper_segments:
+                # Если сегмент полностью попадает в зону превью - удаляем
+                if s['end'] <= preview_dur:
+                    continue
+                # Если сегмент пересекается с превью - сдвигаем его начало
+                if s['start'] < preview_dur:
+                    s['start'] = preview_dur
+                filtered_segments.append(s)
+            
+            diff = len(whisper_segments) - len(filtered_segments)
+            whisper_segments = filtered_segments
+            logger.info(f"🔥 Subtitles filtered: removed {diff} early segments, adjusted others to start after {preview_dur}s")
         
-        ass_res = generate_ass_from_project(scenes_for_srt, whisper_segments, ass_path)
+        m_start = preview_dur if proj_data.get('preview_text') else 0.0
+        logger.info(f"🎤 Calling generate_ass with min_start_time={m_start}")
+        ass_res = generate_ass_from_project(scenes_for_srt, whisper_segments, ass_path, min_start_time=m_start)
         if not ass_res:
             await status_msg.edit_text("❌ Ошибка при генерации файла анимированных субтитров.")
             return

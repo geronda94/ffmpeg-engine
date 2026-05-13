@@ -245,6 +245,17 @@ async def render_project_video(project_id: str, audio_path: str, progress_callba
         scenes_for_agent[0]['preview_text'] = proj_data['preview_text']
         scenes_for_agent[0]['preview_highlight'] = proj_data.get('preview_highlight', '')
         scenes_for_agent[0]['preview_colors'] = proj_data.get('preview_colors', {})
+        
+        # Подгружаем лого и цвет из профиля канала
+        channel_prof_id = proj_data.get('channel_profile')
+        if channel_prof_id:
+            prof = get_channel_profile(channel_prof_id)
+            scenes_for_agent[0]['preview_logo'] = prof.get('logo_path')
+            scenes_for_agent[0]['preview_bg_color'] = prof.get('preview_bg_color')
+            scenes_for_agent[0]['preview_text_color'] = prof.get('preview_text_color', '#FFFFFF')
+            scenes_for_agent[0]['preview_secondary_color'] = prof.get('preview_secondary_color')
+            scenes_for_agent[0]['preview_font_path'] = prof.get('preview_font_path')
+            scenes_for_agent[0]['subtitle_style'] = prof.get('subtitle_style')
 
     logger.info(f"Total scenes for agent: {len(scenes_for_agent)}/{len(scenes)}")
     if not scenes_for_agent:
