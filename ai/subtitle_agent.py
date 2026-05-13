@@ -271,7 +271,7 @@ def burn_subtitles(video_path: str, subtitle_path: str, output_path: str):
     ]
     logger.info(f"🔥 Burning subtitles with FFmpeg...")
     try:
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         logger.info(f"🔥 Subtitles burned: {output_path}")
         return output_path
     except subprocess.CalledProcessError as e:

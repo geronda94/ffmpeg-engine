@@ -244,12 +244,20 @@ class BaseMontageEngine:
             logger.error(f"Render failed: {e}", exc_info=True)
             return False
         finally:
-            if 'voice' in locals() and hasattr(voice, 'close'): voice.close()
-            if 'final_video' in locals() and hasattr(final_video, 'close'): final_video.close()
-            if 'video_track' in locals() and hasattr(video_track, 'close'): video_track.close()
-            if 'final_clips' in locals():
+            _clips_to_close = []
+            for name in ('voice', 'bg_music', 'final_video', 'video_track'):
+                obj = locals().get(name)
+                if obj is not None and hasattr(obj, 'close'):
+                    _clips_to_close.append(obj)
+            if 'final_clips' in locals() and isinstance(final_clips, list):
                 for c in final_clips:
-                    if hasattr(c, 'close'): c.close()
+                    if c is not None and hasattr(c, 'close'):
+                        _clips_to_close.append(c)
+            for c in _clips_to_close:
+                try:
+                    c.close()
+                except Exception:
+                    pass
 
 
 class VerticalMontageEngine(BaseMontageEngine):
