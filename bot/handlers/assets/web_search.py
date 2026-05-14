@@ -129,8 +129,9 @@ async def _run_search(
     """Запускает поиск, показывая прогресс через status_msg."""
     if status_msg:
         try:
-            src_name = SOURCES.get(source_type, ("", source_type))[1]
-            await status_msg.edit_text(f"🔍 Ищу в **{src_name}**...")
+            qs = " · ".join(queries[:3])
+            ctxt = f" 🎨{color}" if color else ""
+            await status_msg.edit_text(f"🔍 **{qs}**{ctxt}\nОбрабатываю Pexels + Pixabay...")
         except Exception:
             pass
 
@@ -188,18 +189,62 @@ async def show_web_search_result(message: types.Message, state: FSMContext, is_f
 
     kb = _source_keyboard(source, color)
 
-    local_path = await _download_and_resize(photo["url"])
+    # Автопропуск битых URL: пробуем следующие картинки, пока не найдём рабочую
+    search_results = data.get("search_results", [])
+    found_idx = idx
+    local_path = None
+    while found_idx < len(search_results):
+        photo = search_results[found_idx]
+        local_path = await _download_and_resize(photo["url"])
+        if local_path:
+            found_idx = found_idx  # нашли рабочую
+            break
+        found_idx += 1
+        if found_idx < len(search_results):
+            try:
+                await message.edit_caption(
+                    caption=f"⚠️ Картинка {found_idx} недоступна, пробую следующую..."
+                )
+            except Exception:
+                pass
+
+    if not local_path:
+        # Все URL битые — показываем ошибку с кнопками
+        from aiogram.utils.keyboard import InlineKeyboardBuilder
+        kb = InlineKeyboardBuilder()
+        kb.button(text="🔙 К выбору источника", callback_data="web_cancel")
+        kb.button(text="📁 Загрузить своё", callback_data="web_cancel_upload")
+        kb.adjust(1)
+        await state.update_data(search_idx=found_idx, _retry_count=0)
+        await message.answer(
+            "⚠️ **Все изображения недоступны.**\n"
+            "Ссылки могли устареть. Попробуйте другой источник или загрузите своё:",
+            reply_markup=kb.as_markup()
+        )
+        return
+
+    # Если нашли не первую — обновляем индекс в состоянии
+    if found_idx != idx:
+        await state.update_data(search_idx=found_idx)
+        idx = found_idx
+        # пересчитываем подпись под новую картинку
+        photo = search_results[found_idx]
+        caption = (
+            f"🖼 **Вариант {found_idx + 1}/{len(search_results)}**\n"
+            f"{emoji} {src_name}\n"
+            f"📷 {photo.get('photographer', 'Unknown')}"
+        )
 
     try:
         if is_first:
             msg = await message.answer_photo(
-                photo=FSInputFile(local_path) if local_path else photo["url"],
+                photo=FSInputFile(local_path),
                 caption=caption, reply_markup=kb.as_markup()
             )
             await register_trash(msg, state)
         else:
             media = types.InputMediaPhoto(
-                media=FSInputFile(local_path) if local_path else photo["url"],
+                media=FSInputFile(local_path),
                 caption=caption
             )
             await message.edit_media(media=media, reply_markup=kb.as_markup())
@@ -284,6 +329,7 @@ async def handle_web_search_start(callback: types.CallbackQuery, state: FSMConte
             search_source="all",
         )
         await state.update_data(_searching=False)
+        await callback.message.answer(f"✅ Кэш готов: {len(cached['results'])} изображений")
         try:
             await callback.message.delete()
         except Exception:
@@ -303,17 +349,22 @@ async def handle_web_search_start(callback: types.CallbackQuery, state: FSMConte
             timeout=20
         )
         logger.info(f"Auto-search: queries={queries}, color={color}, style={style_id}")
+        await status.edit_text(f"🔍 Запросы:\n`{', '.join(queries[:3])}`\nИщу по стокам...")
 
         results = await _run_search(queries, color, "all", status_msg=status, state=state)
+        if results:
+            await status.edit_text(f"✅ **Найдено:** {len(results)} изображений")
+        else:
+            await status.edit_text(f"⚠️ **Ничего не найдено.**\nПопробуйте другой запрос или источник.")
         await status.delete()
 
     except asyncio.TimeoutError:
-        await status.edit_text("❌ Поиск занял слишком много времени. Попробуйте ручной ввод.")
+        await status.edit_text("⏱ Поиск занял слишком много времени. Попробуйте другой запрос.")
         await state.update_data(_searching=False)
         return
     except Exception as e:
         logger.error(f"Search error: {e}", exc_info=True)
-        await status.edit_text(f"❌ Ошибка при поиске: {e}")
+        await status.edit_text(f"❌ Ошибка: {e}")
         await state.update_data(_searching=False)
         return
 
@@ -686,49 +737,78 @@ async def handle_web_confirm(callback: types.CallbackQuery, state: FSMContext):
     scene_idx = data.get("current_scene_idx", 0)
 
     temp_path = f"temp/web_{int(time.time())}.jpg"
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(photo["url"], timeout=aiohttp.ClientTimeout(total=30)) as resp:
-                if resp.status == 200:
-                    content = await resp.read()
-                    with open(temp_path, "wb") as f:
-                        f.write(content)
+    success = False
 
-                    # Валидация + нормализация (RGB, JPEG)
-                    try:
-                        from PIL import Image
-                        with Image.open(temp_path) as img:
-                            img.verify()
-                        with Image.open(temp_path) as img:
-                            rgb = img.convert("RGB")
-                            rgb.save(temp_path, "JPEG", quality=95, optimize=True)
-                        logger.info(f"Image saved & sanitized: {temp_path}")
-                    except Exception as img_err:
-                        logger.warning(f"Invalid image: {img_err}")
-                        if os.path.exists(temp_path):
-                            os.remove(temp_path)
-                        await callback.message.edit_reply_markup(reply_markup=old_kb)
-                        await callback.message.answer(
-                            "⚠️ Файл повреждён или неверного формата. Выберите другой вариант."
-                        )
-                        return
+    # 1. Пробуем взять из кэша карусели (уже скачано + уменьшено)
+    cached = _carousel_path(photo["url"])
+    if os.path.exists(cached):
+        import shutil
+        shutil.copy2(cached, temp_path)
+        success = True
+        logger.info(f"web_confirm: used carousel cache for {photo['url'][:50]}")
 
-                    pm.update_asset(project_id, scene_idx, temp_path)
-                    if os.path.exists(temp_path):
-                        os.remove(temp_path)
-                    
-                    # При успехе удаляем старое сообщение или переходим к следующему
-                    try:
-                        await callback.message.delete()
-                    except: pass
-                    await ask_for_asset(callback.message, state, scene_idx + 1)
-                    _cleanup_carousel_cache()
-                else:
-                    await callback.message.edit_reply_markup(reply_markup=old_kb)
-                    await callback.message.answer(f"❌ Ошибка скачивания (HTTP {resp.status})")
-    except Exception as e:
-        logger.error(f"Web confirm error: {e}")
+    # 2. Если кэша нет — скачиваем
+    if not success:
         try:
-            await callback.message.edit_reply_markup(reply_markup=old_kb)
-        except: pass
-        await callback.message.answer(f"❌ Ошибка: {e}")
+            async with aiohttp.ClientSession() as session:
+                async with session.get(photo["url"], timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                    if resp.status == 200:
+                        content = await resp.read()
+                        with open(temp_path, "wb") as f:
+                            f.write(content)
+                        success = True
+        except Exception as e:
+            logger.warning(f"web_confirm download failed: {e}")
+
+    if not success:
+        # Пробуем следующую картинку
+        next_idx = idx + 1
+        while next_idx < len(results):
+            photo = results[next_idx]
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(photo["url"], timeout=aiohttp.ClientTimeout(total=20)) as resp:
+                        if resp.status == 200:
+                            content = await resp.read()
+                            with open(temp_path, "wb") as f:
+                                f.write(content)
+                            idx = next_idx
+                            success = True
+                            logger.info(f"web_confirm: fallback to result {next_idx}")
+                            break
+            except Exception:
+                pass
+            next_idx += 1
+
+    if not success:
+        await callback.message.edit_reply_markup(reply_markup=old_kb)
+        await callback.message.answer("⚠️ Не удалось скачать изображение. Попробуйте другой источник.")
+        return
+
+    # Валидация + нормализация (RGB, JPEG)
+    try:
+        from PIL import Image
+        with Image.open(temp_path) as img:
+            img.verify()
+        with Image.open(temp_path) as img:
+            rgb = img.convert("RGB")
+            rgb.save(temp_path, "JPEG", quality=95, optimize=True)
+        logger.info(f"Image saved & sanitized: {temp_path}")
+    except Exception as img_err:
+        logger.warning(f"Invalid image: {img_err}")
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        await callback.message.edit_reply_markup(reply_markup=old_kb)
+        await callback.message.answer("⚠️ Файл повреждён. Выберите другой вариант.")
+        return
+
+    pm.update_asset(project_id, scene_idx, temp_path)
+    if os.path.exists(temp_path):
+        os.remove(temp_path)
+
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await ask_for_asset(callback.message, state, scene_idx + 1)
+    _cleanup_carousel_cache()

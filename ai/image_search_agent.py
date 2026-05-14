@@ -4,11 +4,20 @@ import logging
 import os
 import random
 import re
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 logger = logging.getLogger(__name__)
 
-PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "563492ad6f91700001000001bc3b392a5b6c4f03998b3f309a63588a")
-PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "43825832-75d192135d8d083f9876e5d23")
+PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
+PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY")
+
+if not PEXELS_API_KEY:
+    logger.warning("PEXELS_API_KEY not found in .env — Pexels search will be disabled")
+if not PIXABAY_API_KEY:
+    logger.warning("PIXABAY_API_KEY not found in .env — Pixabay search will be disabled")
 
 
 async def optimize_query_ai(visual_description: str, scene_text: str = "", style_id: str = "",
