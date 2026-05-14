@@ -119,7 +119,10 @@ class RenderTaskManager:
                             m_start = preview_dur
                             logger.info(f"Worker: Subtitles strictly filtered for preview ({m_start}s)")
 
-                        ass_res = generate_ass_from_project(scenes_for_srt, proj_data['whisper_segments'], ass_path, min_start_time=m_start)
+                        ass_res = generate_ass_from_project(scenes_for_srt, proj_data['whisper_segments'], ass_path,
+                                                               min_start_time=m_start,
+                                                               aligned_words=proj_data.get('aligned_words'),
+                                                               language=proj_data.get('language', ''))
                         if ass_res:
                             res_path = await asyncio.to_thread(burn_subtitles, video_path, ass_path, output_path)
                             if res_path and os.path.exists(res_path):

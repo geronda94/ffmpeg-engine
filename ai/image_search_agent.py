@@ -169,11 +169,10 @@ class ImageSearchAgent:
                 tasks.append(self._search_pixabay(q, 15, color))
             if source_type in ("all", "pexels"):
                 tasks.append(self._search_pexels(q, 15, color))
-            # AI (Pollinations) доступен ТОЛЬКО при явном выборе источника 'ai'.
-            # В режиме 'all' он отключён: AI-генерация часто даёт анатомические артефакты
-            # (лишние пальцы, деформированные руки), которые портят общую выдачу.
-            if source_type == "ai":
-                tasks.append(self._search_pollinations(q, 6))
+            # AI (Pollinations) — добавляем в all, но с низким приоритетом.
+            # Итоговый shuffle перемешивает, а плохие картинки отсеиваются визуально на карусели.
+            if source_type in ("all", "ai"):
+                tasks.append(self._search_pollinations(q, 3))
 
         responses = await asyncio.gather(*tasks, return_exceptions=True)
 
