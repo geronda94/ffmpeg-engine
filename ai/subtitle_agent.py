@@ -42,8 +42,8 @@ def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_t
                 break
         
         # Прямая логика: Primary - это активное слово в караоке, Secondary - неактивный текст
-        c_prim = _hex_to_ass(s_style.get('primary_color', '#C41E3A'))
-        c_sec  = _hex_to_ass(s_style.get('secondary_color', '#F5F5DC'))
+        c_prim = _hex_to_ass(s_style.get('primary_color', '#FF3131'))
+        c_sec  = _hex_to_ass(s_style.get('secondary_color', '#FAF9F6'))
         c_outl = _hex_to_ass(s_style.get('outline_color', '#1C1C1C'))
         font_name = "Montserrat Bold" if "Montserrat" in str(s_style.get('font_path','')) else "DejaVu Sans Bold"
 

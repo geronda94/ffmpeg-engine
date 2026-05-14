@@ -147,7 +147,7 @@ def create_preview_overlay(asset_path, preview_text, highlight_word,
     total_h = total_text_h
     if logo_clip: total_h += logo_clip.h + margin
     
-    start_y = (frame_height - total_h) // 2 - int(frame_height * 0.12)
+    start_y = (frame_height - total_h) // 2 - int(frame_height * 0.05)
     if start_y < 110: start_y = 110
         
     if logo_clip:
