@@ -409,24 +409,44 @@ async def handle_web_search_manual_query(message: types.Message, state: FSMConte
     project_id = data.get("project_id")
     style_id = ""
     full_script = ""
+    scene_text = ""
+    prev_scene_text = ""
+    next_scene_text = ""
+    scene_idx = data.get("current_scene_idx", 0)
+
     if project_id:
         proj = pm.load_project(project_id)
         if proj:
             style_id = proj.get("script_style", "")
             full_script = proj.get("script", "")
+            scenes = proj.get("scenes", [])
+            if scene_idx < len(scenes):
+                scene_text = scenes[scene_idx].get("text_segment", "")
+                if scene_idx > 0:
+                    prev_scene_text = scenes[scene_idx - 1].get("text_segment", "")
+                if scene_idx + 1 < len(scenes):
+                    next_scene_text = scenes[scene_idx + 1].get("text_segment", "")
 
     status = await message.answer("🤖 ИИ подбирает ключевые слова...")
     await register_trash(status, state)
 
     try:
         queries, color = await asyncio.wait_for(
-            optimize_query_ai(user_query, style_id=style_id, script=full_script), timeout=20
+            optimize_query_ai(user_query, scene_text=scene_text, style_id=style_id, script=full_script,
+                              prev_scene=prev_scene_text, next_scene=next_scene_text),
+            timeout=20
         )
         logger.info(f"Manual search: queries={queries}, color={color}")
+        await status.edit_text(f"🔍 **{', '.join(queries[:3])}**\nИщу по стокам...")
+
         results = await _run_search(queries, color, "all", status_msg=status, state=state)
+        if results:
+            await status.edit_text(f"✅ **Найдено:** {len(results)} изображений")
+        else:
+            await status.edit_text(f"⚠️ **Ничего не найдено.**\nПопробуйте другой запрос.")
         await status.delete()
     except asyncio.TimeoutError:
-        await status.edit_text("❌ Поиск занял слишком много времени. Попробуйте другой запрос.")
+        await status.edit_text("⏱ Поиск занял слишком много времени. Попробуйте другой запрос.")
         return
     except Exception as e:
         logger.error(f"Manual search error: {e}", exc_info=True)
@@ -434,8 +454,15 @@ async def handle_web_search_manual_query(message: types.Message, state: FSMConte
         return
 
     if not results:
-        msg = await message.answer("❌ Ничего не нашлось. Попробуйте описать иначе:")
-        await register_trash(msg, state)
+        from aiogram.utils.keyboard import InlineKeyboardBuilder
+        kb = InlineKeyboardBuilder()
+        kb.button(text="🔙 К выбору источника", callback_data="web_cancel")
+        kb.button(text="📁 Загрузить своё", callback_data="web_cancel_upload")
+        kb.adjust(1)
+        await message.answer(
+            "⚠️ Поиск не дал результатов.\nЧто делаем?",
+            reply_markup=kb.as_markup()
+        )
         return
 
     current_source = data.get("search_source", "all")

@@ -26,11 +26,12 @@
       "preview_secondary_color": "#f7ec20",
       "preview_font_path": "assets/fonts/Montserrat-Bold.ttf",
       "subtitle_style": {
-        "primary_color": "#FFFFFF",
-        "outline_color": "#f7ec20",
+        "primary_color": "#f7ec20",
+        "secondary_color": "#FFFFFF",
+        "outline_color": "#141416",
         "shadow_color": "#000000",
-        "outline_width": 2,
-        "shadow_width": 1
+        "outline_width": 4,
+        "shadow_width": 0
       }
     },
     {
@@ -47,11 +48,12 @@
       "preview_secondary_color": "#00F2FF",
       "preview_font_path": "assets/fonts/Inter-ExtraBold.ttf",
       "subtitle_style": {
-        "primary_color": "#FFFFFF",
-        "outline_color": "#00F2FF",
+        "primary_color": "#00F2FF",
+        "secondary_color": "#FFFFFF",
+        "outline_color": "#08090F",
         "shadow_color": "#000000",
-        "outline_width": 2,
-        "shadow_width": 1
+        "outline_width": 4,
+        "shadow_width": 0
       }
     },
     {
