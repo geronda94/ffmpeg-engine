@@ -23,14 +23,14 @@
       "logo_path": "local_assets/logo/logo-orthodox-transparent.png",
       "preview_bg_color": "#141416",
       "preview_text_color": "#FFFFFF",
-      "preview_secondary_color": "#f7ec20",
+      "preview_secondary_color": "#9B1B30",
       "preview_font_path": "assets/fonts/Montserrat-Bold.ttf",
       "subtitle_style": {
-        "primary_color": "#f7ec20",
+        "primary_color": "#FF3131",
         "secondary_color": "#FFFFFF",
-        "outline_color": "#141416",
+        "outline_color": "#1C1C1C",
         "shadow_color": "#000000",
-        "outline_width": 4,
+        "outline_width": 6,
         "shadow_width": 0
       }
     },
@@ -45,14 +45,14 @@
       "logo_path": "local_assets/logo/tech.png",
       "preview_bg_color": "#08090F",
       "preview_text_color": "#FFFFFF",
-      "preview_secondary_color": "#00F2FF",
+      "preview_secondary_color": "#00FF41",
       "preview_font_path": "assets/fonts/Inter-ExtraBold.ttf",
       "subtitle_style": {
         "primary_color": "#00F2FF",
         "secondary_color": "#FFFFFF",
-        "outline_color": "#08090F",
+        "outline_color": "#0D0D0D",
         "shadow_color": "#000000",
-        "outline_width": 4,
+        "outline_width": 8,
         "shadow_width": 0
       }
     },

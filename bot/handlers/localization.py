@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -77,6 +78,19 @@ async def handle_translation_choice(callback: types.CallbackQuery, state: FSMCon
             await status.edit_text("❌ Исходный проект не найден.")
             return
             
+        # ШАГ 1: Клонируем проект (теперь асинхронно, чтобы не вешать бота)
+        logger.info(f"Step 1: Cloning project {source_id} to {target_lang}...")
+        await status.edit_text(f"⏳ **Шаг 1/3: Копирование ассетов...**")
+        
+        new_id = await asyncio.to_thread(pm.clone_project, source_id, target_lang)
+        if not new_id:
+            await status.edit_text("❌ Ошибка при создании папки проекта.")
+            return
+            
+        # ШАГ 2: Перевод через ИИ
+        logger.info(f"Step 2: Requesting AI translation for {new_id}...")
+        await status.edit_text(f"⏳ **Шаг 2/3: ИИ переводит текст на {target_lang}...**")
+        
         trans_res = await translate_project_content(
             source_data['script'], 
             source_data['scenes'],
@@ -84,9 +98,11 @@ async def handle_translation_choice(callback: types.CallbackQuery, state: FSMCon
             target_lang
         )
         
-        new_id = pm.clone_project(source_id, target_lang)
-        proj_data = pm.load_project(new_id)
         if trans_res:
+            logger.info(f"Step 3: Saving translated data to {new_id}...")
+            await status.edit_text(f"⏳ **Шаг 3/3: Финализация проекта...**")
+            
+            proj_data = pm.load_project(new_id)
             proj_data['script'] = trans_res['script']
             proj_data['scenes'] = trans_res['scenes']
             proj_data['metadata'] = trans_res['metadata']

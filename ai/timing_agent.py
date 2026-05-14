@@ -29,8 +29,8 @@ def align_scenes_with_audio(scenes: list, audio_path: str, whisper_segments: lis
             model = get_model()
             logger.info(f"Transcribing audio for timing: {audio_path} (lang={language})")
             
-            # Если язык указан, помогаем Whisper-у
-            transcribe_kwargs = {"verbose": False}
+            # Включаем пословные тайминги для идеальной синхронизации караоке
+            transcribe_kwargs = {"verbose": False, "word_timestamps": True}
             if language:
                 transcribe_kwargs["language"] = language
                 

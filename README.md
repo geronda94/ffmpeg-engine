@@ -1,88 +1,43 @@
-# 🎬 AI Video Factory (v12.5) — Автоматизированная Фабрика Контента
+# 🎬 Content Factory — Автоматизированная фабрика контента
 
-**AI Video Factory** — это мощная экосистема для создания профессионального короткометражного видеоконтента (Shorts, Reels, TikTok) "под ключ". Система объединяет возможности современных LLM, генеративных нейросетей для графики, продвинутых движков озвучки и профессионального видеомонтажа в единый интерактивный конвейер.
+**Content Factory** — экосистема для создания короткометражного видео (Shorts, Reels, TikTok)
+через Telegram-бота. Генерация от идеи до готового MP4 с эффектами, музыкой и субтитрами.
 
----
+## Быстрый старт
 
-## 🌟 Ключевая концепция: "От идеи до публикации"
-Проект построен на модульной архитектуре независимых ИИ-агентов, которые сопровождают создание ролика на каждом этапе:
-
-1.  **Script Writer (LLM)**: Генерирует сценарии с высокой степенью удержания аудитории (Hook -> Context -> Fact -> Outro).
-2.  **Storyboarder**: Визуализирует сценарий, создавая детальные промпты для генерации изображений или подбора футажей.
-3.  **Timing Agent (Whisper)**: Выполняет пословную синхронизацию текста с голосом, создавая идеальный ритм монтажа.
-4.  **Dynamic Scene Engine**: Мощный графический движок на базе MoviePy для создания интерактивных элементов (логотипы, плашки, split-screen).
-5.  **SEO Agent**: Финализирует проект, создавая виральные заголовки, описания и хештеги для YouTube, TikTok и Instagram.
-
----
-
-## 🛠 Технологический Стек
-*   **Core**: Python 3.10+, Aiogram 3 (Telegram UI)
-*   **AI Brain**: DeepSeek-V3 / OpenAI GPT-4o (Logic & Text)
-*   **Voice**: Edge-TTS (Бесплатные голоса), ElevenLabs (Премиум-качество)
-*   **Video Engine**: FFmpeg (Базовый монтаж), MoviePy (Сложная графика)
-*   **Transcription**: OpenAI Whisper (Синхронизация)
-
----
-
-## 📁 Архитектура Проекта
-
-```text
-├── ai/                 # "Мозг" системы: Агенты и ИИ-логика
-│   ├── script_writer.py    # Написание сценариев по пресетам
-│   ├── timing_agent.py     # Синхронизация звука и видео
-│   ├── metadata_agent.py   # SEO-оптимизация и нейминг
-│   ├── montage_agent.py    # Логика склейки финального ролика
-│   └── dynamic_scene_agent.py # Движок сложной графики
-├── bot/                # "Центр управления": Telegram интерфейс
-│   ├── handlers/           # Обработчики этапов (сценарий, ассеты, мета)
-│   ├── pipeline_manager.py # Оркестрация всего процесса создания
-│   └── navigation.py       # Логика интерактивных меню
-├── core/               # "Инженерный отдел": Низкоуровневая работа
-│   ├── video_utils.py      # Обертки над FFmpeg
-│   └── project_manager.py  # Управление БД проектов (JSON-based)
-├── config/             # "Настройки": Пресеты голосов, стилей и графики
-└── tools/              # "Мастерская": Утилиты для автономного рендеринга
-```
-
----
-
-## 🎭 Система Динамических Сцен (Новое!)
-В версии 12.0 добавлен движок пре-рендера, позволяющий создавать сложные визуальные композиции:
-*   **Floating Logo**: Логотип с эффектом пульсации поверх видео.
-*   **Price Tag**: Анимированные плашки с текстом и ценами.
-*   **Split Screen**: Сравнение двух материалов в одном кадре.
-*   **Custom CLI**: Утилита `tools/render_dynamic.py` для сборки графики через консоль.
-
----
-
-## 🚀 Быстрый запуск
-
-### 1. Подготовка окружения
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-### 2. Настройка API
-Создайте `.env` в корне проекта:
-```env
-TELEGRAM_TOKEN=ваш_токен
-DEEPSEEK_API_KEY=ваш_ключ
-ELEVENLABS_API_KEY=ваш_ключ_опционально
-```
-
-### 3. Запуск
-```bash
+cp .env.example .env  # добавить DEEPSEEK_API_KEY, TELEGRAM_BOT_TOKEN
 python3 bot/bot_app.py
 ```
 
----
+**Требования:** Python 3.10+, ffmpeg, ffprobe в PATH
 
-## 📖 Подробная документация
-*   [ARCHITECTURE.md](ARCHITECTURE.md) — глубокое погружение в логику системы.
-*   [PRESETS_SYSTEM.md](PRESETS_SYSTEM.md) — как создавать свои стили и голоса.
-*   [LOCAL_TESTING.md](LOCAL_TESTING.md) — гайд по использованию инструментов в `/tools`.
+## Документация
 
----
-*Developed with ❤️ for Content Creators and AI Enthusiasts.*
+Вся документация в папке `docs/`:
+
+| Файл | Описание |
+|------|----------|
+| `docs/CURRENT_ARCHITECTURE.md` | Полная архитектура, пайплайн, агенты, конфиги |
+| `docs/ROADMAP.md` | План развития, техдолг, приоритеты |
+| `docs/VIDEO_ENGINE_ARCH.md` | Внутренности видео-движка (MoviePy) |
+| `docs/MOVIEPY_V2_GUIDE.md` | Шпаргалка по MoviePy 2.x для AI |
+| `docs/SCHEDULER_BOT_PLAN.md` | План планировщика контента |
+| `docs/montage_instructions.txt` | Системный промпт для AI-монтажёра |
+
+## Технологический стек
+
+| Компонент | Технология |
+|-----------|-----------|
+| Telegram Bot | aiogram 3.x (FSM, middleware, async) |
+| LLM | DeepSeek-V3 через OpenAI SDK |
+| TTS | Edge-TTS (free) + Gemini Pro (premium) |
+| Video | MoviePy v2 + FFmpeg |
+| Search | Pexels + Pixabay + Pollinations AI |
+| Storage | Disk-first JSON (`projects/{id}/project.json`) |
+
+## Лицензия
+
+MIT

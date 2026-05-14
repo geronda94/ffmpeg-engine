@@ -77,21 +77,35 @@ async def send_video_result(task: dict):
 
             if file_size_mb > 49:
                 logger.warning(f"Video too large ({file_size_mb:.1f} MB). Compressing before send...")
+                import subprocess as _sp
                 compressed_path = video_path.replace(".mp4", "_compressed.mp4")
-                compress_cmd = [
+
+                # Проход 1: без даунскейла, CRF=28 — мягкое сжатие
+                cmd_pass1 = [
                     "ffmpeg", "-y", "-i", video_path,
-                    "-vcodec", "libx264", "-crf", "26",  # Оптимизируем сжатие: 26 вместо 32 для лучшего качества
-                    "-preset", "medium",                 # medium дает лучшее сжатие чем fast при том же качестве
-                    "-vf", "scale=720:-2",               # понижаем до 720p
-                    "-acodec", "aac", "-b:a", "128k",    # чуть повышаем битрейт аудио (128 вместо 96)
+                    "-vcodec", "libx264", "-crf", "28",
+                    "-preset", "fast",
+                    "-acodec", "aac", "-b:a", "128k",
                     compressed_path
                 ]
-                result = await asyncio.to_thread(
-                    __import__('subprocess').run, compress_cmd,
-                    capture_output=True
-                )
-                if result.returncode == 0 and os.path.exists(compressed_path):
-                    new_size = os.path.getsize(compressed_path) / (1024 * 1024)
+                result = await asyncio.to_thread(_sp.run, cmd_pass1, capture_output=True)
+                new_size = os.path.getsize(compressed_path) / (1024 * 1024) if (result.returncode == 0 and os.path.exists(compressed_path)) else 999
+
+                # Проход 2: если всё ещё > 49MB — понижаем до 960px (960×1706 для вертикального)
+                if new_size > 49:
+                    logger.warning(f"Pass 1 result {new_size:.1f}MB still too large, downscaling to 960px...")
+                    cmd_pass2 = [
+                        "ffmpeg", "-y", "-i", video_path,
+                        "-vcodec", "libx264", "-crf", "30",
+                        "-preset", "fast",
+                        "-vf", "scale=960:-2",           # 960px ширина, сохраняет соотношение сторон
+                        "-acodec", "aac", "-b:a", "128k",
+                        compressed_path
+                    ]
+                    result = await asyncio.to_thread(_sp.run, cmd_pass2, capture_output=True)
+                    new_size = os.path.getsize(compressed_path) / (1024 * 1024) if (result.returncode == 0 and os.path.exists(compressed_path)) else 999
+
+                if result.returncode == 0 and os.path.exists(compressed_path) and new_size < 999:
                     logger.info(f"Compressed: {file_size_mb:.1f}MB → {new_size:.1f}MB")
                     send_path = compressed_path
                     caption += f"\n\n⚠️ _Видео сжато для отправки ({new_size:.0f} МБ). Оригинал ({file_size_mb:.0f} МБ) сохранён на сервере._"
@@ -210,6 +224,10 @@ async def handle_preset_choice(callback: types.CallbackQuery, state: FSMContext)
     
     if audio_path and os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
         await state.update_data(current_audio_path=audio_path)
+        
+        # Сохраняем путь в проект сразу
+        proj_data['current_audio_path'] = audio_path
+        pm.save_project(project_id, proj_data)
         kb = InlineKeyboardBuilder()
         kb.button(text="✅ Одобрить", callback_data="audio_ok")
         kb.button(text="🔄 Переделать", callback_data="audio_retry")
@@ -324,7 +342,15 @@ async def approve_audio(event: types.CallbackQuery | types.Message, state: FSMCo
         message = event
     
     data = await state.get_data()
-    proj_data = pm.load_project(data['project_id'])
+    project_id = data['project_id']
+    proj_data = pm.load_project(project_id)
+    
+    # Сохраняем путь к аудио в проект при одобрении (фикс бага "Файл не найден")
+    audio_path = data.get('current_audio_path')
+    if audio_path:
+        proj_data['current_audio_path'] = audio_path
+        pm.save_project(project_id, proj_data)
+        logger.info(f"Audio path saved to {project_id}: {audio_path}")
     
     if not proj_data.get('scenes'):
         if data.get('audio_first'):

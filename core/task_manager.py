@@ -107,17 +107,18 @@ class RenderTaskManager:
                         if has_preview:
                             from core.config_loader import get_config
                             preview_dur = get_config("preview_presets", ttl=0).get('display_duration', 3.0)
-                            
-                            w_segments = proj_data.get('whisper_segments', [])
-                            filtered = []
-                            for s in w_segments:
-                                if s['end'] <= preview_dur: continue
-                                if s['start'] < preview_dur: s['start'] = preview_dur
-                                filtered.append(s)
-                            
-                            proj_data['whisper_segments'] = filtered
-                            m_start = preview_dur
-                            logger.info(f"Worker: Subtitles strictly filtered for preview ({m_start}s)")
+                        m_start = preview_dur
+                        logger.info(f"Worker: Subtitles strictly filtered for preview ({m_start}s)")
+
+                        # Фильтруем whisper_segments: удаляем ранние, корректируем пересекающиеся
+                        filtered_w = []
+                        for seg in proj_data.get('whisper_segments', []):
+                            if seg['end'] <= m_start:
+                                continue
+                            if seg['start'] < m_start:
+                                seg['start'] = m_start
+                            filtered_w.append(seg)
+                        proj_data['whisper_segments'] = filtered_w
 
                         ass_res = generate_ass_from_project(scenes_for_srt, proj_data['whisper_segments'], ass_path,
                                                                min_start_time=m_start,

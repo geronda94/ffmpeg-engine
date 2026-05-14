@@ -66,8 +66,10 @@ class ProjectManager:
         new_id = f"{source_id}_{target_lang.lower()[:2]}_{int(time.time()) % 100}"
         new_path = self.get_project_path(new_id)
         
-        # Копируем всю структуру проекта
-        shutil.copytree(source_path, new_path)
+        # Копируем структуру проекта, пропуская тяжелые медиа-файлы и папки
+        shutil.copytree(source_path, new_path, ignore=shutil.ignore_patterns(
+            '*.mp4', '__pycache__', 'temp_*', 'audio', 'video_with_subtitles.mp4', 'final_video.mp4'
+        ))
         
         # Обновляем JSON в новом проекте
         proj_data = self.load_project(new_id)
