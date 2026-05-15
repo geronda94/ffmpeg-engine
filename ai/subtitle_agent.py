@@ -45,7 +45,21 @@ def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_t
         c_prim = _hex_to_ass(s_style.get('primary_color', '#FF3131'))
         c_sec  = _hex_to_ass(s_style.get('secondary_color', '#FAF9F6'))
         c_outl = _hex_to_ass(s_style.get('outline_color', '#1C1C1C'))
-        font_name = "Montserrat Bold" if "Montserrat" in str(s_style.get('font_path','')) else "DejaVu Sans Bold"
+        font_path = str(s_style.get('font_path',''))
+        if "Alice" in font_path:
+            font_name = "Alice"
+        elif "Cormorant" in font_path:
+            font_name = "Cormorant Garamond"
+        elif "Lora" in font_path:
+            font_name = "Lora"
+        elif "Inter-Black" in font_path:
+            font_name = "Inter Black"
+        elif "Inter" in font_path:
+            font_name = "Inter Bold"
+        elif "Montserrat" in font_path:
+            font_name = "Montserrat Bold"
+        else:
+            font_name = "DejaVu Sans Bold"
 
         header = [
             "[Script Info]", "ScriptType: v4.00+", "PlayResX: 1080", "PlayResY: 1920", "",
@@ -103,14 +117,14 @@ def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_t
                 aw_cursor = aw_end
 
         events = []
-        prev_end = min_start_time
         for g in word_groups:
-            start = max(prev_end + 0.02, g['start'])
-            end = max(start + 0.5, g['end'])
+            if g['end'] <= g['start']:
+                continue
+            start, end = g['start'], g['end']
             dur_ms = int((end - start) * 1000)
-            anim_ms = min(100, dur_ms // 3)
-            tags = f"{{\\fad({anim_ms},{anim_ms})\\pos(540,1500)\\fscx0\\fscy0\\t(0,{anim_ms},\\fscx100\\fscy100)\\t({dur_ms-anim_ms},{dur_ms},\\fscx0\\fscy0)}}"
-            
+            anim_ms = min(80, dur_ms // 4)
+            tags = f"{{\\fad({anim_ms},{anim_ms})\\pos(540,1500)\\fscx0\\fscy0\\t(0,{anim_ms},\\fscx100\\fscy100)}}"
+
             k_line, curr_t = "", start
             wt_idx = 0
             parts = g['text'].split("\\N")
@@ -129,7 +143,6 @@ def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_t
                 if pi < len(parts) - 1: k_line += "\\N"
 
             events.append(f"Dialogue: 0,{fmt(start)},{fmt(end)},Karaoke,,0,0,0,,{tags}{k_line}")
-            prev_end = end
 
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write("\n".join(header + events))

@@ -126,63 +126,24 @@ async def render_project_video(project_id: str, audio_path: str, render_threads:
         
         proj_data['whisper_segments'] = segments
         
-        # Мапим сегменты на сцены — жадный алгоритм: берём первый непрерывный блок совпадений
-        # Определяем общую длительность аудио (по последнему сегменту Whisper)
-        total_audio_dur = segments[-1]['end'] if segments else 0
-        if not total_audio_dur:
-            total_audio_dur = sum(s.get('estimated_duration', 3.0) for s in scenes_data)
-
+        # Мапим сегменты на сцены — используем estimated_duration как основу
+        # (Whisper word-тайминги используем ТОЛЬКО для микро-синхронизации в subtitle_agent)
         current_time = 0
-        segment_cursor = 0
-        for i, scene in enumerate(scenes_data):
-            text = scene.get('text_segment', '').strip()
-            if not text:
-                scene['start'], scene['end'] = current_time, current_time + 0.5
-                current_time += 0.5
-                continue
+        for scene in scenes_data:
+            dur = scene.get('estimated_duration', 3.0)
+            dur = max(0.5, float(dur))
+            scene['start'] = current_time
+            scene['end'] = current_time + dur
+            current_time += dur
 
-            scene_words = text.split()
-            candidates = segments[segment_cursor:]
-            matching_segments = []
-            matched_start_idx = None
-
-            for ci, s in enumerate(candidates):
-                word_hit = any(word.lower() in s['text'].lower() for word in scene_words[:3])
-                if word_hit:
-                    if not matching_segments: matched_start_idx = ci
-                    matching_segments.append(s)
-                elif matching_segments:
-                    if (s['start'] - matching_segments[-1]['end']) > 0.8: break
-
-            if not matching_segments:
-                # ВАЖНО: Если слов нет, НЕ добавляем лишнее время. 
-                # Распределяем остаток аудио-времени на оставшиеся сцены.
-                rem_scenes = len(scenes_data) - i
-                rem_time = max(0.5, total_audio_dur - current_time)
-                scene_duration = rem_time / rem_scenes
-                scene['start'] = current_time
-                scene['end']   = scene['start'] + scene_duration
-            else:
-                s_start = matching_segments[0]['start']
-                s_end   = matching_segments[-1]['end']
-                
-                scene['start'] = current_time
-                scene['end']   = max(scene['start'] + 0.5, s_end)
-                
-                # Не даем сцене вылезти за общий хронометраж (кроме последней)
-                if i < len(scenes_data) - 1:
-                    scene['end'] = min(scene['end'], total_audio_dur)
-
-                last_used_global_idx = segment_cursor + matched_start_idx + len(matching_segments) - 1
-                segment_cursor = last_used_global_idx + 1
-
-            current_time = scene['end']
-
-        # Финальная обрезка по аудио (санитарный максимум)
-        if current_time > total_audio_dur + 1.0:
-            logger.info(f"Trimming cumulative duration {current_time:.2f} to audio limit {total_audio_dur:.2f}")
-            current_time = total_audio_dur
-            scenes_data[-1]['end'] = total_audio_dur
+        # Подгоняем под реальную длительность аудио — пропорционально масштабируем
+        audio_dur = segments[-1]['end'] if segments else current_time
+        if current_time > 0 and scenes_data and current_time != audio_dur:
+            scale = audio_dur / current_time
+            for s in scenes_data:
+                s['start'] = round(s['start'] * scale, 2)
+                s['end'] = round(s['end'] * scale, 2)
+            scenes_data[-1]['end'] = round(audio_dur, 2)
         
         pm.save_project(project_id, proj_data)
 

@@ -11,7 +11,7 @@
     "width_max_pct": 0.72
   },
   "glass": {
-    "opacity": 0.30,
+    "opacity": 0.5,
     "grain_strength": 8,
     "padding_x": 36,
     "padding_y": 26,
