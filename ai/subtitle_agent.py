@@ -98,7 +98,7 @@ def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_t
 
         full_text = " ".join([s.get('text_segment', '') for s in scenes if s.get('allow_montage_effects', True)])
         raw_words = [_clean(w) for w in full_text.split() if _clean(w)]
-        
+
         if len(raw_words) > len(all_whisper_words):
             diff = len(raw_words) - len(all_whisper_words)
             raw_words = raw_words[diff:]

@@ -107,8 +107,8 @@ class RenderTaskManager:
                         if has_preview:
                             from core.config_loader import get_config
                             preview_dur = get_config("preview_presets", ttl=0).get('display_duration', 3.0)
-                        m_start = preview_dur
-                        logger.info(f"Worker: Subtitles strictly filtered for preview ({m_start}s)")
+                            m_start = preview_dur
+                            logger.info(f"Worker: Subtitles strictly filtered for preview ({m_start}s)")
 
                         # Фильтруем whisper_segments: удаляем ранние, корректируем пересекающиеся
                         filtered_w = []
