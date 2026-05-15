@@ -124,7 +124,34 @@ class BaseMontageEngine:
     def render(self, scenes, audio_path, output_path, preset, progress_callback=None, sound_map=None, render_threads=4):
         try:
             voice = AudioFileClip(audio_path).with_volume_scaled(2.0)
-            video_duration = voice.duration
+
+            # Используем ffprobe для точной длины с точностью до микросекунды.
+            # AudioFileClip.duration может давать неточный результат из-за AAC encoder delay.
+            try:
+                import subprocess, json
+                probe = subprocess.run(
+                    ["ffprobe", "-v", "quiet", "-print_format", "json",
+                     "-show_streams", "-select_streams", "a", audio_path],
+                    capture_output=True, text=True, timeout=10
+                )
+                probe_data = json.loads(probe.stdout)
+                stream = probe_data.get("streams", [{}])[0]
+                # Пробуем сначала tags->DURATION (самый точный), потом duration
+                raw_dur = stream.get("tags", {}).get("DURATION") or stream.get("duration")
+                if raw_dur:
+                    # DURATION в формате HH:MM:SS.ffffff
+                    parts = str(raw_dur).split(":")
+                    if len(parts) == 3:
+                        video_duration = int(parts[0])*3600 + int(parts[1])*60 + float(parts[2])
+                    else:
+                        video_duration = float(raw_dur)
+                    logger.info(f"ffprobe exact audio duration: {video_duration:.6f}s")
+                else:
+                    video_duration = voice.duration
+            except Exception as e:
+                logger.warning(f"ffprobe failed, using MoviePy duration: {e}")
+                video_duration = voice.duration
+
             final_clips = []
             trans_cfg = preset.get('transition', {})
             preset_effects = preset.get('effects', [])
@@ -237,7 +264,10 @@ class BaseMontageEngine:
                 remove_temp=True,
                 threads=render_threads,
                 preset="veryfast",
-                logger=render_logger
+                logger=render_logger,
+                # Жёсткий trim по времени — гарантирует что видео не вылезет
+                # ни на кадр за пределы аудио, даже с AAC encoder padding
+                ffmpeg_params=["-t", f"{video_duration:.6f}"]
             )
             return True
         except Exception as e:
