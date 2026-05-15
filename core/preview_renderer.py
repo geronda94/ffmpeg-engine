@@ -144,11 +144,12 @@ def create_preview_overlay(asset_path, preview_text, highlight_word,
         temp = TextClip(text=ln, font_size=base_font_size, color=color, font=font, method="label")
         scale = min(max_scale, target_w / temp.w) if temp.w > 0 else 1.0
         f_size = int(base_font_size * scale)
-        line_h = int(f_size * 1.15)
+        # 1.2x: достаточно для descenders + анимация 1.08x, без лишних пустот
+        line_h = int(f_size * 1.2)
         tc = TextClip(text=ln, font_size=f_size, color=color, font=font, method="caption", size=(frame_width, line_h), text_align="center").with_duration(duration)
         text_clips.append(tc)
 
-    line_spacing = 5 # Еще плотнее
+    line_spacing = -10  # Отрицательный чтобы компенсировать padding контейнера
     total_text_h = sum(c.h for c in text_clips) + (len(text_clips)-1)*line_spacing
     margin = 40
     total_h = total_text_h
@@ -168,10 +169,9 @@ def create_preview_overlay(asset_path, preview_text, highlight_word,
         curr_y = start_y + lh + margin
     else: curr_y = start_y
 
-    # Читаем анимацию из конфига
+    # Пользователь попросил убрать затухание (FadeIn), чтобы превью было с первой миллисекунды (для обложек)
     anim_cfg = display_config.get("animation", {})
-    fade_duration = anim_cfg.get("duration", 0.6)
-    
+    fade_duration = 0 # Жестко отключаем фейд-ин
     pop_duration, pop_delay = 0.6, 0.2
     for i, tc in enumerate(text_clips):
         tx, tw, th = (frame_width - tc.w) // 2, tc.w, tc.h

@@ -95,31 +95,15 @@ class RenderTaskManager:
                         for i, s in enumerate(scenes_for_srt):
                             s['allow_montage_effects'] = assets.get(str(i), {}).get('allow_montage_effects', True)
                         
-                        # ФИЛЬТРАЦИЯ ДЛЯ ПРЕВЬЮ (ДУБЛИРУЕМ ЛОГИКУ ИЗ PRODUCTION)
+                        # Определяем длительность превью для скрытия субтитров
                         m_start = 0.0
-                        
-                        # Агрессивная проверка на наличие превью
-                        has_preview = False
-                        if proj_data.get('preview_text'):
-                            has_preview = True
-                        elif proj_data.get('scenes') and proj_data['scenes'][0].get('preview_text'):
-                            has_preview = True
-                            
+                        has_preview = proj_data.get('preview_text') or (
+                            proj_data.get('scenes') and proj_data['scenes'][0].get('preview_text')
+                        )
                         if has_preview:
                             from core.config_loader import get_config
-                            preview_dur = get_config("preview_presets", ttl=0).get('display_duration', 3.0)
-                            m_start = preview_dur
-                            logger.info(f"Worker: Subtitles strictly filtered for preview ({m_start}s)")
-
-                        # Фильтруем whisper_segments: удаляем ранние, корректируем пересекающиеся
-                        filtered_w = []
-                        for seg in proj_data.get('whisper_segments', []):
-                            if seg['end'] <= m_start:
-                                continue
-                            if seg['start'] < m_start:
-                                seg['start'] = m_start
-                            filtered_w.append(seg)
-                        proj_data['whisper_segments'] = filtered_w
+                            m_start = get_config("preview_presets", ttl=0).get('display_duration', 2.0)
+                            logger.info(f"Worker: Preview active — subtitles before {m_start}s will be invisible in ASS")
 
                         ass_res = generate_ass_from_project(scenes_for_srt, proj_data['whisper_segments'], ass_path,
                                                                min_start_time=m_start,

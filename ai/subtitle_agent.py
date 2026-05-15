@@ -74,25 +74,27 @@ def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_t
             ms = int((t%1)*100)
             return f"{h}:{m:02d}:{s:02d}.{ms:02d}"
 
+        # Собираем ВСЕ слова, включая те что до min_start_time.
+        # Ранние слова помечаем флагом invisible=True, чтобы не сдвигать курсор по тексту.
         all_whisper_words = []
         for s in whisper_segments:
             s_start = float(s['start'])
-            if s_start < min_start_time:
-                if 'words' in s:
-                    for w in s['words']:
-                        if float(w['start']) >= min_start_time: all_whisper_words.append(w)
-                continue
-            
             if 'words' in s and s['words']:
-                all_whisper_words.extend(s['words'])
+                for w in s['words']:
+                    word = dict(w)
+                    word['invisible'] = float(word['end']) <= min_start_time
+                    all_whisper_words.append(word)
             else:
                 words_in_seg = s.get('text', '').strip().split()
                 if not words_in_seg: continue
                 dur = (float(s['end']) - s_start) / len(words_in_seg)
                 for i, w in enumerate(words_in_seg):
                     w_start = s_start + i * dur
-                    if w_start >= min_start_time:
-                        all_whisper_words.append({'word': w, 'start': w_start, 'end': s_start + (i + 1) * dur})
+                    w_end = s_start + (i + 1) * dur
+                    all_whisper_words.append({
+                        'word': w, 'start': w_start, 'end': w_end,
+                        'invisible': w_end <= min_start_time
+                    })
 
         if not all_whisper_words: return None
 
@@ -112,8 +114,12 @@ def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_t
             if g_wc == 0: continue
             aw_end = min(aw_cursor + g_wc, len(all_whisper_words))
             if aw_cursor < len(all_whisper_words):
-                g_start, g_end = float(all_whisper_words[aw_cursor]["start"]), float(all_whisper_words[max(aw_cursor, aw_end-1)]["end"])
-                word_groups.append({'text': g, 'start': g_start, 'end': g_end, 'word_timings': all_whisper_words[aw_cursor:aw_end]})
+                g_start = float(all_whisper_words[aw_cursor]["start"])
+                g_end = float(all_whisper_words[max(aw_cursor, aw_end-1)]["end"])
+                word_groups.append({
+                    'text': g, 'start': g_start, 'end': g_end,
+                    'word_timings': all_whisper_words[aw_cursor:aw_end]
+                })
                 aw_cursor = aw_end
 
         events = []
@@ -123,7 +129,21 @@ def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_t
             start, end = g['start'], g['end']
             dur_ms = int((end - start) * 1000)
             anim_ms = min(80, dur_ms // 4)
-            tags = f"{{\\fad({anim_ms},{anim_ms})\\pos(540,1500)\\fscx0\\fscy0\\t(0,{anim_ms},\\fscx100\\fscy100)}}"
+
+            # Высчитываем, сколько миллисекунд от начала группы длится превью
+            reveal_ms = int((min_start_time - start) * 1000)
+
+            if reveal_ms >= dur_ms:
+                # Вся группа попадает под превью — держим размер нулевым
+                tags = f"{{\\pos(540,1500)\\fscx0\\fscy0}}"
+            elif reveal_ms > 0:
+                # Группа начинается под превью, а заканчивается после.
+                # Ждём reveal_ms с нулевым размером, потом делаем pop-анимацию!
+                # Используем fade-out (0, anim_ms) чтобы в конце субтитр плавно исчез.
+                tags = f"{{\\fad(0,{anim_ms})\\pos(540,1500)\\fscx0\\fscy0\\t({reveal_ms},{reveal_ms+anim_ms},\\fscx100\\fscy100)}}"
+            else:
+                # Обычная группа после превью
+                tags = f"{{\\fad({anim_ms},{anim_ms})\\pos(540,1500)\\fscx0\\fscy0\\t(0,{anim_ms},\\fscx100\\fscy100)}}"
 
             k_line, curr_t = "", start
             wt_idx = 0

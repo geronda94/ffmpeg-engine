@@ -206,7 +206,7 @@ class BaseMontageEngine:
                 size=(self.width, self.height), color=(0, 0, 0)
             ).with_duration(video_duration)
 
-            video_track = CompositeVideoClip([bg_base] + final_clips, size=(self.width, self.height), use_bgclip=True)
+            video_track = CompositeVideoClip([bg_base] + final_clips, size=(self.width, self.height), use_bgclip=True).with_duration(video_duration)
 
             bg_music = _build_bg_music(sound_map, video_duration)
             if bg_music:

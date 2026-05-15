@@ -137,7 +137,16 @@ async def render_project_video(project_id: str, audio_path: str, render_threads:
             current_time += dur
 
         # Подгоняем под реальную длительность аудио — пропорционально масштабируем
-        audio_dur = segments[-1]['end'] if segments else current_time
+        # Берем длину не из Whisper (который может галлюцинировать тишиной), а физически из файла
+        try:
+            from moviepy import AudioFileClip
+            ac = AudioFileClip(audio_path)
+            audio_dur = float(ac.duration)
+            ac.close()
+        except Exception as e:
+            logger.warning(f"Failed to read audio length, falling back to Whisper: {e}")
+            audio_dur = segments[-1]['end'] if segments else current_time
+
         if current_time > 0 and scenes_data and current_time != audio_dur:
             scale = audio_dur / current_time
             for s in scenes_data:
