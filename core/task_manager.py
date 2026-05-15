@@ -9,7 +9,7 @@ from bot.pipeline_manager import render_project_video
 logger = logging.getLogger(__name__)
 
 CPU_COUNT = multiprocessing.cpu_count()
-MAX_RENDER_THREADS = min(max(2, int(CPU_COUNT * 0.5)), 4)
+MAX_RENDER_THREADS = min(max(1, int(CPU_COUNT * 0.3)), 2)
 
 class RenderTaskManager:
     """Менеджер фоновых задач рендеринга (Singleton)."""
@@ -66,6 +66,7 @@ class RenderTaskManager:
             try:
                 logger.info(f"Worker: Starting render for {project_id} (threads={MAX_RENDER_THREADS})")
                 video_path = await render_project_video(project_id, audio_path, render_threads=MAX_RENDER_THREADS)
+                await asyncio.sleep(0)  # отдаём управление event loop для обработки апдейтов состояний
                 
                 if video_path:
                     from core.project_manager import ProjectManager

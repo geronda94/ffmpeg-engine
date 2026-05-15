@@ -2,7 +2,7 @@
   "version": 2,
   "max_words": 4,
   "min_words": 2,
-  "display_duration": 3.0,
+  "display_duration": 0.8,
   "font_size": 68,
   "position": {
     "x_offset_pct": 0.08,

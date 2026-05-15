@@ -191,7 +191,7 @@ class BaseMontageEngine:
                             custom_font_path=scene.get('preview_font_path')
                         )
                         # Добавляем в конец списка клипов, чтобы был поверх всех
-                        final_clips.append(p_overlay.with_start(0))
+                        final_clips.append(p_overlay.with_start(start_time))
                         logger.info(f"✨ Preview overlay added to final stack (duration: {p_dur}s)")
                     except Exception as e:
                         logger.error(f"Failed to create preview overlay: {e}", exc_info=True)

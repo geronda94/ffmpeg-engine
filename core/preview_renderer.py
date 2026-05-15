@@ -98,17 +98,24 @@ def create_preview_overlay(asset_path, preview_text, highlight_word,
     bg_rgb = _hex_to_rgb(bg_hex)
     bg_clip = ColorClip(size=(frame_width, frame_height), color=bg_rgb).with_opacity(0.42).with_duration(duration)
     
+    # Оптимизация: генерируем 10 кадров шума заранее и циклически их показываем
+    # Это в разы быстрее, чем генерировать шум каждый кадр
+    noise_frames = []
+    rng = np.random.RandomState(42)
+    for _ in range(10):
+        h_n, w_n = frame_height // 3, frame_width // 3
+        noise_small = rng.randint(-14, 14, (h_n, w_n, 3), dtype=np.int16)
+        noise_img = _PILImage.fromarray((noise_small + 14).astype(np.uint8))
+        noise_large = np.array(noise_img.resize((frame_width, frame_height), _PILImage.NEAREST)).astype(np.int16) - 14
+        noise_frames.append(noise_large)
+
     def _add_grain_effect(get_frame, t):
         frame = get_frame(t)
-        h, w = frame.shape[:2]
-        noise_h, noise_w = h // 3, w // 3
-        rng = np.random.RandomState(int(t * 10) % 100)
-        noise_small = rng.randint(-14, 14, (noise_h, noise_w, 3), dtype=np.int16)
-        from PIL import Image as _PILImage
-        noise_img = _PILImage.fromarray((noise_small + 14).astype(np.uint8))
-        noise_large = np.array(noise_img.resize((w, h), _PILImage.NEAREST)).astype(np.int16) - 14
+        # Выбираем один из заранее сгенерированных кадров шума
+        idx = int(t * 12) % 10
+        noise = noise_frames[idx]
         res = frame.copy().astype(np.int16)
-        res[..., :3] = np.clip(res[..., :3] + noise_large, 0, 255)
+        res[..., :3] = np.clip(res[..., :3] + noise, 0, 255)
         return res.astype(np.uint8)
 
     bg_clip = bg_clip.transform(_add_grain_effect)
@@ -161,19 +168,46 @@ def create_preview_overlay(asset_path, preview_text, highlight_word,
         curr_y = start_y + lh + margin
     else: curr_y = start_y
 
+    # Читаем анимацию из конфига
+    anim_cfg = display_config.get("animation", {})
+    fade_duration = anim_cfg.get("duration", 0.6)
+    
     pop_duration, pop_delay = 0.6, 0.2
     for i, tc in enumerate(text_clips):
         tx, tw, th = (frame_width - tc.w) // 2, tc.w, tc.h
         st = i * pop_delay
-        def get_scale(t, st=st):
-            if st <= t <= st + pop_duration:
-                p = (t - st) / pop_duration
-                return 1.0 + 0.08 * np.sin(np.pi * p)
-            return 1.0
-        def get_pos(t, st=st, x=tx, y=curr_y, w=tw, h=th):
-            s = get_scale(t, st)
-            return (x - (w*s - w)/2, y - (h*s - h)/2)
-        all_layers.append(tc.with_effects([vfx.Resize(get_scale)]).with_position(get_pos))
+        
+        # Фиксируем текущий Y для конкретной строки (исправление closure bug)
+        line_y = curr_y
+        
+        def make_scale_fn(start_offset):
+            def get_scale(t):
+                if start_offset <= t <= start_offset + pop_duration:
+                    p = (t - start_offset) / pop_duration
+                    return 1.0 + 0.08 * np.sin(np.pi * p)
+                return 1.0
+            return get_scale
+            
+        def make_pos_fn(start_offset, x, y, w, h, s_fn):
+            def get_pos(t):
+                s = s_fn(t)
+                return (x - (w*s - w)/2, y - (h*s - h)/2)
+            return get_pos
+            
+        line_scale_fn = make_scale_fn(st)
+        line_pos_fn = make_pos_fn(st, tx, line_y, tw, th, line_scale_fn)
+        
+        # Применяем эффекты и плавное появление каждой строки
+        line_clip = tc.with_effects([vfx.Resize(line_scale_fn)]).with_position(line_pos_fn)
+        if fade_duration > 0:
+            line_clip = line_clip.with_effects([vfx.FadeIn(fade_duration)])
+            
+        all_layers.append(line_clip)
         curr_y += th + line_spacing
 
-    return CompositeVideoClip(all_layers, size=(frame_width, frame_height)).with_duration(duration)
+    final_overlay = CompositeVideoClip(all_layers, size=(frame_width, frame_height)).with_duration(duration)
+    if fade_duration > 0:
+        # Дополнительно фейдим весь оверлей для мягкости
+        final_overlay = final_overlay.with_effects([vfx.FadeIn(fade_duration)])
+        
+    return final_overlay

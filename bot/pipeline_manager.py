@@ -167,8 +167,12 @@ async def render_project_video(project_id: str, audio_path: str, render_threads:
             "transition": scene.get('transition', {}),
             "mirror": proj_data.get('mirror_assets', False),
         })
+        if i % 5 == 0:
+            await asyncio.sleep(0)
 
-    if scenes_for_agent and proj_data.get('preview_text'):
+    if scenes_for_agent and (proj_data.get('preview_text') or proj_data.get('preview_highlight')):
+        proj_data['preview_text'] = proj_data.get('preview_text') or ''
+        proj_data['preview_highlight'] = proj_data.get('preview_highlight', '')
         scenes_for_agent[0]['preview_text'] = proj_data['preview_text']
         scenes_for_agent[0]['preview_highlight'] = proj_data.get('preview_highlight', '')
         scenes_for_agent[0]['preview_colors'] = proj_data.get('preview_colors', {})
