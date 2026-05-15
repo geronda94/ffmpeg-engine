@@ -7,6 +7,11 @@ logger = logging.getLogger(__name__)
 def _clean(word):
     return re.sub(r'[^\w\s]', '', word).lower().strip()
 
+def _clean_display(word):
+    """Очищает слово от знаков препинания, но сохраняет регистр (CAPS)."""
+    # Убираем только явный пунктуационный шум, не трогая буквы и цифры
+    return re.sub(r'[",.«»"\'\(\)\[\]!?;:]', '', word).strip()
+
 def _hex_to_ass(hex_color):
     hex_color = hex_color.lstrip('#')
     if len(hex_color) == 6:
@@ -98,29 +103,83 @@ def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_t
 
         if not all_whisper_words: return None
 
-        full_text = " ".join([s.get('text_segment', '') for s in scenes if s.get('allow_montage_effects', True)])
-        raw_words = [_clean(w) for w in full_text.split() if _clean(w)]
+        word_groups = []
+        for scene in scenes:
+            if not scene.get('allow_montage_effects', True):
+                continue
+            
+            s_text = scene.get('text_segment', '').strip()
+            if not s_text: continue
+            
+            s_start = float(scene.get('start', 0.0))
+            s_end = float(scene.get('end', 0.0))
+            
+            # Используем слова, предварительно выровненные через LLM (в timing_agent)
+            if 'words' in scene and scene['words']:
+                scene_whisper_words = scene['words']
+            else:
+                # Берем слова Whisper, которые попадают в интервал этой сцены.
+                scene_whisper_words = [
+                    w for w in all_whisper_words 
+                    if w['start'] >= s_start - 0.1 and w['start'] < s_end + 0.1
+                ]
+            
+            if not scene_whisper_words:
+                # Если Whisper ничего не нашел для этой сцены (тишина?), создаем пустую заглушку
+                # или просто пропускаем, но лучше распределить пропорционально если текст есть.
+                raw_words = s_text.split()
+                dur = (s_end - s_start) / len(raw_words) if raw_words else 1.0
+                for i, rw in enumerate(raw_words):
+                    scene_whisper_words.append({
+                        'word': rw, 'start': s_start + i * dur, 'end': s_start + (i + 1) * dur,
+                        'invisible': s_start + (i+1)*dur <= min_start_time
+                    })
 
-        if len(raw_words) > len(all_whisper_words):
-            diff = len(raw_words) - len(all_whisper_words)
-            raw_words = raw_words[diff:]
-
-        # Возвращаемся к 18 символам, чтобы текст не раздувался на 3 строки
-        groups = _group_words_2line(raw_words, max_chars=18)
-        word_groups, aw_cursor = [], 0
-        
-        for g in groups:
-            g_wc = len(g.replace("\\N", " ").split())
-            if g_wc == 0: continue
-            aw_end = min(aw_cursor + g_wc, len(all_whisper_words))
-            if aw_cursor < len(all_whisper_words):
-                g_start = float(all_whisper_words[aw_cursor]["start"])
-                g_end = float(all_whisper_words[max(aw_cursor, aw_end-1)]["end"])
+            # Разбиваем текст конкретной сцены на группы (обычно 1-2 группы на сцену)
+            raw_scene_words = s_text.split()
+            groups = _group_words_2line(raw_scene_words, max_chars=18)
+            
+            sw_cursor = 0
+            for g in groups:
+                g_words = g.replace("\\N", " ").split()
+                g_wc = len(g_words)
+                if g_wc == 0: continue
+                
+                # Мапим слова группы на доступные слова Whisper в этой сцене.
+                # ФИКС: Если слова в Whisper закончились, но группы еще есть — интерполируем по времени сцены.
+                if sw_cursor < len(scene_whisper_words):
+                    sw_end = min(sw_cursor + g_wc, len(scene_whisper_words))
+                    g_start_t = float(scene_whisper_words[sw_cursor]["start"])
+                    g_end_t = float(scene_whisper_words[max(sw_cursor, sw_end-1)]["end"])
+                    g_timings = scene_whisper_words[sw_cursor:sw_end]
+                    sw_cursor = sw_end
+                else:
+                    # Интерполяция для "лишних" слов сценария, которых нет в Whisper
+                    g_start_t = s_end - 0.2
+                    g_end_t = s_end
+                    g_timings = [] # Будут отображаться как статический текст в конце
+                    
                 word_groups.append({
-                    'text': g, 'start': g_start, 'end': g_end,
-                    'word_timings': all_whisper_words[aw_cursor:aw_end]
+                    'text': g, 'start': g_start_t, 'end': g_end_t,
+                    'word_timings': g_timings
                 })
-                aw_cursor = aw_end
+
+        if not word_groups: return None
+
+        # --- АЛГОРИТМ ШЛИФОВКИ ТАЙМИНГОВ ---
+        # Устраняем наслоения и добавляем зазор для анимации (0.08с)
+        GAP = 0.08
+        for i in range(len(word_groups) - 1):
+            curr, nxt = word_groups[i], word_groups[i+1]
+            if curr['end'] > nxt['start'] - GAP:
+                # Сжимаем текущий, чтобы дать место следующему
+                new_end = nxt['start'] - GAP
+                if new_end > curr['start'] + 0.1:
+                    curr['end'] = new_end
+                else:
+                    # Если места совсем нет, чуть-чуть двигаем начало следующего
+                    curr['end'] = curr['start'] + 0.1
+                    nxt['start'] = curr['end'] + GAP
 
         events = []
         for g in word_groups:
@@ -153,12 +212,15 @@ def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_t
                 for wi, w in enumerate(p_words):
                     if wt_idx < len(g['word_timings']):
                         wd = g['word_timings'][wt_idx]
+                        # Используем очищенное слово, сохраняя регистр
+                        display_word = _clean_display(wd.get('word', w))
                         k_dur = int(round((float(wd['end']) - float(wd['start'])) * 100))
                         gap = int(round((float(wd['start']) - curr_t) * 100))
                         if gap > 0: k_line += f"{{\\k{gap}}}"
-                        k_line += f"{{\\kf{max(1, k_dur)}}}{w}"
+                        k_line += f"{{\\kf{max(1, k_dur)}}}{display_word}"
                         curr_t, wt_idx = float(wd['end']), wt_idx + 1
-                    else: k_line += w
+                    else:
+                        k_line += _clean_display(w)
                     if wi < len(p_words) - 1: k_line += " "
                 if pi < len(parts) - 1: k_line += "\\N"
 

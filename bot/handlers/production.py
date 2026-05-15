@@ -56,8 +56,49 @@ async def send_video_result(task: dict):
             f"🏷 **Теги:**\n`{hashtags}`"
         )
         
+        # Проверяем размер файла — Telegram принимает до 50 МБ через Bot API
+        file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
+        send_path = video_path
+
+        if file_size_mb > 49:
+            logger.warning(f"Video too large ({file_size_mb:.1f} MB). Compressing before send...")
+            import subprocess as _sp
+            compressed_path = video_path.replace(".mp4", "_compressed.mp4")
+
+            # Проход 1: без даунскейла, CRF=28 — мягкое сжатие
+            cmd_pass1 = [
+                "ffmpeg", "-y", "-i", video_path,
+                "-vcodec", "libx264", "-crf", "28",
+                "-preset", "fast",
+                "-acodec", "aac", "-b:a", "128k",
+                compressed_path
+            ]
+            result = await asyncio.to_thread(_sp.run, cmd_pass1, capture_output=True)
+            new_size = os.path.getsize(compressed_path) / (1024 * 1024) if (result.returncode == 0 and os.path.exists(compressed_path)) else 999
+
+            # Проход 2: если всё ещё > 49MB — понижаем до 960px (960×1706 для вертикального)
+            if new_size > 49:
+                logger.warning(f"Pass 1 result {new_size:.1f}MB still too large, downscaling to 960px...")
+                cmd_pass2 = [
+                    "ffmpeg", "-y", "-i", video_path,
+                    "-vcodec", "libx264", "-crf", "30",
+                    "-preset", "fast",
+                    "-vf", "scale=960:-2",           # 960px ширина, сохраняет соотношение сторон
+                    "-acodec", "aac", "-b:a", "128k",
+                    compressed_path
+                ]
+                result = await asyncio.to_thread(_sp.run, cmd_pass2, capture_output=True)
+                new_size = os.path.getsize(compressed_path) / (1024 * 1024) if (result.returncode == 0 and os.path.exists(compressed_path)) else 999
+
+            if result.returncode == 0 and os.path.exists(compressed_path) and new_size < 999:
+                logger.info(f"Compressed: {file_size_mb:.1f}MB → {new_size:.1f}MB")
+                send_path = compressed_path
+                caption += f"\n\n⚠️ _Видео сжато для отправки ({new_size:.0f} МБ). Оригинал ({file_size_mb:.0f} МБ) сохранён на сервере._"
+            else:
+                logger.error("Compression failed, sending original (may fail)")
+        
         try:
-            logger.info(f"Sending video to user {user_id}: {video_path}")
+            logger.info(f"Sending video to user {user_id}: {video_path} ({file_size_mb:.1f} MB)")
             from aiogram.types import FSInputFile
             
             # Получаем ID сообщения для ответа
@@ -71,79 +112,63 @@ async def send_video_result(task: dict):
             kb.button(text="🌍 Перевести", callback_data=f"translate_menu:{project_id}")
             kb.adjust(1)
 
-            # Проверяем размер файла — Telegram принимает до 50 МБ через Bot API
-            file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
-            send_path = video_path
+            # Пытаемся отправить ролик (с повторами при сетевых ошибках)
+            msg = None
+            last_err = None
+            for attempt in range(3):
+                try:
+                    logger.info(f"Attempt {attempt+1} to send video {project_id}...")
+                    msg = await bot.send_video(
+                        user_id, 
+                        FSInputFile(send_path), 
+                        caption=caption[:1024], 
+                        parse_mode="Markdown",
+                        reply_to_message_id=reply_id,
+                        reply_markup=kb.as_markup(),
+                        request_timeout=600 # 10 минут на загрузку
+                    )
+                    break
+                except Exception as e:
+                    last_err = e
+                    logger.warning(f"Attempt {attempt+1} failed: {e}")
+                    # Если ошибка в reply_to_message_id (например, сообщение удалено), пробуем без него
+                    if "reply" in str(e).lower() or "message to reply" in str(e).lower():
+                        reply_id = None
+                        continue
+                    if attempt < 2:
+                        await asyncio.sleep(5)
+            
+            if not msg:
+                raise last_err
 
-            if file_size_mb > 49:
-                logger.warning(f"Video too large ({file_size_mb:.1f} MB). Compressing before send...")
-                import subprocess as _sp
-                compressed_path = video_path.replace(".mp4", "_compressed.mp4")
-
-                # Проход 1: без даунскейла, CRF=28 — мягкое сжатие
-                cmd_pass1 = [
-                    "ffmpeg", "-y", "-i", video_path,
-                    "-vcodec", "libx264", "-crf", "28",
-                    "-preset", "fast",
-                    "-acodec", "aac", "-b:a", "128k",
-                    compressed_path
-                ]
-                result = await asyncio.to_thread(_sp.run, cmd_pass1, capture_output=True)
-                new_size = os.path.getsize(compressed_path) / (1024 * 1024) if (result.returncode == 0 and os.path.exists(compressed_path)) else 999
-
-                # Проход 2: если всё ещё > 49MB — понижаем до 960px (960×1706 для вертикального)
-                if new_size > 49:
-                    logger.warning(f"Pass 1 result {new_size:.1f}MB still too large, downscaling to 960px...")
-                    cmd_pass2 = [
-                        "ffmpeg", "-y", "-i", video_path,
-                        "-vcodec", "libx264", "-crf", "30",
-                        "-preset", "fast",
-                        "-vf", "scale=960:-2",           # 960px ширина, сохраняет соотношение сторон
-                        "-acodec", "aac", "-b:a", "128k",
-                        compressed_path
-                    ]
-                    result = await asyncio.to_thread(_sp.run, cmd_pass2, capture_output=True)
-                    new_size = os.path.getsize(compressed_path) / (1024 * 1024) if (result.returncode == 0 and os.path.exists(compressed_path)) else 999
-
-                if result.returncode == 0 and os.path.exists(compressed_path) and new_size < 999:
-                    logger.info(f"Compressed: {file_size_mb:.1f}MB → {new_size:.1f}MB")
-                    send_path = compressed_path
-                    caption += f"\n\n⚠️ _Видео сжато для отправки ({new_size:.0f} МБ). Оригинал ({file_size_mb:.0f} МБ) сохранён на сервере._"
-                else:
-                    logger.error("Compression failed, sending original (may fail)")
-
-            msg = await bot.send_video(
-                user_id, 
-                FSInputFile(send_path), 
-                caption=caption[:1024], 
-                parse_mode="Markdown",
-                reply_to_message_id=reply_id,
-                reply_markup=kb.as_markup(),
-                request_timeout=900
-            )
+            logger.info(f"Video {project_id} sent successfully to {user_id}")
 
             # Удаляем сжатый временный файл
             if send_path != video_path and os.path.exists(send_path):
-                os.remove(send_path)
+                try: os.remove(send_path)
+                except: pass
 
             # Отправляем JSON конфиг
             json_path = pm.get_project_path(project_id) / "project.json"
             if os.path.exists(json_path):
-                doc_msg = await bot.send_document(
-                    user_id,
-                    FSInputFile(str(json_path)),
-                    reply_to_message_id=msg.message_id,
-                    caption="📄 Конфиг проекта",
-                    request_timeout=900
-                )
-                pm.add_protected_message(doc_msg.message_id)
+                try:
+                    doc_msg = await bot.send_document(
+                        user_id,
+                        FSInputFile(str(json_path)),
+                        reply_to_message_id=msg.message_id,
+                        caption="📄 Конфиг проекта",
+                        request_timeout=300
+                    )
+                    pm.add_protected_message(doc_msg.message_id)
+                except Exception as e:
+                    logger.warning(f"Failed to send config JSON: {e}")
 
             # Сохраняем в глобальный реестр
             pm.add_protected_message(msg.message_id)
             pm.save_project(project_id, proj_data)
             
         except Exception as e:
-            logger.error(f"Failed to send video to user {user_id}: {e}")
+            logger.error(f"CRITICAL: Failed to send video to user {user_id}: {e}")
             # Очищаем временный файл если остался
             compressed = video_path.replace(".mp4", "_compressed.mp4")
             if os.path.exists(compressed):

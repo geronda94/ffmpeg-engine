@@ -82,7 +82,7 @@ class RenderTaskManager:
                             logger.info("Worker: Generating missing Whisper segments...")
                             from ai.timing_agent import get_model
                             model = get_model()
-                            whisper_res = await asyncio.to_thread(model.transcribe, audio_path, verbose=False)
+                            whisper_res = await asyncio.to_thread(model.transcribe, audio_path, verbose=False, word_timestamps=True)
                             proj_data['whisper_segments'] = whisper_res.get('segments', [])
                             pm_local.save_project(project_id, proj_data)
                             

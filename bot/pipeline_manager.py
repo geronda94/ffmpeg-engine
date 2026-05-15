@@ -126,33 +126,12 @@ async def render_project_video(project_id: str, audio_path: str, render_threads:
         
         proj_data['whisper_segments'] = segments
         
-        # Мапим сегменты на сцены — используем estimated_duration как основу
-        # (Whisper word-тайминги используем ТОЛЬКО для микро-синхронизации в subtitle_agent)
-        current_time = 0
-        for scene in scenes_data:
-            dur = scene.get('estimated_duration', 3.0)
-            dur = max(0.5, float(dur))
-            scene['start'] = current_time
-            scene['end'] = current_time + dur
-            current_time += dur
-
-        # Подгоняем под реальную длительность аудио — пропорционально масштабируем
-        # Берем длину не из Whisper (который может галлюцинировать тишиной), а физически из файла
-        try:
-            from moviepy import AudioFileClip
-            ac = AudioFileClip(audio_path)
-            audio_dur = float(ac.duration)
-            ac.close()
-        except Exception as e:
-            logger.warning(f"Failed to read audio length, falling back to Whisper: {e}")
-            audio_dur = segments[-1]['end'] if segments else current_time
-
-        if current_time > 0 and scenes_data and current_time != audio_dur:
-            scale = audio_dur / current_time
-            for s in scenes_data:
-                s['start'] = round(s['start'] * scale, 2)
-                s['end'] = round(s['end'] * scale, 2)
-            scenes_data[-1]['end'] = round(audio_dur, 2)
+        # Мапим сегменты на сцены через timing_agent
+        from ai.timing_agent import align_scenes_with_audio
+        logger.info(f"Aligning {len(scenes_data)} scenes with Whisper segments using LLM...")
+        # Всегда используем LLM для стабильности по просьбе пользователя
+        scenes_data = await align_scenes_with_audio(scenes_data, audio_path, whisper_segments=segments, use_llm_align=True)
+        proj_data['scenes'] = scenes_data
         
         pm.save_project(project_id, proj_data)
 
