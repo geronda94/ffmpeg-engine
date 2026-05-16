@@ -16,7 +16,17 @@
       },
       "logo_path": "local_assets/logo/educational.png",
       "preview_bg_color": "#2C2C2C",
-      "preview_text_color": "#FFFFFF"
+      "preview_text_color": "#FFFFFF",
+      "preview_secondary_color": "#F5A623",
+      "preview_font_path": "assets/fonts/DejaVuSans-Bold.ttf",
+      "subtitle_style": {
+        "primary_color": "#F5A623",
+        "secondary_color": "#FFFFFF",
+        "outline_color": "#1A1A1A",
+        "shadow_color": "#000000",
+        "outline_width": 5,
+        "shadow_width": 0
+      }
     },
     {
       "id": "orthodox",
@@ -62,16 +72,16 @@
         "style_notes": "Минималистично, современно. Серверные, код, дашборды, офисы. Без стоковых улыбок и ретро."
       },
       "logo_path": "local_assets/logo/tech.png",
-      "preview_bg_color": "#0A0B10",
-      "preview_text_color": "#F0F4F8",
-      "preview_secondary_color": "#3B82F6",
-      "preview_font_path": "assets/fonts/Montserrat-Bold.ttf",
+      "preview_bg_color": "#050814",
+      "preview_text_color": "#FFFFFF",
+      "preview_secondary_color": "#00E5FF",
+      "preview_font_path": "assets/fonts/Ubuntu-Bold.ttf",
       "subtitle_style": {
-        "primary_color": "#3B82F6",
-        "secondary_color": "#F0F4F8",
-        "outline_color": "#050608",
+        "primary_color": "#00E5FF",
+        "secondary_color": "#FFFFFF",
+        "outline_color": "#0B132B",
         "shadow_color": "#000000",
-        "outline_width": 6,
+        "outline_width": 4,
         "shadow_width": 0
       }
     },
@@ -118,8 +128,18 @@
         "style_notes": "Ярко, молодёжно. Виральные темы, поп-арт, граффити, вечеринки."
       },
       "logo_path": "local_assets/logo/entertainment.png",
-      "preview_bg_color": "#2C2C2C",
-      "preview_text_color": "#FFFFFF"
+      "preview_bg_color": "#1A0A2E",
+      "preview_text_color": "#FFFFFF",
+      "preview_secondary_color": "#FF3131",
+      "preview_font_path": "assets/fonts/Montserrat-Bold.ttf",
+      "subtitle_style": {
+        "primary_color": "#FF3131",
+        "secondary_color": "#FFFFFF",
+        "outline_color": "#0D0D0D",
+        "shadow_color": "#000000",
+        "outline_width": 5,
+        "shadow_width": 0
+      }
     },
     {
       "id": "lifestyle",
@@ -139,7 +159,7 @@
       "preview_bg_color": "#FAF5F5",
       "preview_text_color": "#4A4A4A",
       "preview_secondary_color": "#E5A9A9",
-      "preview_font_path": "assets/fonts/Inter-Regular.ttf",
+      "preview_font_path": "assets/fonts/Lora-Regular.ttf",
       "subtitle_style": {
         "primary_color": "#E5A9A9",
         "secondary_color": "#FAF5F5",

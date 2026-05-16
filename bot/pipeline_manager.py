@@ -159,6 +159,16 @@ async def render_project_video(project_id: str, audio_path: str, render_threads:
         if i % 5 == 0:
             await asyncio.sleep(0)
 
+    # 4б. ВСЕГДА применяем subtitle_style из профиля канала (независимо от наличия превью)
+    channel_prof_id = proj_data.get('channel_profile')
+    if channel_prof_id:
+        prof = get_channel_profile(channel_prof_id)
+        s_style = prof.get('subtitle_style')
+        if s_style:
+            proj_data['subtitle_style'] = s_style
+            pm.save_project(project_id, proj_data)
+            logger.info(f"Subtitle style from channel profile '{channel_prof_id}': primary={s_style.get('primary_color')}")
+
     if scenes_for_agent and (proj_data.get('preview_text') or proj_data.get('preview_highlight')):
         proj_data['preview_text'] = proj_data.get('preview_text') or ''
         proj_data['preview_highlight'] = proj_data.get('preview_highlight', '')
@@ -166,7 +176,6 @@ async def render_project_video(project_id: str, audio_path: str, render_threads:
         scenes_for_agent[0]['preview_highlight'] = proj_data.get('preview_highlight', '')
         scenes_for_agent[0]['preview_colors'] = proj_data.get('preview_colors', {})
         
-        channel_prof_id = proj_data.get('channel_profile')
         if channel_prof_id:
             prof = get_channel_profile(channel_prof_id)
             scenes_for_agent[0]['preview_logo'] = prof.get('logo_path')
@@ -174,10 +183,6 @@ async def render_project_video(project_id: str, audio_path: str, render_threads:
             scenes_for_agent[0]['preview_text_color'] = prof.get('preview_text_color', '#FFFFFF')
             scenes_for_agent[0]['preview_secondary_color'] = prof.get('preview_secondary_color')
             scenes_for_agent[0]['preview_font_path'] = prof.get('preview_font_path')
-            
-            s_style = prof.get('subtitle_style')
-            proj_data['subtitle_style'] = s_style
-            pm.save_project(project_id, proj_data)
 
     # 5. САУНД-ДИЗАЙН
     from ai.sound_design_agent import SoundDesignAgent

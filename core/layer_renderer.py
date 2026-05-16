@@ -9,13 +9,23 @@ from core.animation_utils import ease_out_cubic, ease_in_out_cubic, lerp
 
 logger = logging.getLogger(__name__)
 
-FONT_PATH = "assets/fonts/DejaVuSans-Bold.ttf"
+# Базовая директория проекта (абсолютный путь)
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FONT_PATH = os.path.join(_BASE_DIR, "assets", "fonts", "DejaVuSans-Bold.ttf")
 
 
-def _resolve_font():
-    """Находит путь к шрифту для TextClip (Pillow в MoviePy 2.x требует полный путь)."""
+def _resolve_font(custom_path: str = None) -> str:
+    """Находит путь к шрифту для TextClip (Pillow в MoviePy 2.x требует абсолютный путь)."""
+    # Если передан кастомный путь — пробуем сделать его абсолютным
+    if custom_path:
+        abs_custom = custom_path if os.path.isabs(custom_path) else os.path.join(_BASE_DIR, custom_path)
+        if os.path.exists(abs_custom):
+            return abs_custom
+        logger.warning(f"Custom font not found: {abs_custom}, falling back to default")
+
     candidates = [
         FONT_PATH,
+        os.path.join(_BASE_DIR, "assets", "fonts", "DejaVuSans-Bold.ttf"),
         # Ubuntu/Debian paths
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
@@ -27,8 +37,7 @@ def _resolve_font():
     for c in candidates:
         if os.path.exists(c):
             return c
-    
-    # Крайний случай - возвращаем имя, надеясь на ImageMagick (если Pillow не справится)
+
     logger.warning("No system font path found, falling back to name 'DejaVu-Sans-Bold'")
     return "DejaVu-Sans-Bold"
 

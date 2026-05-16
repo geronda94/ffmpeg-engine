@@ -92,7 +92,8 @@ def create_preview_overlay(asset_path, preview_text, highlight_word,
     secondary_hex = secondary_color if secondary_color else "#9B1B30"
     bg_hex = bg_color if bg_color else (color_scheme.get("glass_from", "#2C2C2C") if color_scheme else "#2C2C2C")
     
-    font = custom_font_path if custom_font_path and os.path.exists(custom_font_path) else _resolve_font()
+    # _resolve_font умеет преобразовывать relative → absolute пути
+    font = _resolve_font(custom_font_path)
     base_font_size = 110 # База чуть больше
     
     bg_rgb = _hex_to_rgb(bg_hex)
