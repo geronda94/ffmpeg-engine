@@ -122,7 +122,8 @@ async def render_project_video(project_id: str, audio_path: str, render_threads:
         whisper = WhisperAgent()
         logger.info(f"Running Whisper on {audio_path} (word_timestamps=True)...")
         # Включаем пословные тайминги для идеального караоке
-        segments = whisper.transcribe(audio_path, word_timestamps=True)
+        # Обертываем в to_thread, чтобы не блокировать event loop
+        segments = await asyncio.to_thread(whisper.transcribe, audio_path, word_timestamps=True)
         
         proj_data['whisper_segments'] = segments
         
@@ -191,7 +192,9 @@ async def render_project_video(project_id: str, audio_path: str, render_threads:
     # Ищем пресет по ID
     preset = next((s for s in all_styles if s['id'] == style_id), all_styles[0] if all_styles else {})
     
-    success = run_montage(
+    # Обертываем тяжелый монтаж (MoviePy) в отдельный поток, чтобы не блокировать бота
+    success = await asyncio.to_thread(
+        run_montage,
         scenes_for_agent, 
         audio_path, 
         output_path, 

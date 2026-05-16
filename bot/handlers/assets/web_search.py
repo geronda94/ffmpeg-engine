@@ -156,6 +156,9 @@ async def show_web_search_result(message: types.Message, state: FSMContext, is_f
     data = await state.get_data()
     results = data.get("search_results", [])
     idx = data.get("search_idx", 0)
+    if results and idx >= len(results):
+        idx = 0
+        await state.update_data(search_idx=0)
     source = data.get("search_source", "all")
     color = data.get("search_color")
 
@@ -210,7 +213,6 @@ async def show_web_search_result(message: types.Message, state: FSMContext, is_f
 
     if not local_path:
         # Все URL битые — показываем ошибку с кнопками
-        from aiogram.utils.keyboard import InlineKeyboardBuilder
         kb = InlineKeyboardBuilder()
         kb.button(text="🔙 К выбору источника", callback_data="web_cancel")
         kb.button(text="📁 Загрузить своё", callback_data="web_cancel_upload")
@@ -253,7 +255,7 @@ async def show_web_search_result(message: types.Message, state: FSMContext, is_f
 
     except Exception as e:
         err_str = str(e).lower()
-        if "canceled by new" in err_str or "message is not modified" in err_str:
+        if "canceled by new" in err_str or "message is not modified" in err_str or "message to edit not found" in err_str:
             return
 
         logger.warning(f"Carousel error (idx={idx}): {e}")
@@ -324,6 +326,7 @@ async def handle_web_search_start(callback: types.CallbackQuery, state: FSMConte
         logger.info(f"🚀 Cache HIT for scene {scene_idx}: {len(cached['results'])} results (instant)")
         await state.update_data(
             search_results=cached["results"],
+            search_idx=0, # Сбрасываем индекс для новой сцены!
             search_queries=cached["queries"],
             search_color=cached["color"],
             search_source="all",

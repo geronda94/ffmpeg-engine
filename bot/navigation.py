@@ -92,6 +92,7 @@ async def ask_for_asset(message: types.Message, state: FSMContext, scene_idx: in
         kb.button(text="🌐 Искать в сети", callback_data="asset_search_web")
         kb.button(text="🎬 Динамическая сцена", callback_data="asset_dynamic")
         kb.button(text="📁 Загрузить своё", callback_data="asset_manual")
+        kb.button(text="🚀 Авто-подбор всех сцен", callback_data="asset_auto")
         kb.adjust(1)
 
         await message.answer(

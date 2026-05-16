@@ -37,21 +37,22 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
         if style_id in ORTHODOX_STYLES:
             style_hint = (
                 "STYLE CONTEXT: Orthodox Christian / spiritual content.\n"
-                "VISUAL TRANSLATION RULE: Do NOT search for literal religious objects. "
-                "Translate spiritual concepts into universally available stock photo subjects:\n"
-                "  'monk praying' → 'elderly man bowing head silence'\n"
-                "  'orthodox church' → 'ancient stone church golden dome exterior'\n"
-                "  'biblical scene' → 'middle eastern landscape desert sunrise'\n"
-                "  'candle prayer' → 'single candle flame dark background'\n"
-                "  'holy scripture' → 'open old book hands reading'\n"
-                "PREFER: nature (sunrise mountains, forest light, ocean), "
-                "Christian/Orthodox imagery (church dome with cross, candle-lit prayer, robed elder), "
-                "architecture (stone walls, arched corridor, golden orthodox dome).\n"
-                "AVOID: Buddhist monks, Hindu temples, Islamic minarets, shaolin imagery, "
-                "eastern meditation, yoga poses, non-Christian religious symbols. "
-                "No cartoons, icons as literal clipart, violence, modern church interiors.\n"
-                "CRITICAL: Add 'christian' or 'orthodox' qualifier: 'monk' → 'christian monk', "
-                "'priest' → 'orthodox priest', 'temple' → 'orthodox church'.\n"
+                "FORBIDDEN in ANY query: woman, girl, female, lady, mother, man, person, "
+                "people, human, model, actor, musician, violin, nude, skin, body.\n"
+                "Instead of 'monk' → 'church interior prayer' (monk is ambiguous: Buddhist/Christian)\n"
+                "Instead of 'temple' → 'church building' (temple could be Hindu/Buddhist)\n"
+                "Instead of 'priest' → 'church service' (priest ambiguous across religions)\n"
+                "SAFE Christian-specific terms you CAN use:\n"
+                "  'bible book', 'cross christian', 'church building', 'christian angel',\n"
+                "  'candle prayer', 'golden dome church', 'icon painting', 'stained glass'\n"
+                "  'cathedral interior', 'altar', 'rosary', 'christian saint icon'\n"
+                "For a saint by name: search 'saint name orthodox icon' via images.\n"
+                "For atmosphere: 'church interior candle', 'golden light cathedral', 'faith hope love'\n"
+                "CRITICAL: If a scene describes a specific person (e.g. 'woman at mirror', 'musician playing'),\n"
+                "DO NOT search for that person. Replace with Christian SYMBOL:\n"
+                "  'woman at mirror' → 'icon virgin mary' or 'cross reflection'\n"
+                "  'musician violin' → 'church choir' or 'candle light prayer'\n"
+                "  'person silhouette' → 'cross silhouette'\n"
             )
         elif style_id in IT_STYLES:
             style_hint = (
@@ -298,7 +299,7 @@ class ImageSearchAgent:
                         data = await resp.json()
                         return [
                             {
-                                "url": h["largeImageURL"],
+                                "url": h.get("webformatURL") or h["largeImageURL"],
                                 "photographer": h["user"],
                                 "source": "pixabay",
                                 "width": h.get("imageWidth", 0),
