@@ -25,7 +25,7 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
     """
     Превращает описание сцены в набор умных поисковых запросов + цвет.
     """
-    from ai.llm_client import get_async_client
+    from ai.llm_client import get_async_client, achat_json
     try:
         client = get_async_client()
 
@@ -86,9 +86,12 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
             f"{script_block}"
             f"{narrative_block}"
             f"{style_hint}\n"
-            f"TASK: Output EXACTLY this format (nothing else):\n"
-            f"queries: [query1, query2, query3, query4]\n"
-            f"color: [color_name or none]\n\n"
+            f"TASK: Output EXACTLY this JSON format:\n"
+            f"{{\n"
+            f"  \"queries\": [\"query1\", \"query2\", \"query3\", \"query4\"],\n"
+            f"  \"color\": \"color_name_or_none\",\n"
+            f"  \"source\": \"stock\"\n"
+            f"}}\n\n"
             f"RULES FOR QUERIES:\n"
             f"1. CONTEXT FIRST: Use the FULL SCRIPT CONTEXT to understand the video's topic. "
             f"Search for images that MATCH the overall topic, not just the literal scene description.\n"
@@ -102,53 +105,47 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
             f"databases (e.g. 'a tower made of light', 'cracks shaped like a cross'), "
             f"break it down: search for each concrete element separately "
             f"('light beams', 'tower silhouette', 'stone cracks', 'cross shape').\n"
-            f"5. First query: the most specific but REALISTIC visual (must exist on stock sites like Pexels).\n"
+            f"5. First query: the most specific but REALISTIC visual.\n"
             f"6. Second query: the main subject simplified to 2-3 words.\n"
             f"7. Third query: the mood or atmosphere related to the overall script context.\n"
             f"8. Fourth query: a broad symbolic fallback from the video's main topic.\n"
             f"9. All queries in English, 2-4 words each. NO camera directions (cinematic, 4k, bokeh).\n"
-            f"10. ABSTRACTION RULE: If the literal subject is unlikely on stock photos "
-            f"(e.g. 'orthodox monk', 'biblical apostle'), replace with its visual essence "
-            f"(e.g. 'man bowed prayer silence', 'robed figure ancient path').\n"
+            f"10. ABSTRACTION RULE: For 'stock' source, if the literal subject is unlikely on stock photos, replace with its visual essence. "
+            f"BUT for 'web', 'news', or 'icon' sources, DO NOT abstract! Use the exact name of the person or event.\n"
             f"11. ANATOMY RULE: NEVER use 'hands' or 'fingers' as the PRIMARY subject of a query "
             f"(AI models generate anatomically broken hands). Use 'hands' only as a secondary modifier.\n"
             f"12. For color: choose ONE from: red, orange, yellow, green, turquoise, blue, "
-            f"violet, pink, brown, black, gray, white — or 'none' if not important."
+            f"violet, pink, brown, black, gray, white — or 'none' if not important.\n"
+            f"13. TARGET SOURCE DETERMINATION:\n"
+            f"  - Set 'source' to 'web' if the script mentions a SPECIFIC KNOWN PERSON, historical figure, or title (e.g. 'Alexander Lukashenko', 'Gregory of Nyssa', 'Elon Musk', 'President of US'). First query MUST be their exact name.\n"
+            f"  - Set 'source' to 'icon' if the scene requires an Orthodox icon of a saint, Christ, or biblical figure.\n"
+            f"  - Set 'source' to 'news' if the scene is a specific real-world news event or screenshot of an article.\n"
+            f"  - Set 'source' to 'ai' if the scene is highly abstract, supernatural, or impossible to find in photos (e.g. 'soul leaving body').\n"
+            f"  - Otherwise, set 'source' to 'stock' (for generic nature, lifestyle, IT servers, textures, general objects)."
         )
 
-        response = await client.chat.completions.create(
-            model="deepseek-chat",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=150,
-            temperature=0.2
-        )
-        content = response.choices[0].message.content.strip().lower()
-
-        queries_match = re.findall(r"queries:\s*\[(.*?)\]", content, re.DOTALL)
-        color_match = re.findall(r"color:\s*\[(.*?)\]", content)
-
-        if queries_match:
-            raw = queries_match[0]
-            k_list = [k.strip().strip("'\"") for k in raw.split(",") if k.strip()]
-            k_list = [k for k in k_list if len(k) > 1][:4]
-        else:
-            # fallback: берём первые слова описания
+        result = await achat_json(user_prompt=prompt)
+        
+        k_list = result.get("queries", [])
+        if not k_list or not isinstance(k_list, list):
             words = visual_description.split()[:6]
             k_list = [" ".join(words[:3]), " ".join(words[3:6]) or words[0]]
+        else:
+            k_list = [str(k).strip() for k in k_list if str(k).strip()]
 
-        c_val = None
-        if color_match:
-            c_raw = color_match[0].strip().strip("'\"")
-            if c_raw and c_raw != "none":
-                c_val = c_raw
+        c_val = result.get("color", "none")
+        if c_val == "none" or not c_val:
+            c_val = None
 
-        logger.info(f"AI Search Optimization: queries={k_list}, color={c_val}")
-        return k_list, c_val
+        source_val = result.get("source", "stock").lower()
+
+        logger.info(f"AI Search Optimization: queries={k_list}, color={c_val}, source={source_val}")
+        return k_list, c_val, source_val
 
     except Exception as e:
-        logger.error(f"Failed to optimize query via AI: {e}")
+        logger.error(f"Failed to optimize query via AI: {e}", exc_info=True)
         words = visual_description.split()
-        return [" ".join(words[:4]), " ".join(words[:2])], None
+        return [" ".join(words[:4]), " ".join(words[:2])], None, "stock"
 
 
 class ImageSearchAgent:
@@ -262,6 +259,7 @@ class ImageSearchAgent:
                                 "source": "pexels",
                                 "width": p.get("width", 0),
                                 "height": p.get("height", 0),
+                                "tags": p.get("alt", ""),
                             }
                             for p in data.get("photos", [])
                         ]
@@ -304,6 +302,7 @@ class ImageSearchAgent:
                                 "source": "pixabay",
                                 "width": h.get("imageWidth", 0),
                                 "height": h.get("imageHeight", 0),
+                                "tags": h.get("tags", ""),
                             }
                             for h in data.get("hits", [])
                         ]
@@ -331,17 +330,17 @@ async def prefetch_scene_search(scene: dict, style_id: str = "", script: str = "
         if not visual and not spoken:
             return None
 
-        queries, color = await asyncio.wait_for(
+        queries, color, source = await asyncio.wait_for(
             optimize_query_ai(visual, scene_text=spoken, style_id=style_id, script=script,
                               prev_scene=prev_txt, next_scene=next_txt),
             timeout=15
         )
         results = await asyncio.wait_for(
-            image_search_agent.search_images(queries, color=color, source_type="all"),
+            image_search_agent.search_images(queries, color=color, source_type=source),
             timeout=25
         )
-        logger.info(f"Prefetch complete: {len(results)} results, queries={queries}")
-        return {"queries": queries, "color": color, "results": results}
+        logger.info(f"Prefetch complete: {len(results)} results, queries={queries}, source={source}")
+        return {"queries": queries, "color": color, "source": source, "results": results}
 
     except (asyncio.TimeoutError, TimeoutError):
         logger.warning("prefetch_scene_search: timed out")

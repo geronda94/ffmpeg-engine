@@ -26,8 +26,11 @@ def search_images_ddg(query: str, max_results: int = 15, min_size: int = 800) ->
         results = []
         with DDGS() as ddgs:
             for r in ddgs.images(query, max_results=max_results):
-                w = r.get("width", 0) or 0
-                h = r.get("height", 0) or 0
+                try:
+                    w = int(r.get("width", 0) or 0)
+                    h = int(r.get("height", 0) or 0)
+                except ValueError:
+                    w, h = 0, 0
                 if min_size > 0 and (w < min_size or h < min_size):
                     continue
                 results.append({
@@ -37,6 +40,7 @@ def search_images_ddg(query: str, max_results: int = 15, min_size: int = 800) ->
                     "width": w,
                     "height": h,
                     "title": r.get("title", ""),
+                    "tags": r.get("title", ""),
                 })
         logger.info(f"DDG search '{query}': {len(results)} results (min {min_size}px)")
         return results

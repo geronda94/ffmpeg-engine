@@ -336,8 +336,8 @@ async def handle_sc_search_query(message: types.Message, state: FSMContext):
     await register_trash(message, state)
     await register_trash(status, state)
     
-    # Оптимизация запроса через ИИ (возвращает (queries, color))
-    queries, color = await optimize_query_ai(user_query)
+    # Оптимизация запроса через ИИ (возвращает (queries, color, source))
+    queries, color, search_source = await optimize_query_ai(user_query)
     results = await image_search_agent.search_images(queries, color=color, source_type="all")
     
     await status.delete()

@@ -56,7 +56,7 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
     if not rules:
         return None
 
-    queries, color = await asyncio.wait_for(
+    queries, color, search_source = await asyncio.wait_for(
         optimize_query_ai(visual, scene_text=spoken, style_id=style_id, script=full_script),
         timeout=20
     )
@@ -76,24 +76,38 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
             logger.warning(f"All queries had forbidden words, using fallback: {safe}")
         queries = safe
 
-        # Для икон/святых — подключаем DDG поиск
-        is_saint = any(w in visual.lower() for w in ["saint", "icon", "икон",
-                        "свят", "jesus", "christ", "bible", "gospel", "apostle", "mary"])
+        is_saint = any(w in visual.lower() or w in spoken.lower() for w in [
+            "saint", "icon", "икон", "свят", "jesus", "christ", "bible", "gospel", 
+            "apostle", "mary", "нисск", "златоуст", "богослов", "апостол", "христ"
+        ])
         if is_saint:
-            logger.info(f"Saint/icon scene {scene_idx}: enabling DDG fallback")
+            search_source = "icon"
+            logger.info(f"Saint/icon scene {scene_idx}: routing to DDG (icon)")
 
-    logger.info(f"Auto-select scene {scene_idx}: queries={queries}")
+    logger.info(f"Auto-select scene {scene_idx}: queries={queries}, source={search_source}")
 
-    await status_msg.edit_text(
-        f"🤖 **Авто-подбор сцены {scene_idx + 1}/{total}**\n"
-        f"🔍 {', '.join(queries[:2])}\n"
-        f"Оцениваю варианты..."
-    )
-
-    results = await asyncio.wait_for(
-        image_search_agent.search_images(queries, color=color, source_type="all"),
-        timeout=30
-    )
+    results = []
+    if search_source in ("icon", "news", "web"):
+        from ai.duckduckgo_search import search_images_ddg
+        await status_msg.edit_text(
+            f"🤖 **Авто-подбор сцены {scene_idx + 1}/{total}**\n"
+            f"🔍 Web поиск ({search_source}): {queries[0]}..."
+        )
+        try:
+            ddg_q = f"orthodox icon {queries[0]}" if search_source == "icon" else queries[0]
+            results = await asyncio.to_thread(search_images_ddg, ddg_q, max_results=15)
+        except Exception as ex:
+            logger.error(f"DDG search error: {ex}")
+    else:
+        await status_msg.edit_text(
+            f"🤖 **Авто-подбор сцены {scene_idx + 1}/{total}**\n"
+            f"🔍 Сток ({search_source}): {', '.join(queries[:2])}..."
+        )
+        stype = "all" if search_source == "stock" else search_source
+        results = await asyncio.wait_for(
+            image_search_agent.search_images(queries, color=color, source_type=stype),
+            timeout=30
+        )
 
     best_local = None
     best_score_overall = 0
@@ -119,7 +133,7 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
                     best_score_overall = img_score_val
                     break
 
-    if not best_local:
+    if not best_local and search_source not in ("icon", "news", "web"):
         for src_type, src_label in AUTO_FALLBACK_CHAIN:
             await status_msg.edit_text(
                 f"🤖 **Сцена {scene_idx + 1}/{total}** — пробую {src_label}..."
@@ -150,25 +164,6 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
             except Exception:
                 pass
 
-    if not best_local and is_saint:
-        from ai.duckduckgo_search import search_images_ddg
-        await status_msg.edit_text(
-            f"🤖 **Сцена {scene_idx + 1}/{total}** — 🔍 иконный поиск DuckDuckGo..."
-        )
-        try:
-            ddg_results = search_images_ddg(f"orthodox icon {queries[0]}", max_results=10)
-            if ddg_results:
-                for dr in ddg_results[:5]:
-                    local_path = await _download_best(dr["url"])
-                    if local_path:
-                        pm.update_asset(project_id, scene_idx, local_path)
-                        await status_msg.edit_text(
-                            f"🤖 **Сцена {scene_idx + 1}/{total}** — ✅ DuckDuckGo икона"
-                        )
-                        best_local = local_path
-                        break
-        except Exception as ex:
-            logger.error(f"DDG icon search error: {ex}")
 
     if best_local:
         return best_local

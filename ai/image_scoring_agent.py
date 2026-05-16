@@ -66,6 +66,7 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
             "width": img.get("width", 0),
             "height": img.get("height", 0),
             "source": img.get("source", "unknown"),
+            "tags": img.get("tags", ""),
         })
 
     prompt = (
@@ -80,11 +81,11 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
         f"BATCH OF {len(photos)} IMAGES:\n"
         f"{json.dumps(photos, ensure_ascii=False)}\n\n"
         f"SCORE each image 0-10:\n"
-        f"- Relevance to scene (0-3): Does this image match the scene's visual description?\n"
-        f"- Channel rules compliance (0-3): Does it follow banned/preferred rules?\n"
+        f"- Relevance to scene (0-3): Does this image match the scene's visual description? (Evaluate using the 'tags' field!)\n"
+        f"- Channel rules compliance (0-3): Does it follow banned/preferred rules? (Check 'tags' carefully!)\n"
         f"- Resolution quality (0-2): Is it >= {min_res}px per side?\n"
         f"- Aesthetic (0-2): Composition, lighting, mood fit.\n\n"
-        f"CRITICAL: If an image clearly violates banned keywords (e.g., woman, shaolin, islam for orthodox channel) → score = 0.\n\n"
+        f"CRITICAL: If an image's tags or URL clearly violate banned keywords (e.g., woman, shaolin, islam for orthodox channel) → score = 0.\n\n"
         f"Return ONLY valid JSON:\n"
         f"{'{'} \"scores\": [ {{\"url\": \"...\", \"score\": 7, \"reason\": \"краткое пояснение\"}} ], "
         f"\"best_url\": \"...\", \"best_score\": 7 {'}'}"

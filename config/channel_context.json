@@ -120,6 +120,34 @@
       "logo_path": "local_assets/logo/entertainment.png",
       "preview_bg_color": "#2C2C2C",
       "preview_text_color": "#FFFFFF"
+    },
+    {
+      "id": "lifestyle",
+      "name": "🌸 Женский Lifestyle",
+      "channel_topic": "Психология, отношения, красота, уют, эстетика, саморазвитие.",
+      "tone_of_voice": "Теплый, поддерживающий, вдохновляющий. Эмоциональный и эстетичный.",
+      "target_platform": "Instagram Reels / YouTube Shorts / TikTok",
+      "avoid_topics": ["политика", "криминал", "агрессия", "токсичность"],
+      "default_hashtags": ["#эстетика", "#психология", "#красота", "#саморазвитие"],
+      "visual_rules": {
+        "banned_keywords": ["blood", "gore", "violence", "horror", "war", "weapons", "dark", "scary", "grunge", "dirty"],
+        "preferred_keywords": ["aesthetic", "cozy", "pastels", "woman smiling", "coffee cup", "flowers", "morning light", "journaling", "skincare", "yoga", "soft light", "minimalist"],
+        "min_resolution": 800,
+        "style_notes": "Мягкий свет, пастельные тона, эстетика уюта и минимализма. Фокус на красоте, спокойствии и женственности."
+      },
+      "logo_path": "local_assets/logo/lifestyle.png",
+      "preview_bg_color": "#FAF5F5",
+      "preview_text_color": "#4A4A4A",
+      "preview_secondary_color": "#E5A9A9",
+      "preview_font_path": "assets/fonts/Inter-Regular.ttf",
+      "subtitle_style": {
+        "primary_color": "#E5A9A9",
+        "secondary_color": "#FAF5F5",
+        "outline_color": "#4A4A4A",
+        "shadow_color": "#000000",
+        "outline_width": 3,
+        "shadow_width": 0
+      }
     }
   ]
 }

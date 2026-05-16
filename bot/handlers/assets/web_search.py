@@ -345,7 +345,7 @@ async def handle_web_search_start(callback: types.CallbackQuery, state: FSMConte
     await register_trash(status, state)
 
     try:
-        queries, color = await asyncio.wait_for(
+        queries, color, search_source = await asyncio.wait_for(
             optimize_query_ai(visual, scene_text=spoken, style_id=style_id, script=full_script,
                               prev_scene=proj_data['scenes'][scene_idx - 1].get('text_segment', '') if scene_idx > 0 else '',
                               next_scene=proj_data['scenes'][scene_idx + 1].get('text_segment', '') if scene_idx + 1 < len(proj_data['scenes']) else ''),
@@ -434,7 +434,7 @@ async def handle_web_search_manual_query(message: types.Message, state: FSMConte
     await register_trash(status, state)
 
     try:
-        queries, color = await asyncio.wait_for(
+        queries, color, search_source = await asyncio.wait_for(
             optimize_query_ai(user_query, scene_text=scene_text, style_id=style_id, script=full_script,
                               prev_scene=prev_scene_text, next_scene=next_scene_text),
             timeout=20
