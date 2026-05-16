@@ -72,16 +72,16 @@
         "style_notes": "Минималистично, современно. Серверные, код, дашборды, офисы. Без стоковых улыбок и ретро."
       },
       "logo_path": "local_assets/logo/tech.png",
-      "preview_bg_color": "#050814",
+      "preview_bg_color": "#0F141E",
       "preview_text_color": "#FFFFFF",
       "preview_secondary_color": "#00E5FF",
       "preview_font_path": "assets/fonts/Ubuntu-Bold.ttf",
       "subtitle_style": {
         "primary_color": "#00E5FF",
         "secondary_color": "#FFFFFF",
-        "outline_color": "#0B132B",
+        "outline_color": "#050814",
         "shadow_color": "#000000",
-        "outline_width": 4,
+        "outline_width": 5,
         "shadow_width": 0
       }
     },

@@ -102,9 +102,19 @@ async def generate_tts(text: str, output_path: str, lang: str = "Russian", voice
             voice = voices.get(lang, "en-US-AndrewNeural")
 
         communicate = edge_tts.Communicate(optimized_text, voice, rate=rate, pitch=pitch)
-        await communicate.save(output_path)
-        logger.info(f"TTS generated: {output_path}")
-        return output_path
+        
+        # Внутренний цикл ретраев для Edge TTS
+        for sub_attempt in range(3):
+            try:
+                await communicate.save(output_path)
+                if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                    logger.info(f"TTS generated: {output_path}")
+                    return output_path
+            except Exception as e:
+                logger.warning(f"Edge TTS sub-attempt {sub_attempt+1} failed: {e}")
+                await asyncio.sleep(2)
+        
+        return None
     except Exception as e:
         logger.error(f"TTS Error: {e}")
         return None

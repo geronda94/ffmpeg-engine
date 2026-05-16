@@ -8,9 +8,8 @@ def _clean(word):
     return re.sub(r'[^\w\s]', '', word).lower().strip()
 
 def _clean_display(word):
-    """Очищает слово от знаков препинания, но сохраняет регистр (CAPS)."""
-    # Убираем только явный пунктуационный шум, не трогая буквы и цифры
-    return re.sub(r'[",.«»"\'\(\)\[\]!?;:]', '', word).strip()
+    """Очищает слово от знаков препинания по краям, сохраняя точки внутри (URL)."""
+    return word.strip('",.«»"\'()[]!?;:')
 
 def _hex_to_ass(hex_color):
     hex_color = hex_color.lstrip('#')
@@ -137,7 +136,7 @@ def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_t
 
             # Разбиваем текст конкретной сцены на группы (обычно 1-2 группы на сцену)
             raw_scene_words = s_text.split()
-            groups = _group_words_2line(raw_scene_words, max_chars=18)
+            groups = _group_words_2line(raw_scene_words, max_chars=24)
             
             sw_cursor = 0
             for g in groups:
@@ -215,7 +214,8 @@ def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_t
                         # Используем очищенное слово, сохраняя регистр
                         display_word = _clean_display(wd.get('word', w))
                         k_dur = int(round((float(wd['end']) - float(wd['start'])) * 100))
-                        gap = int(round((float(wd['start']) - curr_t) * 100))
+                        # Гарантируем, что зазор не отрицательный
+                        gap = max(0, int(round((float(wd['start']) - curr_t) * 100)))
                         if gap > 0: k_line += f"{{\\k{gap}}}"
                         k_line += f"{{\\kf{max(1, k_dur)}}}{display_word}"
                         curr_t, wt_idx = float(wd['end']), wt_idx + 1

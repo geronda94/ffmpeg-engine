@@ -40,37 +40,45 @@ async def generate_project_audio(project_id: str, preset: dict):
     # Возвращаем старое именование файлов, к которому привык пользователь
     output_path = str(audio_dir / f"voice_{lang}.wav")
     
-    try:
-        if engine == 'edge':
-            from ai.tts_edge import generate_tts
-            res = await generate_tts(
-                text=script,
-                output_path=output_path,
-                lang=lang,
-                voice=preset.get('voice'),
-                rate=preset.get('rate', '+0%'),
-                pitch=preset.get('pitch', '+0Hz')
-            )
-            return res
-        elif engine == 'gemini':
-            # Gemini требует JSON-задание
-            task = {
-                "text": script,
-                "voice": preset.get("voice", "Alnilam"),
-                "output": output_path,
-                "prompt": preset.get("prompt", "Read naturally."),
-                "model": preset.get("model", "gemini-1.5-flash-tts-preview")
-            }
-            task_path = audio_dir / "gemini_task.json"
-            with open(task_path, "w", encoding="utf-8") as f:
-                json.dump(task, f)
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            if engine == 'edge':
+                from ai.tts_edge import generate_tts
+                res = await generate_tts(
+                    text=script,
+                    output_path=output_path,
+                    lang=lang,
+                    voice=preset.get('voice'),
+                    rate=preset.get('rate', '+0%'),
+                    pitch=preset.get('pitch', '+0Hz')
+                )
+                if res: return res
+            elif engine == 'gemini':
+                # Gemini требует JSON-задание
+                task = {
+                    "text": script,
+                    "voice": preset.get("voice", "Alnilam"),
+                    "output": output_path,
+                    "prompt": preset.get("prompt", "Read naturally."),
+                    "model": preset.get("model", "gemini-1.5-flash-tts-preview")
+                }
+                task_path = audio_dir / "gemini_task.json"
+                with open(task_path, "w", encoding="utf-8") as f:
+                    json.dump(task, f)
+                
+                from ai.tts_gemini import generate_tts_from_task
+                await asyncio.to_thread(generate_tts_from_task, str(task_path))
+                if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                    return output_path
             
-            from ai.tts_gemini import generate_tts_from_task
-            await asyncio.to_thread(generate_tts_from_task, str(task_path))
-            return output_path if os.path.exists(output_path) else None
+            logger.warning(f"TTS attempt {attempt + 1} failed for {project_id}, retrying...")
+            await asyncio.sleep(5 * (attempt + 1)) # Прогрессивная задержка
             
-    except Exception as e:
-        logger.error(f"Error generating audio for {project_id}: {e}")
+        except Exception as e:
+            logger.error(f"TTS Exception on attempt {attempt + 1}: {e}")
+            await asyncio.sleep(5 * (attempt + 1))
+            
     return None
 
 async def render_project_video(project_id: str, audio_path: str, render_threads: int = 4):
