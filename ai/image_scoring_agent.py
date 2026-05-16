@@ -47,8 +47,22 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
         # 4. ФИЛЬТР ЧУЖИХ РЕЛИГИЙ (ДЛЯ ПРАВОСЛАВИЯ)
         # Если включен no_people (характерно для православного профиля), жестко отсекаем йогу, буддизм и т.д.
         if no_people:
-            non_christian = ["buddha", "buddhist", "yoga", "zen", "meditat", "hindu", "islam", "mosque", "monk", "temple", "karma", "chakra", "witch", "magic", "spell"]
+            non_christian = [
+                "buddha", "buddhist", "yoga", "zen", "meditat", "hindu", "islam", "mosque", "monk", "temple", 
+                "karma", "chakra", "witch", "magic", "spell", "statue", "sculpture", "idol", "pagan", "tarot", 
+                "demon", "devil", "satan", "shiva", "ganesha", "nirvana", "mantra", "guru", "mandala", "pagoda", 
+                "shrine", "muslim", "allah", "quran", "minaret", "goddess", "mytholog", "occult", "shaman", 
+                "voodoo", "astrolog", "zodiac", "wicca"
+            ]
             if any(nc in url_low for nc in non_christian):
+                continue
+
+        # 5. ФИЛЬТР AI-ГЕНЕРАЦИЙ (ЖУТКИЕ ИКОНЫ) И PINTEREST
+        if search_source == "icon" or no_people:
+            ai_words = ["ai-generated", "midjourney", "dall-e", "stablediffusion", "stable-diffusion", 
+                       "generative", "neural", "ai-art", "generated", "pinimg.com", "pinterest", 
+                       "deviantart", "artstation"]
+            if any(ai in url_low for ai in ai_words):
                 continue
 
         blocked = False

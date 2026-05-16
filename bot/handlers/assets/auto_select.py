@@ -27,12 +27,19 @@ CHRISTIAN_MARKERS = ["orthodox", "christian", "jesus", "bible", "church", "icon"
                      "cross", "virgin mary", "priest", "monastery", "angel", "god", "faith",
                      "holy", "prayer", "spiritual", "divine", "gospel", "cathedral"]
 
-FORBIDDEN_IN_QUERIES = ["woman", "women", "girl", "female", "lady", "mother", "man ", "men ",
-                        "person", "people", "human", "model", "actor", "musician", "violin",
-                        "violinist", "sleep", "bed", "lying", "naked", "skin", "portrait face",
-                        "nude", "body", "torso", "monk", "temple", "priest", "praying man",
-                        "praying woman", "man praying", "yoga", "buddha", "buddhist", "zen", 
-                        "meditation", "hindu", "islam", "mosque", "karma", "chakra"]
+FORBIDDEN_IN_QUERIES = [
+    "woman", "women", "girl", "female", "lady", "mother", "man ", "men ",
+    "person", "people", "human", "model", "actor", "musician", "violin",
+    "violinist", "sleep", "bed", "lying", "naked", "skin", "portrait face",
+    "nude", "body", "torso", "monk", "temple", "priest", "praying man",
+    "praying woman", "man praying", "yoga", "buddha", "buddhist", "zen", 
+    "meditation", "hindu", "islam", "mosque", "karma", "chakra",
+    "statue", "sculpture", "idol", "pagan", "witch", "magic", "spell", 
+    "tarot", "demon", "devil", "satan", "shiva", "ganesha", "nirvana", 
+    "mantra", "guru", "mandala", "pagoda", "shrine", "muslim", "allah", 
+    "quran", "minaret", "goddess", "mythology", "occult", "shaman", 
+    "voodoo", "astrology", "zodiac", "wicca"
+]
 
 SAFE_FALLBACK_QUERIES = ["church building dome", "candle prayer light", "cross silhouette",
                           "bible book open", "stained glass church", "golden dome cathedral",
@@ -80,7 +87,7 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
         if search_source != "icon":
             import re
             text_to_check = (visual + " " + spoken).lower()
-            is_saint_strong = bool(re.search(r'\b(saint|icon|икон\w*|святой|святая|святитель|jesus|christ|иисус|христос|apostle|апостол|нисский|златоуст|богослов|мария|богородица)\b', text_to_check))
+            is_saint_strong = bool(re.search(r'\b(saint|icon|икон\w*|святой|святая|святитель|jesus|christ|иисус|христос|apostle|апостол|нисский|златоуст|богослов|мария|богородица|преподобный|мученик|мученица|преподобная|праведный|праведная|ангел|архангел|праведник|праведница|икона)\b', text_to_check))
             if is_saint_strong:
                 search_source = "icon"
                 logger.info(f"Saint/icon scene {scene_idx}: forced routing to DDG (icon)")

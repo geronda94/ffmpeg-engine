@@ -44,21 +44,27 @@ async def align_scenes_with_audio(scenes: list, audio_path: str, whisper_segment
             aligned_data = await align_words_with_whisper(scenes, segments, target_lang=language or "Russian")
             
             if aligned_data and len(aligned_data) >= len(scenes) * 0.8:
-                # Мапим данные из LLM обратно в сцены
-                aligned_dict = {s['id']: s for s in aligned_data}
+                # Мапим данные из LLM обратно в сцены. Приводим ID к строке для надежности.
+                aligned_dict = {str(s.get('id', '')): s for s in aligned_data}
                 processed_scenes = []
-                for scene in scenes:
-                    s_id = scene.get('scene_id')
+                for i, scene in enumerate(scenes):
+                    s_id = str(scene.get('scene_id', ''))
+                    words = []
+                    
                     if s_id in aligned_dict:
                         words = aligned_dict[s_id].get('words', [])
-                        if words:
-                            scene['words'] = words
-                            scene['start'] = round(float(words[0]['start']), 3)
-                            scene['end'] = round(float(words[-1]['end']), 3)
-                        else:
-                            # Если слов нет, оставляем старые или примерные
-                            scene.setdefault('start', 0.0)
-                            scene.setdefault('end', scene['start'] + 3.0)
+                    elif len(aligned_data) == len(scenes):
+                        # Фолбэк: если ИИ вернул индексы 0,1,2 вместо 1,2,3, мапим по порядку
+                        words = aligned_data[i].get('words', [])
+                        
+                    if words:
+                        scene['words'] = words
+                        scene['start'] = round(float(words[0]['start']), 3)
+                        scene['end'] = round(float(words[-1]['end']), 3)
+                    else:
+                        # Если слов нет, оставляем старые или примерные
+                        scene.setdefault('start', 0.0)
+                        scene.setdefault('end', scene['start'] + 3.0)
                     processed_scenes.append(scene)
                 
                 # Гарантируем отсутствие разрывов и наложений
