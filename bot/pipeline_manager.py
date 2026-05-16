@@ -192,6 +192,12 @@ async def render_project_video(project_id: str, audio_path: str, render_threads:
     # Ищем пресет по ID
     preset = next((s for s in all_styles if s['id'] == style_id), all_styles[0] if all_styles else {})
     
+    video_meta = {
+        "title": meta.get('title', slug),
+        "language": proj_data.get('language', 'Russian'),
+        "description": meta.get('description', '')
+    }
+
     # Обертываем тяжелый монтаж (MoviePy) в отдельный поток, чтобы не блокировать бота
     success = await asyncio.to_thread(
         run_montage,
@@ -200,7 +206,8 @@ async def render_project_video(project_id: str, audio_path: str, render_threads:
         output_path, 
         preset,
         sound_map=sound_map,
-        render_threads=render_threads
+        render_threads=render_threads,
+        video_metadata=video_meta
     )
 
     if success:

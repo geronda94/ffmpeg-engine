@@ -31,7 +31,8 @@ FORBIDDEN_IN_QUERIES = ["woman", "women", "girl", "female", "lady", "mother", "m
                         "person", "people", "human", "model", "actor", "musician", "violin",
                         "violinist", "sleep", "bed", "lying", "naked", "skin", "portrait face",
                         "nude", "body", "torso", "monk", "temple", "priest", "praying man",
-                        "praying woman", "man praying"]
+                        "praying woman", "man praying", "yoga", "buddha", "buddhist", "zen", 
+                        "meditation", "hindu", "islam", "mosque", "karma", "chakra"]
 
 SAFE_FALLBACK_QUERIES = ["church building dome", "candle prayer light", "cross silhouette",
                           "bible book open", "stained glass church", "golden dome cathedral",
@@ -76,13 +77,13 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
             logger.warning(f"All queries had forbidden words, using fallback: {safe}")
         queries = safe
 
-        is_saint = any(w in visual.lower() or w in spoken.lower() for w in [
-            "saint", "icon", "икон", "свят", "jesus", "christ", "bible", "gospel", 
-            "apostle", "mary", "нисск", "златоуст", "богослов", "апостол", "христ"
-        ])
-        if is_saint:
-            search_source = "icon"
-            logger.info(f"Saint/icon scene {scene_idx}: routing to DDG (icon)")
+        if search_source != "icon":
+            import re
+            text_to_check = (visual + " " + spoken).lower()
+            is_saint_strong = bool(re.search(r'\b(saint|icon|икон\w*|святой|святая|святитель|jesus|christ|иисус|христос|apostle|апостол|нисский|златоуст|богослов|мария|богородица)\b', text_to_check))
+            if is_saint_strong:
+                search_source = "icon"
+                logger.info(f"Saint/icon scene {scene_idx}: forced routing to DDG (icon)")
 
     logger.info(f"Auto-select scene {scene_idx}: queries={queries}, source={search_source}")
 

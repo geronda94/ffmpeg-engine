@@ -121,7 +121,7 @@ class BaseMontageEngine:
         self.media_engine = MediaEngine(width, height, fps)
         os.makedirs("temp", exist_ok=True)
 
-    def render(self, scenes, audio_path, output_path, preset, progress_callback=None, sound_map=None, render_threads=4):
+    def render(self, scenes, audio_path, output_path, preset, progress_callback=None, sound_map=None, render_threads=4, video_metadata=None):
         try:
             voice = AudioFileClip(audio_path).with_volume_scaled(2.0)
 
@@ -254,6 +254,11 @@ class BaseMontageEngine:
             temp_audio = os.path.join("temp", f"temp_audio_{os.path.basename(output_path)}.m4a")
             render_logger = TelegramProgressLogger(callback=progress_callback) if progress_callback else "bar"
 
+            ffmpeg_args = ["-t", f"{video_duration:.6f}"]
+            if video_metadata:
+                for k, v in video_metadata.items():
+                    ffmpeg_args.extend(["-metadata", f"{k}={v}"])
+
             final_video.write_videofile(
                 output_path,
                 fps=self.fps,
@@ -265,9 +270,8 @@ class BaseMontageEngine:
                 threads=render_threads,
                 preset="veryfast",
                 logger=render_logger,
-                # Жёсткий trim по времени — гарантирует что видео не вылезет
-                # ни на кадр за пределы аудио, даже с AAC encoder padding
-                ffmpeg_params=["-t", f"{video_duration:.6f}"]
+                # Жёсткий trim по времени + метаданные
+                ffmpeg_params=ffmpeg_args
             )
             return True
         except Exception as e:
@@ -300,9 +304,9 @@ class WideMontageEngine(BaseMontageEngine):
         super().__init__(1920, 1080, fps)
 
 
-def run_montage(scenes, audio_path, output_path, preset, progress_callback=None, sound_map=None, width=1080, height=1920, render_threads=4):
+def run_montage(scenes, audio_path, output_path, preset, progress_callback=None, sound_map=None, width=1080, height=1920, render_threads=4, video_metadata=None):
     if width > height:
         engine = WideMontageEngine()
     else:
         engine = VerticalMontageEngine()
-    return engine.render(scenes, audio_path, output_path, preset, progress_callback, sound_map=sound_map, render_threads=render_threads)
+    return engine.render(scenes, audio_path, output_path, preset, progress_callback, sound_map=sound_map, render_threads=render_threads, video_metadata=video_metadata)

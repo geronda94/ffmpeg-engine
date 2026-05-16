@@ -30,12 +30,25 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
         if w < min_res or h < min_res:
             continue
 
-        if no_people and search_source not in ("web", "news"):
+        # 3. ФИЛЬТР КОММЕРЧЕСКОГО МУСОРА И ОБЛОЖЕК
+        trash_words = ["shutterstock", "dreamstime", "alamy", "gettyimages", "istock", 
+                       "album-cover", "poster-", "cd-cover", "advertisement", "promo-"]
+        if any(tw in url_low for tw in trash_words):
+            continue
+
+        if no_people and search_source not in ("web", "news", "icon"):
             people_words = ["portrait", "face", "man-", "woman-", "girl-", "model-",
                            "person-", "people-", "actor", "photo-"]
             is_person = any(pw in url_low for pw in people_words)
             has_icon = "icon" in url_low or "saint" in url_low
             if is_person and not has_icon:
+                continue
+                
+        # 4. ФИЛЬТР ЧУЖИХ РЕЛИГИЙ (ДЛЯ ПРАВОСЛАВИЯ)
+        # Если включен no_people (характерно для православного профиля), жестко отсекаем йогу, буддизм и т.д.
+        if no_people:
+            non_christian = ["buddha", "buddhist", "yoga", "zen", "meditat", "hindu", "islam", "mosque", "monk", "temple", "karma", "chakra", "witch", "magic", "spell"]
+            if any(nc in url_low for nc in non_christian):
                 continue
 
         blocked = False
@@ -87,8 +100,12 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
         f"- Aesthetic (0-2): Composition, lighting, mood fit.\n\n"
         f"CRITICAL RULES:\n"
         f"1. If an image's tags or URL clearly violate banned keywords (e.g., woman, shaolin, islam for orthodox channel) → score = 0.\n"
-        f"   EXCEPTION: For Orthodox channel, if search_source is 'web' or 'news', photos of CONTEMPORARY CLERGY/FIGURES (like Patriarch, Metropolitan) ARE ALLOWED and should not be penalized by the 'no people' rule.\n"
-        f"2. ENTITY VERIFICATION: If the scene requires a SPECIFIC KNOWN PERSON (e.g. 'Metropolitan Pavel', 'Alexander Lukashenko') and the image tags clearly describe a DIFFERENT person (e.g. 'Jesus Christ', 'Joe Biden') → score = 0.\n\n"
+        f"   EXCEPTION: For Orthodox channel, if search_source is 'web', 'news' or 'icon', photos of CONTEMPORARY CLERGY or ANCIENT SAINTS ARE ALLOWED and should not be penalized by the 'no people' rule.\n"
+        f"2. ENTITY VERIFICATION: This is CRITICAL. If the scene requires a SPECIFIC KNOWN PERSON (e.g. 'Metropolitan Pavel', 'Gregory of Nyssa') and the image tags describe a DIFFERENT person (e.g. 'Singer', 'Joe Biden', 'Jesus Christ' when looking for a saint) → score = 0.\n"
+        f"   - If looking for an 'icon', and the result is a modern photo of a person → score = 0 (unless it's a modern saint/cleric).\n"
+        f"   - If looking for a specific saint, and the result is an album cover, movie poster, or modern celebrity → score = 0.\n"
+        f"3. NO TEXT/WATERMARKS: Penalize heavily (score -5) if tags or URL suggest visible text, watermarks, logos, or commercial branding (unless it's a news screenshot).\n"
+        f"4. ANALOGY RULE: If the scene is an analogy (e.g. 'violinist', 'body cells'), allow the subject even if 'no people' is active, but prioritize ARTISTIC, SILHOUETTE, or NON-MODERN shots over generic smiling stock people.\n\n"
         f"Return ONLY valid JSON:\n"
         f"{'{'} \"scores\": [ {{\"url\": \"...\", \"score\": 7, \"reason\": \"краткое пояснение\"}} ], "
         f"\"best_url\": \"...\", \"best_score\": 7 {'}'}"

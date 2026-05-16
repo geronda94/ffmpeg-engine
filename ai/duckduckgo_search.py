@@ -18,7 +18,7 @@ except ImportError:
         logger.warning("⚠️ Neither ddgs nor duckduckgo_search installed. DDG search disabled.")
 
 
-def search_images_ddg(query: str, max_results: int = 15, min_size: int = 800) -> list:
+def search_images_ddg(query: str, max_results: int = 15, min_size: int = 500) -> list:
     if not DDG_AVAILABLE:
         return []
 
