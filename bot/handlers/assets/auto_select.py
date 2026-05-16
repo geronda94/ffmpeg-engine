@@ -113,7 +113,7 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
     best_score_overall = 0
 
     if results:
-        scored = await score_images(results[:20], spoken, visual, rules)
+        scored = await score_images(results[:20], spoken, visual, rules, search_source=search_source)
         if scored and scored.get("scores"):
             sorted_scores = sorted(scored["scores"], key=lambda x: x.get("score", 0), reverse=True)
             for img_score in sorted_scores[:5]:

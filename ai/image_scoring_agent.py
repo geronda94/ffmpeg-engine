@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 async def score_images(images_batch: list, scene_text: str, visual_description: str,
-                       channel_rules: dict) -> dict:
+                       channel_rules: dict, search_source: str = "stock") -> dict:
     """
     LLM-оценка пачки изображений для авто-подбора.
     Возвращает лучшее и все оценки.
@@ -30,7 +30,7 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
         if w < min_res or h < min_res:
             continue
 
-        if no_people:
+        if no_people and search_source not in ("web", "news"):
             people_words = ["portrait", "face", "man-", "woman-", "girl-", "model-",
                            "person-", "people-", "actor", "photo-"]
             is_person = any(pw in url_low for pw in people_words)
@@ -85,7 +85,10 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
         f"- Channel rules compliance (0-3): Does it follow banned/preferred rules? (Check 'tags' carefully!)\n"
         f"- Resolution quality (0-2): Is it >= {min_res}px per side?\n"
         f"- Aesthetic (0-2): Composition, lighting, mood fit.\n\n"
-        f"CRITICAL: If an image's tags or URL clearly violate banned keywords (e.g., woman, shaolin, islam for orthodox channel) → score = 0.\n\n"
+        f"CRITICAL RULES:\n"
+        f"1. If an image's tags or URL clearly violate banned keywords (e.g., woman, shaolin, islam for orthodox channel) → score = 0.\n"
+        f"   EXCEPTION: For Orthodox channel, if search_source is 'web' or 'news', photos of CONTEMPORARY CLERGY/FIGURES (like Patriarch, Metropolitan) ARE ALLOWED and should not be penalized by the 'no people' rule.\n"
+        f"2. ENTITY VERIFICATION: If the scene requires a SPECIFIC KNOWN PERSON (e.g. 'Metropolitan Pavel', 'Alexander Lukashenko') and the image tags clearly describe a DIFFERENT person (e.g. 'Jesus Christ', 'Joe Biden') → score = 0.\n\n"
         f"Return ONLY valid JSON:\n"
         f"{'{'} \"scores\": [ {{\"url\": \"...\", \"score\": 7, \"reason\": \"краткое пояснение\"}} ], "
         f"\"best_url\": \"...\", \"best_score\": 7 {'}'}"
