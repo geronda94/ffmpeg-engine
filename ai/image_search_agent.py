@@ -31,7 +31,7 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
 
         # Маппинг реальных style_id проекта → визуальные хинты для стока
         ORTHODOX_STYLES = {"spiritual_direct", "spiritual_conflict", "theology_architect", "sacred_storyteller", "orthodox"}
-        IT_STYLES = {"it_b2b_architect"}
+        IT_STYLES = {"it_b2b_architect", "tech_business"}
 
         style_hint = ""
         if style_id in ORTHODOX_STYLES:
@@ -57,9 +57,13 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
         elif style_id in IT_STYLES:
             style_hint = (
                 "STYLE CONTEXT: IT/Business content.\n"
+                "CRITICAL: Be extremely DIRECT and SPECIFIC about technologies. "
+                "If the text mentions a specific technology (e.g. 'Vue.js', 'React', 'Python', 'Docker', 'AWS'), "
+                "your queries MUST include the exact technology name with 'logo' or 'code snippet' (e.g., 'vue js logo', 'python code editor').\n"
+                "If it mentions 'website' or 'dashboard', search for 'dashboard ui', 'website wireframe', 'code screenshot'.\n"
                 "PREFER: code on dark monitor, server room, dashboard UI, modern office, "
-                "network infrastructure, data visualization.\n"
-                "AVOID: retro tech, clipart, overly generic stock smiles.\n"
+                "network infrastructure, data visualization, specific tech logos.\n"
+                "AVOID: abstract technology backgrounds, generic glowing lines, generic hackers with hoodies, retro tech, clipart.\n"
             )
 
         context_block = ""
@@ -117,11 +121,11 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
             f"12. For color: choose ONE from: red, orange, yellow, green, turquoise, blue, "
             f"violet, pink, brown, black, gray, white — or 'none' if not important.\n"
             f"13. TARGET SOURCE DETERMINATION:\n"
-            f"  - Set 'source' to 'web' if the script mentions a SPECIFIC KNOWN PERSON, historical figure, or title (e.g. 'Alexander Lukashenko', 'Gregory of Nyssa', 'Elon Musk', 'President of US'). First query MUST be their exact name.\n"
+            f"  - Set 'source' to 'web' if the script mentions a SPECIFIC KNOWN PERSON, historical figure, title, or a SPECIFIC IT TECHNOLOGY/BRAND (e.g. 'Vue.js logo', 'Python logo'). First query MUST be their exact name.\n"
             f"  - Set 'source' to 'icon' if the scene requires an Orthodox icon of a saint, Christ, or biblical figure.\n"
             f"  - Set 'source' to 'news' if the scene is a specific real-world news event or screenshot of an article.\n"
             f"  - Set 'source' to 'ai' if the scene is highly abstract, supernatural, or impossible to find in photos (e.g. 'soul leaving body').\n"
-            f"  - Otherwise, set 'source' to 'stock' (for generic nature, lifestyle, IT servers, textures, general objects)."
+            f"  - Otherwise, set 'source' to 'stock' (for generic nature, lifestyle, IT servers, textures, general objects, code editors)."
         )
 
         result = await achat_json(user_prompt=prompt)

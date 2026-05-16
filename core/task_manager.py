@@ -92,8 +92,11 @@ class RenderTaskManager:
                         
                         scenes_for_srt = proj_data['scenes']
                         assets = proj_data.get('assets', {})
+                        s_style = proj_data.get('subtitle_style', {})
                         for i, s in enumerate(scenes_for_srt):
                             s['allow_montage_effects'] = assets.get(str(i), {}).get('allow_montage_effects', True)
+                            if s_style:
+                                s['subtitle_style'] = s_style
                         
                         # Определяем длительность превью для скрытия субтитров
                         m_start = 0.0

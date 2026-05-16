@@ -65,7 +65,7 @@
       "preview_bg_color": "#0A0B10",
       "preview_text_color": "#F0F4F8",
       "preview_secondary_color": "#3B82F6",
-      "preview_font_path": "assets/fonts/Inter-Bold.ttf",
+      "preview_font_path": "assets/fonts/Montserrat-Bold.ttf",
       "subtitle_style": {
         "primary_color": "#3B82F6",
         "secondary_color": "#F0F4F8",
@@ -93,7 +93,7 @@
       "preview_bg_color": "#0F1115",
       "preview_text_color": "#FFFFFF",
       "preview_secondary_color": "#DC2626",
-      "preview_font_path": "assets/fonts/Inter-Black.ttf",
+      "preview_font_path": "assets/fonts/Montserrat-Bold.ttf",
       "subtitle_style": {
         "primary_color": "#DC2626",
         "secondary_color": "#FFFFFF",

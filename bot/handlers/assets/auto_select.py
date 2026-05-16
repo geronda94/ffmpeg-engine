@@ -87,7 +87,7 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
         if search_source != "icon":
             import re
             text_to_check = (visual + " " + spoken).lower()
-            is_saint_strong = bool(re.search(r'\b(saint|icon|икон\w*|святой|святая|святитель|jesus|christ|иисус|христос|apostle|апостол|нисский|златоуст|богослов|мария|богородица|преподобный|мученик|мученица|преподобная|праведный|праведная|ангел|архангел|праведник|праведница|икона)\b', text_to_check))
+            is_saint_strong = bool(re.search(r'\b(saint|icon|икон\w*|святой|святая|святитель|jesus|christ|иисус|христос|apostle|апостол|нисский|златоуст|богослов|мария|богородица|преподобный|мученик|мученица|преподобная|праведный|праведная|ангел|архангел|праведник|праведница|икона|матрона|ксения|сергий|серафим|николай|пантелеимон|лука)\b', text_to_check))
             if is_saint_strong:
                 search_source = "icon"
                 logger.info(f"Saint/icon scene {scene_idx}: forced routing to DDG (icon)")

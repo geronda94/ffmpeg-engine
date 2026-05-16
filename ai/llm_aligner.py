@@ -40,7 +40,7 @@ async def align_words_with_whisper(scenes, whisper_segments, target_lang="Russia
             f"1. For each scene, assign each WORD its correct start and end time based on Whisper segments.\n"
             f"2. MANDATORY: You MUST return the EXACT words found in the 'text' field of the SCRIPT SCENES. DO NOT replace them with words from Whisper. Even if Whisper says 'seventy' but script says '7-10', you MUST return '7-10' and assign it the timestamp of 'seventy'.\n"
             f"3. NO OMISSION: Do not omit any words from the script. Every single word in the script must be present in your output.\n"
-            f"4. CLEANING: Remove quotes, commas, dots, and other punctuation from the 'word' field in your JSON output.\n"
+            f"4. CLEANING: Remove quotes, commas, and dots at the end of sentences, but DO NOT remove dots inside URLs or domain names (e.g., keep 'it2b.top', do not turn it into 'it2btop').\n"
             f"5. CASE PRESERVATION: KEEP THE CASE EXACTLY as in the script (names, ALL CAPS emphasis).\n"
             f"6. CONTINUITY: Ensure that word timestamps are continuous and don't have massive gaps unless there is silence in Whisper.\n\n"
             f"Return ONLY valid JSON in this format:\n{output_example}\n"
