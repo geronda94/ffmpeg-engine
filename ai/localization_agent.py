@@ -63,6 +63,8 @@ async def translate_project_content(script: str, scenes: list, metadata: dict, t
             s.pop('end', None)
             s.pop('effects', None)
             s.pop('transition', None)
+            s.pop('words', None)
+            s.pop('subtitle_style', None) # Сбрасываем стиль, если он был привязан к старой сцене
 
         return {
             "script": result.get("translated_script"),

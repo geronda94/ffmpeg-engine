@@ -68,7 +68,7 @@ class ProjectManager:
         
         # Копируем структуру проекта, пропуская тяжелые медиа-файлы и папки
         shutil.copytree(source_path, new_path, ignore=shutil.ignore_patterns(
-            '*.mp4', '__pycache__', 'temp_*', 'audio', 'video_with_subtitles.mp4', 'final_video.mp4'
+            '*.mp4', '*.ass', '__pycache__', 'temp_*', 'audio', 'video_with_subtitles.mp4', 'final_video.mp4'
         ))
         
         # Обновляем JSON в новом проекте
@@ -83,6 +83,7 @@ class ProjectManager:
         proj_data.pop('current_audio_path', None)
         proj_data.pop('metadata', None)
         proj_data.pop('whisper_segments', None)
+        proj_data.pop('aligned_words', None)
         
         # Глубокая очистка таймингов и эффектов в сценах
         for scene in proj_data.get('scenes', []):
@@ -90,6 +91,7 @@ class ProjectManager:
             scene.pop('end', None)
             scene.pop('effects', None)
             scene.pop('transition', None)
+            scene.pop('words', None)
 
         
         # Обновляем пути к ассетам в новом JSON
