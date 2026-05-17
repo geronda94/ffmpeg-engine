@@ -99,7 +99,7 @@
         "min_resolution": 800,
         "style_notes": "Серьёзно, фактологически. Студийные фото, репортажи, карты. Без мемов и развлечений."
       },
-      "logo_path": "local_assets/logo/news.png",
+      "logo_path": "local_assets/logo/news_transparent.png",
       "preview_bg_color": "#0A101D",
       "preview_text_color": "#FFFFFF",
       "preview_secondary_color": "#DC2626",

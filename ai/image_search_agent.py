@@ -68,6 +68,24 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
                 "network infrastructure, data visualization, specific tech logos.\n"
                 "AVOID: abstract technology backgrounds, generic glowing lines, generic hackers with hoodies, retro tech, clipart.\n"
             )
+        elif style_id == "news_broadcast":
+            style_hint = (
+                "STYLE CONTEXT: Real-world News, Geopolitics, Military, and Breaking Analytics.\n"
+                "CRITICAL SEARCH STRATEGY: You MUST prioritize real-world indexing and exact breaking news context!\n"
+                "1. BREAKING INCIDENTS & MILITARY: For drone strikes, explosions, missile launches, or recent attacks (e.g., '300 drones launched at Moscow region'), set 'source' to 'news'. Primary query MUST include specific keywords for web indexing (e.g., 'Moscow region drone attack 2026', 'Ukraine drones swarm').\n"
+                "2. SPECIFIC PEOPLE & LEADERS: For politicians, leaders, figures (e.g., 'JD Vance', 'Putin', 'Trump'), set 'source' to 'news'. Exact name query.\n"
+                "3. SPECIFIC EVENTS & MEETINGS: For summits or meetings, set 'source' to 'news'.\n"
+                "4. MAPS & LOCATIONS: For geopolitical maps, cities, borders, or institutions (e.g., 'Moscow map highlighted', 'Kremlin'), set 'source' to 'web'.\n"
+                "5. DEFAULT TO NEWS/WEB: In 'news_broadcast' style, 95% of scenes represent real events. Set 'source' to 'news' or 'web'. ONLY use 'stock' for purely abstract concepts (generic charts, generic police lights).\n"
+            )
+        elif style_id == "lifestyle_aesthetic":
+            style_hint = (
+                "STYLE CONTEXT: Women's Lifestyle, Fashion, Psychology, Aesthetics.\n"
+                "SEARCH STRATEGY:\n"
+                "1. CELEBRITIES & DESIGNERS: If mentioning a specific celebrity, actress, or model, set 'source' to 'web'. Exact name query.\n"
+                "2. BRANDS & RUNWAYS: If mentioning a specific perfume brand, fashion show, or designer collection (e.g., 'Chanel perfume', 'Dior runway'), set 'source' to 'web'.\n"
+                "3. AESTHETIC LIFESTYLE: For cozy atmosphere, morning coffee, journaling, skincare routines, or self-care, set 'source' to 'stock'. Prefer warm pastel aesthetics.\n"
+            )
 
         context_block = ""
         if scene_text:
@@ -359,3 +377,40 @@ async def prefetch_scene_search(scene: dict, style_id: str = "", script: str = "
     except Exception as e:
         logger.warning(f"prefetch_scene_search: error — {e}")
         return None
+
+
+async def scrape_article_images(script_text: str) -> list:
+    """Находит URL новостных статей в тексте и асинхронно вытаскивает главные иллюстрации (og:image / крупные img)."""
+    urls = re.findall(r'https?://[^\s()\"\'<>]+', script_text)
+    article_urls = [u for u in urls if "t.me" not in u and "youtube.com" not in u and "youtu.be" not in u]
+    if not article_urls:
+        return []
+    
+    extracted = []
+    async def fetch_og(url):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}) as resp:
+                    if resp.status == 200:
+                        html = await resp.text()
+                        og_img = (re.findall(r'property="og:image"[^>]+content="([^">]+)"', html) or
+                                  re.findall(r'content="([^">]+)"[^>]+property="og:image"', html) or
+                                  re.findall(r'name="twitter:image"[^>]+content="([^">]+)"', html))
+                        if og_img and og_img[0].startswith("http"):
+                            return og_img[0]
+                        
+                        imgs = re.findall(r'<img[^>]+src="([^">]+)"', html)
+                        for img_url in imgs:
+                            if (img_url.endswith(".jpg") or img_url.endswith(".png")) and img_url.startswith("http"):
+                                return img_url
+        except Exception as e:
+            logger.warning(f"Failed to scrape article {url[:50]}: {e}")
+        return None
+
+    results = await asyncio.gather(*(fetch_og(u) for u in article_urls[:3]))
+    for r in results:
+        if r and r not in extracted:
+            extracted.append(r)
+            
+    logger.info(f"Scraped article images from source URLs: {extracted}")
+    return extracted

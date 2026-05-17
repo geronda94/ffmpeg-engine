@@ -94,6 +94,9 @@ class SoundDesignAgent:
 
     async def generate_sound_map(self, script, scenes, language="Russian",
                                   channel_profile: str = None):
+        if channel_profile == "news":
+            logger.info("Channel is 'news', unbinding background music...")
+            return {"bg_music": None, "sfx_placements": []}
         library_summary = []
         for cat, content in self.library["categories"].items():
             for item in content["items"]:

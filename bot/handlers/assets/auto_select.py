@@ -120,6 +120,10 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
         search_source = "icon"
         logger.info(f"Orthodox scene {scene_idx}: forced DDG (first 2 scenes rule)")
 
+    if channel_profile_id == "news" and search_source not in ("news", "web", "ai"):
+        search_source = "news"
+        logger.info(f"News scene {scene_idx}: forced routing to DDG (news real-world rule)")
+
     logger.info(f"Auto-select scene {scene_idx}: queries={queries}, source={search_source}")
 
     results = []
@@ -169,7 +173,7 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
                     best_score_overall = img_score_val
                     break
 
-    if not best_local and search_source not in ("icon", "news", "web"):
+    if not best_local and (search_source not in ("icon", "news", "web") or channel_profile_id != "orthodox"):
         for src_type, src_label in AUTO_FALLBACK_CHAIN:
             await _safe_edit(status_msg,
                 f"🤖 **Сцена {scene_idx + 1}/{total}** — пробую {src_label}..."
@@ -295,7 +299,15 @@ async def auto_pick_for_project(
     if not missing_indices:
         return len(assets)
 
-    await _safe_edit(status_msg, f"🤖 **Оцениваю сцены с помощью ИИ ({len(missing_indices)} шт)...**")
+    await _safe_edit(status_msg, f"🤖 **Анализирую ссылки в тексте и оцениваю ИИ ({len(missing_indices)} шт)...**")
+
+    from ai.image_search_agent import scrape_article_images
+    scraped_urls = await scrape_article_images(full_script)
+    scraped_local_paths = []
+    for surl in scraped_urls:
+        lpath = await _download_best(surl)
+        if lpath and os.path.exists(lpath):
+            scraped_local_paths.append(lpath)
 
     # 1. Параллельная оптимизация запросов к LLM
     opt_tasks = []
@@ -367,6 +379,10 @@ async def auto_pick_for_project(
         if channel_profile_id == "orthodox" and idx <= 1:
             search_source = "icon"
             logger.info(f"Orthodox scene {idx}: forced DDG (first 2 scenes rule)")
+
+        if channel_profile_id == "news" and search_source not in ("news", "web", "ai"):
+            search_source = "news"
+            logger.info(f"News scene {idx}: forced routing to DDG (news real-world rule)")
 
         scene_data = {
             "idx": idx,
@@ -525,6 +541,13 @@ async def auto_pick_for_project(
         queries = data["queries"]
         search_source = data["search_source"]
 
+        # Приоритет первоисточника для новостных проектов (первые сцены)
+        if scraped_local_paths and channel_profile_id == "news" and idx < len(scraped_local_paths):
+            cand_path = scraped_local_paths[idx]
+            pm.update_asset(project_id, idx, cand_path)
+            logger.info(f"✅ Scene {idx+1}/{total} assigned scraped article image: {cand_path}")
+            continue
+
         await _safe_edit(status_msg,
             f"🤖 **Подбор (веб-поиск DDG)**\n"
             f"🔍 Сцена {idx+1}/{total}: {queries[0]}..."
@@ -579,10 +602,49 @@ async def auto_pick_for_project(
                     else:
                         selected_urls.remove(url)
 
+        if not best_local and channel_profile_id != "orthodox":
+            logger.info(f"⚠️ DDG pick failed for scene {idx+1}, triggering fallback to stock databases...")
+            await _safe_edit(status_msg, f"🤖 **Фоллбэк на стоки**\n🔍 Сцена {idx+1}/{total}: {queries[-1]}...")
+            
+            for src_type, src_label in AUTO_FALLBACK_CHAIN:
+                try:
+                    fallback_queries = queries[1:] if len(queries) > 1 else queries
+                    fallback = await asyncio.wait_for(
+                        image_search_agent.search_images(fallback_queries, color=color, source_type=src_type),
+                        timeout=25
+                    )
+                    if fallback:
+                        import random
+                        random.shuffle(fallback)
+                        scored = await score_images(
+                            fallback[:15], scene.get("text_segment", ""),
+                            scene.get("image_prompt") or scene.get("visual_description") or "",
+                            rules
+                        )
+                        if scored and scored.get("scores"):
+                            sorted_scores = sorted(scored["scores"], key=lambda x: x.get("score", 0), reverse=True)
+                            for img_score in sorted_scores[:5]:
+                                url = img_score.get("url", "")
+                                if not url or url in selected_urls:
+                                    continue
+                                selected_urls.add(url)
+                                local_path = await _download_best(url)
+                                if local_path:
+                                    pm.update_asset(project_id, idx, local_path)
+                                    best_local = local_path
+                                    await _safe_edit(status_msg, f"🤖 **Сцена {idx+1}/{total}** — ⚠️ {src_label} (фоллбэк)")
+                                    break
+                                else:
+                                    selected_urls.remove(url)
+                    if best_local:
+                        break
+                except Exception:
+                    pass
+
         if best_local:
-            logger.info(f"✅ Scene {idx+1}/{total} DDG pick OK: {best_local}")
+            logger.info(f"✅ Scene {idx+1}/{total} DDG/fallback pick OK: {best_local}")
         else:
-            logger.warning(f"❌ Scene {idx+1}/{total} DDG pick FAILED")
+            logger.warning(f"❌ Scene {idx+1}/{total} DDG pick FAILED completely")
 
         # Вежливая пауза
         await asyncio.sleep(1.5)
