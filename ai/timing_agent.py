@@ -339,4 +339,23 @@ async def align_scenes_with_audio(scenes: list, audio_path: str, whisper_segment
     except Exception as e:
         logger.error(f"Timing Agent Error: {e}", exc_info=True)
         for i, s in enumerate(scenes):
+            if 'start' not in s: 
+                s['start'] = round(i * 3.0, 3)
+                s['end'] = round((i + 1) * 3.0, 3)
+            if not s.get('words'):
+                s_text = s.get('text_segment', '').strip()
+                raw_words = s_text.split()
+                if not raw_words:
+                    raw_words = ["..."]
+                sc_start = s['start']
+                sc_end = s['end']
+                w_dur = (sc_end - sc_start) / len(raw_words)
+                s['words'] = [
+                    {
+                        'word': r_w,
+                        'start': round(sc_start + w_i * w_dur, 3),
+                        'end': round(sc_start + (w_i + 1) * w_dur, 3)
+                    }
+                    for w_i, r_w in enumerate(raw_words)
+                ]
         return scenes
