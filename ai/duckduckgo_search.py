@@ -18,14 +18,28 @@ except ImportError:
         logger.warning("⚠️ Neither ddgs nor duckduckgo_search installed. DDG search disabled.")
 
 
+WATERMARK_BLACKLIST = [
+    "legacyicons", "monasteryicons", "shutterstock", "depositphotos", "istockphoto", "istock",
+    "alamy", "gettyimages", "123rf", "dreamstime", "freepik", "vecteezy", "vectorstock",
+    "pinterest", "etsy", "ebay", "amazon", "redbubble", "teepublic", "society6", "stockphoto",
+    "canva", "adobe", "pond5", "bigstockphoto", "cn-", "cn_"
+]
+
+
 def search_images_ddg(query: str, max_results: int = 15, min_size: int = 500) -> list:
     if not DDG_AVAILABLE:
         return []
 
     try:
         results = []
+        safe_query = f"{query} -site:pinterest.com -site:shutterstock.com -site:legacyicons.com -site:monasteryicons.com -site:alamy.com"
         with DDGS() as ddgs:
-            for r in ddgs.images(query, max_results=max_results):
+            for r in ddgs.images(safe_query, max_results=max_results + 15):
+                img_url = r.get("image", "").lower()
+                source_url = r.get("url", "").lower()
+                title = r.get("title", "").lower()
+                if any(bad in img_url or bad in source_url or bad in title for bad in WATERMARK_BLACKLIST):
+                    continue
                 try:
                     w = int(r.get("width", 0) or 0)
                     h = int(r.get("height", 0) or 0)
@@ -42,7 +56,9 @@ def search_images_ddg(query: str, max_results: int = 15, min_size: int = 500) ->
                     "title": r.get("title", ""),
                     "tags": r.get("title", ""),
                 })
-        logger.info(f"DDG search '{query}': {len(results)} results (min {min_size}px)")
+                if len(results) >= max_results:
+                    break
+        logger.info(f"DDG search '{query}': {len(results)} results (min {min_size}px, watermark filtered)")
         return results
     except Exception as e:
         logger.error(f"DDG search error: {e}")

@@ -36,11 +36,15 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
         # 3. ФИЛЬТР КОММЕРЧЕСКОГО МУСОРА, ВАТЕРМАРОК И ВЕКТОРОВ
         trash_words = [
             "shutterstock", "dreamstime", "alamy", "gettyimages", "istock", "depositphotos", 
-            "adobestock", "123rf", "watermark", "watermarked", "premium-preview",
-            "album-cover", "poster-", "cd-cover", "advertisement", "promo-",
+            "adobestock", "123rf", "watermark", "watermarked", "premium-preview", "sample",
+            "album-cover", "poster-", "cd-cover", "advertisement", "promo-", "legacyicons",
+            "monasteryicons", "cn-", "cn_", "stockphoto", "bigstockphoto", "canva", "freepik",
+            "vecteezy", "vectorstock", "pinterest", "etsy", "ebay", "amazon", "redbubble",
+            "teepublic", "society6", "deviantart",
             "vector", "illustration", "cartoon", "drawing", "sketch", "clipart"
         ]
         if any(tw in url_low for tw in trash_words) or any(tw in tags_low for tw in trash_words):
+            logger.info(f"Pre-filter: rejecting commercial/watermarked image: {url_low[:60]}")
             continue
         if no_people and search_source not in ("web", "news", "icon"):
             people_words = ["portrait", "face", "man", "woman", "girl", "model",
@@ -146,7 +150,7 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
         f"2. ENTITY VERIFICATION: This is CRITICAL. If the scene requires a SPECIFIC KNOWN PERSON (e.g. 'Metropolitan Pavel', 'Gregory of Nyssa') and the image tags describe a DIFFERENT person (e.g. 'Singer', 'Joe Biden', 'Jesus Christ' when looking for a saint) → score = 0.\n"
         f"   - If looking for an 'icon', and the result is a modern photo of a person → score = 0 (unless it's a modern saint/cleric).\n"
         f"   - If looking for a specific saint, and the result is an album cover, movie poster, or modern celebrity → score = 0.\n"
-        f"3. NO WATERMARKS OR FOREIGN TEXT: Penalize heavily (score = 0) if tags or URL suggest visible watermarks, logos, commercial branding, or foreign language text on signs (e.g., road/street signs with German, English, or other foreign city names like 'Düsseldorf', 'London', 'Exit', 'Welcome' unless the scene specifically mentions that city/text). We want clean, textless, highly artistic images, never modern foreign road/city signs.\n"
+        f"3. NO WATERMARKS OR COMMERCIAL OVERLAYS: This is CRITICAL. If tags or URL suggest visible watermarks (e.g. 'LEGACY ICONS', 'monasteryicons', 'CN', 'Shutterstock', 'Depositphotos', copyright symbols), sample text, web shop overlays, or foreign text on signs → score = 0. We want clean, unblemished, textless, highly sacred or artistic images.\n"
         f"4. ANALOGY RULE: If the scene is an analogy (e.g. 'violinist', 'body cells'), allow the subject even if 'no people' is active, but prioritize ARTISTIC, SILHOUETTE, or NON-MODERN shots over generic smiling stock people.\n\n"
         f"Return ONLY valid JSON:\n"
         f"{'{'} \"scores\": [ {{\"url\": \"...\", \"score\": 7, \"reason\": \"краткое пояснение\"}} ], "
