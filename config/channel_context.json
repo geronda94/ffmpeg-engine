@@ -94,10 +94,10 @@
       "avoid_topics": ["фейки", "желтая пресса"],
       "default_hashtags": ["#новости", "#события", "#актуально"],
       "visual_rules": {
-        "banned_keywords": ["cartoon", "meme", "nsfw", "entertainment", "funny"],
+        "banned_keywords": ["cartoon", "meme", "nsfw", "entertainment", "funny", "bbc", "cnn", "fox news", "foxnews", "rt", "al jazeera", "aljazeera", "reuters", "bloomberg", "msnbc", "competitor logo", "watermark"],
         "preferred_keywords": ["news studio", "report", "broadcast", "journalist", "press conference", "breaking news", "world map", "newspaper"],
         "min_resolution": 800,
-        "style_notes": "Серьёзно, фактологически. Студийные фото, репортажи, карты. Без мемов и развлечений."
+        "style_notes": "Серьёзно, фактологически. Студийные фото, репортажи, карты. Без мемов и развлечений. Строгий запрет на логотипы чужих телеканалов (BBC, CNN, Fox News, RT и т.д.) — в кадре должны быть только общие плашки 'Breaking News' или 'Live'."
       },
       "logo_path": "local_assets/logo/news_transparent.png",
       "preview_bg_color": "#0A101D",
@@ -105,8 +105,8 @@
       "preview_secondary_color": "#DC2626",
       "preview_font_path": "assets/fonts/Montserrat-Bold.ttf",
       "subtitle_style": {
-        "primary_color": "#FFFFFF",
-        "secondary_color": "#E2E8F0",
+        "primary_color": "#DC2626",
+        "secondary_color": "#FFFFFF",
         "outline_color": "#0A101D",
         "shadow_color": "#000000",
         "outline_width": 6,

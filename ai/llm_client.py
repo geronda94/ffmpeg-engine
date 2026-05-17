@@ -27,7 +27,7 @@ def get_client() -> OpenAI:
     global _sync_client
     if _sync_client is None:
         from httpx import Client, Timeout
-        timeout = Timeout(120.0, connect=30.0, read=120.0)
+        timeout = Timeout(45.0, connect=15.0, read=45.0)
         http_client = Client(timeout=timeout)
         _sync_client = OpenAI(
             api_key=_get_api_key(),
@@ -41,7 +41,7 @@ def get_async_client() -> AsyncOpenAI:
     global _async_client
     if _async_client is None:
         from httpx import AsyncClient, Timeout
-        timeout = Timeout(120.0, connect=30.0, read=120.0)
+        timeout = Timeout(45.0, connect=15.0, read=45.0)
         http_client = AsyncClient(timeout=timeout)
         _async_client = AsyncOpenAI(
             api_key=_get_api_key(),
@@ -176,8 +176,16 @@ def chat_complete(
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
 
-    response = get_client().chat.completions.create(**kwargs)
-    return response.choices[0].message.content
+    import time
+    for attempt in range(3):
+        try:
+            response = get_client().chat.completions.create(**kwargs)
+            return response.choices[0].message.content
+        except Exception as e:
+            logger.warning(f"Sync LLM error (attempt {attempt+1}/3): {e}")
+            if attempt == 2:
+                raise
+            time.sleep(2 ** attempt)
 
 
 def chat_json(
@@ -185,8 +193,18 @@ def chat_json(
     user_prompt: str = "",
     model: str = DEFAULT_MODEL,
 ) -> dict:
-    content = chat_complete(system_prompt, user_prompt, model, json_mode=True)
-    return _parse_json_response(content)
+    import time
+    curr_user_prompt = user_prompt
+    for attempt in range(3):
+        try:
+            content = chat_complete(system_prompt, curr_user_prompt, model, json_mode=True)
+            return _parse_json_response(content)
+        except Exception as e:
+            logger.warning(f"JSON parse error in chat_json (attempt {attempt+1}/3): {e}")
+            if attempt == 2:
+                raise
+            time.sleep(2)
+            curr_user_prompt += "\n\n[System Note: Your previous response was invalid/truncated JSON. Please output strictly valid, complete JSON.]"
 
 
 async def achat_complete(
@@ -204,8 +222,16 @@ async def achat_complete(
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
 
-    response = await get_async_client().chat.completions.create(**kwargs)
-    return response.choices[0].message.content
+    import asyncio
+    for attempt in range(3):
+        try:
+            response = await get_async_client().chat.completions.create(**kwargs)
+            return response.choices[0].message.content
+        except Exception as e:
+            logger.warning(f"Async LLM error (attempt {attempt+1}/3): {e}")
+            if attempt == 2:
+                raise
+            await asyncio.sleep(2 ** attempt)
 
 
 async def achat_json(
@@ -213,5 +239,15 @@ async def achat_json(
     user_prompt: str = "",
     model: str = DEFAULT_MODEL,
 ) -> dict:
-    content = await achat_complete(system_prompt, user_prompt, model, json_mode=True)
-    return _parse_json_response(content)
+    import asyncio
+    curr_user_prompt = user_prompt
+    for attempt in range(3):
+        try:
+            content = await achat_complete(system_prompt, curr_user_prompt, model, json_mode=True)
+            return _parse_json_response(content)
+        except Exception as e:
+            logger.warning(f"JSON parse error in achat_json (attempt {attempt+1}/3): {e}")
+            if attempt == 2:
+                raise
+            await asyncio.sleep(2)
+            curr_user_prompt += "\n\n[System Note: Your previous response was invalid/truncated JSON. Please output strictly valid, complete JSON.]"

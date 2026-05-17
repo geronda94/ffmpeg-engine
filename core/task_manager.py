@@ -64,6 +64,13 @@ class RenderTaskManager:
             task['started_at'] = time.time()
             
             try:
+                from core.project_manager import ProjectManager
+                pm_local = ProjectManager()
+                proj_data = pm_local.load_project(project_id) or {}
+                
+                from core.asset_preprocessor import preprocess_project_assets
+                preprocess_project_assets(project_id, is_mirror=proj_data.get('mirror_assets', False), channel_profile=proj_data.get('channel_profile', ''))
+
                 logger.info(f"Worker: Starting render for {project_id} (threads={MAX_RENDER_THREADS})")
                 video_path = await render_project_video(project_id, audio_path, render_threads=MAX_RENDER_THREADS)
                 await asyncio.sleep(0)  # отдаём управление event loop для обработки апдейтов состояний

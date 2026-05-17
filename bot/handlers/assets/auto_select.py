@@ -24,10 +24,28 @@ SCORE_THRESHOLD = 5
 AUTO_FALLBACK_CHAIN = [("pexels", "📸 Pexels"), ("pixabay", "🖼 Pixabay"), ("ai", "🤖 AI Gen")]
 
 
-async def _safe_edit(msg, text: str):
-    """Обёртка edit_text, не роняет pipeline при сетевых ошибках."""
+_last_edit_times = {}
+
+async def _safe_edit(msg, text: str, force: bool = False):
+    """Обёртка edit_text с троттлингом 3с и обработкой Flood Control."""
+    import time, asyncio
+    from aiogram.exceptions import TelegramRetryAfter
+    
+    msg_key = f"{msg.chat.id}_{msg.message_id}"
+    now = time.time()
+    if not force and now - _last_edit_times.get(msg_key, 0) < 3.0:
+        return
+
+    _last_edit_times[msg_key] = now
     try:
         await msg.edit_text(text)
+    except TelegramRetryAfter as e:
+        logger.warning(f"Flood control in auto_select! Waiting {e.retry_after}s...")
+        await asyncio.sleep(e.retry_after + 1)
+        try:
+            await msg.edit_text(text)
+        except Exception:
+            pass
     except Exception as e:
         logger.warning(f"Safe edit failed (network): {e}")
 
@@ -688,7 +706,8 @@ async def handle_auto_select(callback: types.CallbackQuery, state: FSMContext):
 
     await _safe_edit(status,
         f"🤖 **Авто-подбор завершён**\n"
-        f"Подобрано: **{success}/{total}** сцен"
+        f"Подобрано: **{success}/{total}** сцен",
+        force=True
     )
 
     proj_data = pm.load_project(project_id)
@@ -712,7 +731,8 @@ async def handle_auto_select(callback: types.CallbackQuery, state: FSMContext):
             kb.button(text="📝 Продолжить сбор", callback_data=f"continue_asset:{project_id}")
             await _safe_edit(status,
                 f"⚠️ **Не все сцены собраны** ({next_missing + 1}/{len(scenes)})\n"
-                f"Бот написал в ЛС — проверь."
+                f"Бот написал в ЛС — проверь.",
+                force=True
             )
             try:
                 await callback.bot.send_message(

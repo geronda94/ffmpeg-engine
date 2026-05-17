@@ -136,12 +136,6 @@ class MediaEngine:
             processed = self.smart_resize_stable(raw, mode=current_mode, effects_data=effects_to_apply)
             processed = processed.with_duration(duration)
 
-            if mirror:
-                def _hflip(get_frame, t):
-                    frame = get_frame(t)
-                    return frame[:, ::-1, :]
-                processed = processed.transform(_hflip)
-
             return processed
         except Exception as e:
             logger.error(f"Error processing asset {asset_path}: {e}")

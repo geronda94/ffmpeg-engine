@@ -24,6 +24,31 @@ logger = logging.getLogger(__name__)
 router = Router()
 pm = ProjectManager()
 
+_last_edit_status_times = {}
+_auto_pipeline_semaphore = asyncio.Semaphore(1)
+_auto_pipeline_queue_count = 0
+
+async def safe_edit_status(msg, text: str, force: bool = False):
+    import time, asyncio
+    from aiogram.exceptions import TelegramRetryAfter
+    
+    msg_key = f"{msg.chat.id}_{msg.message_id}"
+    now = time.time()
+    if not force and now - _last_edit_status_times.get(msg_key, 0) < 3.0:
+        return
+
+    _last_edit_status_times[msg_key] = now
+    try:
+        await msg.edit_text(text)
+    except TelegramRetryAfter as e:
+        logger.warning(f"Flood control in auto_pipeline! Waiting {e.retry_after}s...")
+        await asyncio.sleep(e.retry_after + 1)
+        try:
+            await msg.edit_text(text)
+        except Exception:
+            pass
+    except Exception as e:
+        logger.warning(f"Safe edit status failed: {e}")
 
 def _get_preset_by_id(preset_id: str):
     if not preset_id:
@@ -42,14 +67,17 @@ def _get_preset_by_id(preset_id: str):
     return None
 
 
-def _get_default_voice_by_lang(lang: str) -> str:
-    voices = {
-        "Russian": "ru-RU-DmitryNeural",
-        "English": "en-US-AndrewNeural",
-        "Romanian": "ro-RO-EmilNeural",
-        "Georgian": "ka-GE-GiorgiNeural"
+def _get_default_voice_by_lang(lang: str):
+    lang_norm = lang.lower().strip()
+    m = {
+        "russian": "ru-RU-DmitryNeural",
+        "ru": "ru-RU-DmitryNeural",
+        "romanian": "ro-RO-EmilNeural",
+        "ro": "ro-RO-EmilNeural",
+        "english": "en-US-ChristopherNeural",
+        "en": "en-US-ChristopherNeural",
     }
-    return voices.get(lang, "ru-RU-DmitryNeural")
+    return m.get(lang, lang.lower()[:2])
 
 
 def _lang_to_code(lang: str) -> str:
@@ -64,6 +92,7 @@ async def run_auto_pipeline(
     state: FSMContext = None,
     script_text: str = None,
 ):
+    global _auto_pipeline_queue_count
     try:
         topics_cfg = get_config("channel_topics", ttl=0)
         presets_cfg = get_config("auto_presets", ttl=0)
@@ -110,152 +139,165 @@ async def run_auto_pipeline(
             f"Канал: **{channel_name}** | Проект: `{project_id}`"
         )
 
-        # ── 2. Storyboard ──
-        await status_msg.edit_text(f"🤖 **{channel_name}** — `{project_id}`\n⏳ Раскадровка...")
+        if _auto_pipeline_semaphore.locked():
+            _auto_pipeline_queue_count += 1
+            await safe_edit_status(status_msg, f"🤖 **{channel_name}** — `{project_id}`\n⏳ В очереди на генерацию контента (перед вами: {_auto_pipeline_queue_count})...", force=True)
 
-        result = await asyncio.to_thread(
-            generate_storyboard,
-            script_text,
-            proj['language'],
-            preset.get('script_style', 'spiritual_direct'),
-            preset.get('pacing', 'super_dynamic'),
-        )
-        scenes = result.get('scenes', [])
-        if not scenes:
-            raise ValueError("Storyboard returned no scenes")
-        proj['scenes'] = scenes
-        proj['status'] = 'collecting_assets'
-        pm.save_project(project_id, proj)
+        async with _auto_pipeline_semaphore:
+            if _auto_pipeline_queue_count > 0:
+                _auto_pipeline_queue_count -= 1
 
-        # ── 3. Auto-select assets ──
-        await status_msg.edit_text(
-            f"🤖 **{channel_name}** — `{project_id}`\n"
-            f"⏳ Картинки: 0/{len(scenes)}"
-        )
+            # ── 2. Storyboard ──
+            await safe_edit_status(status_msg, f"🤖 **{channel_name}** — `{project_id}`\n⏳ Раскадровка...", force=True)
 
-        from bot.handlers.assets.auto_select import auto_pick_for_project
-
-        try:
-            success = await auto_pick_for_project(
-                scenes, preset.get('channel_profile'),
-                preset.get('script_style', ''), script_text,
-                status_msg, project_id
+            result = await asyncio.to_thread(
+                generate_storyboard,
+                script_text,
+                proj['language'],
+                preset.get('script_style', 'spiritual_direct'),
+                preset.get('pacing', 'super_dynamic'),
             )
-        except Exception as e:
-            logger.error(f"Auto-pick batch crashed: {e}", exc_info=True)
-            success = len(proj.get("assets", {}))
+            scenes = result.get('scenes', [])
+            if not scenes:
+                raise ValueError("Storyboard returned no scenes")
+            proj['scenes'] = scenes
+            proj['status'] = 'collecting_assets'
+            pm.save_project(project_id, proj)
 
-        proj = pm.load_project(project_id)
-        missing = [i for i in range(len(scenes)) if str(i) not in proj.get("assets", {})]
-
-        if missing:
-            desc_lines = []
-            for m in missing:
-                sc = scenes[m]
-                desc = sc.get('visual_description', sc.get('text_segment', ''))[:60]
-                desc_lines.append(f"• #{m+1} — _{desc}_")
-            missing_desc = '\n'.join(desc_lines)
-            await status_msg.edit_text(
-                f"⚠️ **{channel_name}** — `{project_id}`\n"
-                f"Не собраны: {', '.join(str(m+1) for m in missing)}\n"
-                f"Продолжи в ЛС."
+            # ── 3. Auto-select assets ──
+            await safe_edit_status(status_msg,
+                f"🤖 **{channel_name}** — `{project_id}`\n"
+                f"⏳ Картинки: 0/{len(scenes)}",
+                force=True
             )
-            kb = InlineKeyboardBuilder()
-            kb.button(text="📝 Продолжить сбор", callback_data=f"continue_asset:{project_id}")
+
+            from bot.handlers.assets.auto_select import auto_pick_for_project
+
             try:
-                await message.bot.send_message(
-                    chat_id=message.from_user.id,
-                    text=f"⚠️ **Не собраны сцены для канала {channel_name}**\n\n"
-                         f"Проект: `{project_id}`\n\n"
-                         f"{missing_desc}\n\n"
-                         f"Нажми «Продолжить сбор» чтобы задать картинки вручную:",
-                    reply_markup=kb.as_markup(),
+                success = await auto_pick_for_project(
+                    scenes, preset.get('channel_profile'),
+                    preset.get('script_style', ''), script_text,
+                    status_msg, project_id
                 )
-            except Exception:
-                return
-            return  # wait for user interaction
-
-        await status_msg.edit_text(
-            f"🤖 **{channel_name}** — `{project_id}`\n"
-            f"✅ Картинки: {success}/{len(scenes)}\n⏳ Озвучка..."
-        )
-
-        # ── 4. TTS ──
-        tts_preset_id = preset.get('tts_preset', 'edge_male_fast')
-        ttd = _get_preset_by_id(tts_preset_id) or {}
-        tts_config = {
-            'engine': preset.get('tts_engine', 'edge'),
-            'voice': (ttd.get('voices', {}).get(proj['language'])
-                      or ttd.get('voice') or _get_default_voice_by_lang(proj['language'])),
-            'rate': ttd.get('rate', '+30%'),
-            'pitch': ttd.get('pitch', '+0Hz'),
-        }
-
-        audio_path = await generate_project_audio(project_id, tts_config)
-        if not audio_path or not os.path.exists(audio_path):
-            await status_msg.edit_text(f"❌ **{channel_name}** — `{project_id}`\nОшибка озвучки.")
-            return
-
-        proj = pm.load_project(project_id)
-        proj['current_audio_path'] = audio_path
-        pm.save_project(project_id, proj)
-
-        await status_msg.edit_text(
-            f"🤖 **{channel_name}** — `{project_id}`\n✅ Озвучка\n⏳ Превью..."
-        )
-
-        # ── 5. Preview ──
-        preview = await generate_preview_text(
-            script_text, proj['language'],
-            channel_profile=proj.get('channel_profile'),
-            style_id=proj.get('script_style'),
-        )
-        first_asset = proj.get('assets', {}).get('0', {}).get('path', '')
-        colors = await design_preview_colors(
-            first_asset or '', preview.get('preview_text', ''),
-            channel_name=proj.get('channel_profile', ''),
-            script_snippet=script_text,
-        )
-        proj['preview_text'] = preview.get('preview_text', '')
-        proj['preview_highlight'] = preview.get('highlight_word', '')
-        proj['preview_colors'] = colors
-        pm.save_project(project_id, proj)
-
-        # ── 5.5 Metadata (Auto) ──
-        if not proj.get('metadata'):
-            try:
-                from ai.metadata_agent import generate_metadata
-                from core.config_loader import get_channel_profile
-                channel_ctx = get_channel_profile(proj.get('channel_profile'))
-                metadata = await generate_metadata(
-                    script_text, proj['language'],
-                    user_instruction="Viral, highly-engaging SEO optimization",
-                    channel_ctx=channel_ctx
-                )
-                if metadata:
-                    proj['metadata'] = metadata
-                    pm.save_project(project_id, proj)
             except Exception as e:
-                logger.error(f"Auto pipeline SEO generation failed: {e}", exc_info=True)
+                logger.error(f"Auto-pick batch crashed: {e}", exc_info=True)
+                success = len(proj.get("assets", {}))
 
-        await status_msg.edit_text(
-            f"🤖 **{channel_name}** — `{project_id}`\n✅ Превью\n⏳ Рендер..."
-        )
+            proj = pm.load_project(project_id)
+            missing = [i for i in range(len(scenes)) if str(i) not in proj.get("assets", {})]
 
-        # ── 6. Queue render ──
-        await task_manager.add_task(
-            project_id=project_id,
-            audio_path=audio_path,
-            user_id=str(chat_id),
-            callback_on_done=_make_auto_callback(channel_name),
-            extra_data={
-                'source_chat_id': chat_id,
-                'source_msg_id': source_msg_id or message.message_id,
-            },
-        )
+            if missing:
+                desc_lines = []
+                for m in missing:
+                    sc = scenes[m]
+                    desc = sc.get('visual_description', sc.get('text_segment', ''))[:60]
+                    desc_lines.append(f"• #{m+1} — _{desc}_")
+                missing_desc = '\n'.join(desc_lines)
+                await safe_edit_status(status_msg,
+                    f"⚠️ **{channel_name}** — `{project_id}`\n"
+                    f"Не собраны: {', '.join(str(m+1) for m in missing)}\n"
+                    f"Продолжи в ЛС.",
+                    force=True
+                )
+                kb = InlineKeyboardBuilder()
+                kb.button(text="📝 Продолжить сбор", callback_data=f"continue_asset:{project_id}")
+                try:
+                    await message.bot.send_message(
+                        chat_id=message.from_user.id,
+                        text=f"⚠️ **Не собраны сцены для канала {channel_name}**\n\n"
+                             f"Проект: `{project_id}`\n\n"
+                             f"{missing_desc}\n\n"
+                             f"Нажми «Продолжить сбор» чтобы задать картинки вручную:",
+                        reply_markup=kb.as_markup(),
+                    )
+                except Exception:
+                    return
+                return  # wait for user interaction
 
-        await status_msg.edit_text(
-            f"🤖 **{channel_name}** — `{project_id}`\n✅ **В очереди на рендер!**"
+            await safe_edit_status(status_msg,
+                f"🤖 **{channel_name}** — `{project_id}`\n"
+                f"✅ Картинки: {success}/{len(scenes)}\n⏳ Озвучка...",
+                force=True
+            )
+
+            # ── 4. TTS ──
+            tts_preset_id = preset.get('tts_preset', 'edge_male_fast')
+            ttd = _get_preset_by_id(tts_preset_id) or {}
+            tts_config = {
+                'engine': preset.get('tts_engine', 'edge'),
+                'voice': (ttd.get('voices', {}).get(proj['language'])
+                          or ttd.get('voice') or _get_default_voice_by_lang(proj['language'])),
+                'rate': ttd.get('rate', '+30%'),
+                'pitch': ttd.get('pitch', '+0Hz'),
+            }
+
+            audio_path = await generate_project_audio(project_id, tts_config)
+            if not audio_path or not os.path.exists(audio_path):
+                await safe_edit_status(status_msg, f"❌ **{channel_name}** — `{project_id}`\nОшибка озвучки.", force=True)
+                return
+            proj = pm.load_project(project_id)
+            proj['current_audio_path'] = audio_path
+            pm.save_project(project_id, proj)
+
+            await safe_edit_status(status_msg,
+                f"🤖 **{channel_name}** — `{project_id}`\n✅ Озвучка\n⏳ Превью...",
+                force=True
+            )
+
+            # ── 5. Preview ──
+            preview = await generate_preview_text(
+                script_text, proj['language'],
+                channel_profile=proj.get('channel_profile'),
+                style_id=proj.get('script_style'),
+            )
+            first_asset = proj.get('assets', {}).get('0', {}).get('path', '')
+            colors = await design_preview_colors(
+                first_asset or '', preview.get('preview_text', ''),
+                channel_name=proj.get('channel_profile', ''),
+                script_snippet=script_text,
+            )
+            proj['preview_text'] = preview.get('preview_text', '')
+            proj['preview_highlight'] = preview.get('highlight_word', '')
+            proj['preview_colors'] = colors
+            pm.save_project(project_id, proj)
+
+            # ── 5.5 Metadata (Auto) ──
+            if not proj.get('metadata'):
+                try:
+                    from ai.metadata_agent import generate_metadata
+                    from core.config_loader import get_channel_profile
+                    channel_ctx = get_channel_profile(proj.get('channel_profile'))
+                    metadata = await generate_metadata(
+                        script_text, proj['language'],
+                        user_instruction="Viral, highly-engaging SEO optimization",
+                        channel_ctx=channel_ctx
+                    )
+                    if metadata:
+                        proj['metadata'] = metadata
+                        pm.save_project(project_id, proj)
+                except Exception as e:
+                    logger.error(f"Auto pipeline SEO generation failed: {e}", exc_info=True)
+
+            await safe_edit_status(status_msg,
+                f"🤖 **{channel_name}** — `{project_id}`\n✅ Превью\n⏳ Рендер...",
+                force=True
+            )
+
+            # ── 6. Queue render ──
+            await task_manager.add_task(
+                project_id=project_id,
+                audio_path=audio_path,
+                user_id=str(chat_id),
+                callback_on_done=_make_auto_callback(channel_name),
+                extra_data={
+                    'source_chat_id': chat_id,
+                    'source_msg_id': source_msg_id or message.message_id,
+                },
+            )
+
+        await safe_edit_status(status_msg,
+            f"🤖 **{channel_name}** — `{project_id}`\n✅ **В очереди на рендер!**",
+            force=True
         )
 
     except Exception as e:

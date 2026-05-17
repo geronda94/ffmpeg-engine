@@ -41,14 +41,18 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
             "monasteryicons", "cn-", "cn_", "stockphoto", "bigstockphoto", "canva", "freepik",
             "vecteezy", "vectorstock", "pinterest", "etsy", "ebay", "amazon", "redbubble",
             "teepublic", "society6", "deviantart",
-            "vector", "illustration", "cartoon", "drawing", "sketch", "clipart"
+            "vector", "illustration", "cartoon", "drawing", "sketch", "clipart",
+            "bbc", "cnn", "foxnews", "msnbc", "aljazeera", "reuters", "bloomberg", "nytimes", "washingtonpost"
         ]
         if any(tw in url_low for tw in trash_words) or any(tw in tags_low for tw in trash_words):
             logger.info(f"Pre-filter: rejecting commercial/watermarked image: {url_low[:60]}")
             continue
         if no_people and search_source not in ("web", "news", "icon"):
             people_words = ["portrait", "face", "man", "woman", "girl", "model",
-                            "person", "people", "actor", "photo", "lady", "guy", "boy"]
+                            "person", "people", "actor", "photo", "lady", "guy", "boy",
+                            "female", "neck", "shoulder", "chest", "jewelry", "necklace", 
+                            "sensual", "romance", "glamour", "fashion", "cleavage", "lingerie", 
+                            "boudoir", "seductive", "lips", "mouth"]
             
             # Проверяем URL
             is_person_url = any(pw + "-" in url_low or "-" + pw in url_low for pw in people_words)
@@ -145,12 +149,12 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
         f"- Aesthetic (0-2): Composition, lighting, mood fit.\n\n"
         f"CRITICAL RULES:\n"
         f"1. If an image's tags or URL clearly violate banned keywords (e.g., woman, shaolin, islam for orthodox channel) → score = 0.\n"
-        f"   - For Orthodox/spiritual channels, ANY close-ups of human body parts (such as lips, mouths, cheeks, chests, breasts, bare shoulders, necks) or any images with sensual, seductive, or romantic undertones (even if completely PG/SFW like biting fruit/vegetables, close-ups of lips/make-up, couples kissing) are STRICTLY FORBIDDEN and MUST receive a score of 0. We only want sacred, clean, non-sensual images.\n"
+        f"   - For Orthodox/spiritual channels, ANY close-ups or partial views of human body parts (such as necks, female neck, jewelry on neck, bare shoulders, collarbones, cleavage, chests, breasts, lips, mouths, cheeks) or any images with sensual, seductive, glamour, or romantic undertones are STRICTLY FORBIDDEN and MUST receive a score of 0. We only want sacred, clean, non-sensual images.\n"
         f"   EXCEPTION: For Orthodox channel, if search_source is 'web', 'news' or 'icon', photos of CONTEMPORARY CLERGY or ANCIENT SAINTS ARE ALLOWED and should not be penalized by the 'no people' rule.\n"
         f"2. ENTITY VERIFICATION: This is CRITICAL. If the scene requires a SPECIFIC KNOWN PERSON (e.g. 'Metropolitan Pavel', 'Gregory of Nyssa') and the image tags describe a DIFFERENT person (e.g. 'Singer', 'Joe Biden', 'Jesus Christ' when looking for a saint) → score = 0.\n"
         f"   - If looking for an 'icon', and the result is a modern photo of a person → score = 0 (unless it's a modern saint/cleric).\n"
         f"   - If looking for a specific saint, and the result is an album cover, movie poster, or modern celebrity → score = 0.\n"
-        f"3. NO WATERMARKS OR COMMERCIAL OVERLAYS: This is CRITICAL. If tags or URL suggest visible watermarks (e.g. 'LEGACY ICONS', 'monasteryicons', 'CN', 'Shutterstock', 'Depositphotos', copyright symbols), sample text, web shop overlays, or foreign text on signs → score = 0. We want clean, unblemished, textless, highly sacred or artistic images.\n"
+        f"3. NO WATERMARKS, COMMERCIAL OVERLAYS, OR COMPETITOR LOGOS: This is CRITICAL. If tags or URL suggest visible watermarks (e.g. 'LEGACY ICONS', 'monasteryicons', 'CN', 'Shutterstock', 'Depositphotos', copyright symbols), sample text, web shop overlays, foreign text on signs, or competitor news logos (e.g., 'BBC', 'CNN', 'Fox News', 'Reuters', 'Bloomberg', 'MSNBC', 'Al Jazeera') → score = 0. We want clean, unblemished, textless images. For news channel, we only accept generic 'Breaking News' or 'Live' banners without specific network branding.\n"
         f"4. ANALOGY RULE: If the scene is an analogy (e.g. 'violinist', 'body cells'), allow the subject even if 'no people' is active, but prioritize ARTISTIC, SILHOUETTE, or NON-MODERN shots over generic smiling stock people.\n\n"
         f"Return ONLY valid JSON:\n"
         f"{'{'} \"scores\": [ {{\"url\": \"...\", \"score\": 7, \"reason\": \"краткое пояснение\"}} ], "
