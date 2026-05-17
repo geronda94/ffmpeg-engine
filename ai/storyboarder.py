@@ -71,14 +71,12 @@ def _build_scene_duration_instruction(pacing_mode: str, script_len: int) -> str:
 
     # Dynamically scale expected scene count based on text length to prevent LLM truncation!
     if pacing_mode == "super_dynamic":
-        target_scenes = max(8, round(script_len / 45))
+        target_scenes = max(10, round(script_len / 35))
         hint = (
-            f"CRITICAL RULE: BREAK EVERY SENTENCE into its own scene. NO exceptions.\n"
-            f"MAXIMUM 50 characters per text_segment. If a sentence exceeds 50 chars, "
-            f"cut it at the nearest comma, dash, or natural pause.\n"
-            f"Target: approximately {target_scenes} scenes for this {script_len}-character script (averaging 2-3 seconds per scene).\n"
-            f"If text has no periods, create scene breaks every 40 characters.\n"
-            f"EVERY period MUST be a scene break. Two sentences = two scenes, always."
+            f"CRITICAL RULE FOR SUPER_DYNAMIC PACING (1 scene every 2-3 seconds):\n"
+            f"1. STRICT MAXIMUM 45 characters per text_segment! If any sentence is longer than 45 characters, you MUST split it into multiple separate scenes at commas, dashes, colons, or natural breath pauses.\n"
+            f"2. Target: approximately {target_scenes} scenes for this {script_len}-character script.\n"
+            f"3. Never combine two sentences. Never put a long complex sentence (>45 chars) in a single scene — always slice it into punchy 2-3 second visual beats."
         )
     elif pacing_mode == "slow":
         target_scenes = max(3, round(script_len / 120))
