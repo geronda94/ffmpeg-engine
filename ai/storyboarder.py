@@ -61,7 +61,7 @@ def _calc_estimated_duration(text: str, pacing_mode: str) -> float:
     return max(min_dur, min(max_dur, dur))
 
 
-def _build_scene_duration_instruction(pacing_mode: str) -> str:
+def _build_scene_duration_instruction(pacing_mode: str, script_len: int) -> str:
     pacing = _get_pacing_config(pacing_mode)
     wpm = pacing.get("wpm", 180)
     min_dur = pacing.get("min_duration", 2.5)
@@ -69,19 +69,29 @@ def _build_scene_duration_instruction(pacing_mode: str) -> str:
 
     max_chars_per_scene = {240: 48, 180: 72, 140: 96}.get(wpm, 72)
 
-    pacing_hints = {
-        "super_dynamic": (
-            "CRITICAL RULE: BREAK EVERY SENTENCE into its own scene. NO exceptions.\n"
-            "MAXIMUM 50 characters per text_segment. If a sentence exceeds 50 chars, "
-            "cut it at the nearest comma, dash, or natural pause.\n"
-            "Target: 15-25 scenes for a 60-second script.\n"
-            "If text has no periods, create scene breaks every 40 characters.\n"
-            "EVERY period MUST be a scene break. Two sentences = two scenes, always."
-        ),
-        "normal": "Good balance: 50-80 characters per text_segment. One complex sentence or two short sentences max.",
-        "slow": "Allow longer text_segments: 70-120 characters. Full sentences and flowing prose are fine.",
-    }
-    hint = pacing_hints.get(pacing_mode, "")
+    # Dynamically scale expected scene count based on text length to prevent LLM truncation!
+    if pacing_mode == "super_dynamic":
+        target_scenes = max(8, round(script_len / 45))
+        hint = (
+            f"CRITICAL RULE: BREAK EVERY SENTENCE into its own scene. NO exceptions.\n"
+            f"MAXIMUM 50 characters per text_segment. If a sentence exceeds 50 chars, "
+            f"cut it at the nearest comma, dash, or natural pause.\n"
+            f"Target: approximately {target_scenes} scenes for this {script_len}-character script (averaging 2-3 seconds per scene).\n"
+            f"If text has no periods, create scene breaks every 40 characters.\n"
+            f"EVERY period MUST be a scene break. Two sentences = two scenes, always."
+        )
+    elif pacing_mode == "slow":
+        target_scenes = max(3, round(script_len / 120))
+        hint = (
+            f"Allow longer text_segments: 70-120 characters.\n"
+            f"Target: approximately {target_scenes} scenes for this {script_len}-character script."
+        )
+    else:
+        target_scenes = max(5, round(script_len / 80))
+        hint = (
+            f"Good balance: 50-80 characters per text_segment. One complex sentence or two short sentences max.\n"
+            f"Target: approximately {target_scenes} scenes for this {script_len}-character script."
+        )
 
     return (
         f"### STRICT SCENE LENGTH RULES — {pacing_mode.upper()} MODE:\n"
@@ -92,7 +102,8 @@ def _build_scene_duration_instruction(pacing_mode: str) -> str:
         f"- VIOLATION CHECK: if a text_segment has more than {max_chars_per_scene} chars, "
         f"you MUST split it into two or more scenes.\n"
         f"- Merge only if text is under 15 characters and doesn't make sense alone.\n"
-        f"- Priority: more short scenes > fewer long scenes. The viewer should feel rapid pacing.\n"
+        f"- CRITICAL REQUIREMENT: You MUST cover the ENTIRE script from the very first word to the very last word. "
+        f"DO NOT truncate, omit, or stop writing scenes before you have mapped 100% of the provided script! Every single paragraph must be fully converted into scenes.\n"
     )
 
 
@@ -100,7 +111,7 @@ def generate_storyboard(script: str, language: str = "Russian",
                         style_id: str = "narrative",
                         pacing_mode: str = "normal"):
     style_directive = _get_visual_directive(style_id)
-    pacing_instruction = _build_scene_duration_instruction(pacing_mode)
+    pacing_instruction = _build_scene_duration_instruction(pacing_mode, len(script))
 
     system_prompt = _BASE_SYSTEM
     if style_directive:

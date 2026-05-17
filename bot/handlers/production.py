@@ -16,10 +16,18 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 def get_preset_by_id(preset_id: str):
+    if not preset_id:
+        return None
     presets = get_config("audio_presets")
     for engine in presets['tts_engines'].values():
         for p in engine['presets']:
             if p['id'] == preset_id:
+                return p
+    # Try prefix compatibility (e.g. 'male_fast' vs 'edge_male_fast')
+    alt_id = f"edge_{preset_id}" if not preset_id.startswith("edge_") else preset_id.replace("edge_", "")
+    for engine in presets['tts_engines'].values():
+        for p in engine['presets']:
+            if p['id'] == alt_id:
                 return p
     return None
 

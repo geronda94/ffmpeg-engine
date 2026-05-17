@@ -139,7 +139,10 @@ async def render_project_video(project_id: str, audio_path: str, render_threads:
         from ai.timing_agent import align_scenes_with_audio
         logger.info(f"Aligning {len(scenes_data)} scenes with Whisper segments using LLM...")
         # Всегда используем LLM для стабильности по просьбе пользователя
-        scenes_data = await align_scenes_with_audio(scenes_data, audio_path, whisper_segments=segments, use_llm_align=True)
+        scenes_data = await align_scenes_with_audio(
+            scenes_data, audio_path, whisper_segments=segments, use_llm_align=True,
+            language=proj_data.get('language')
+        )
         proj_data['scenes'] = scenes_data
         
         pm.save_project(project_id, proj_data)
@@ -154,7 +157,7 @@ async def render_project_video(project_id: str, audio_path: str, render_threads:
             continue
             
         scenes_for_agent.append({
-            "start": scene['start'],
+            "start": 0.0 if i == 0 else scene['start'],
             "end": scene['end'],
             "asset_path": asset_info['path'],
             "text_segment": scene['text_segment'],

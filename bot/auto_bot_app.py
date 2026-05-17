@@ -54,6 +54,7 @@ async def main():
         BotCommand(command="render_audio", description="Озвучить текст и продолжить"),
         BotCommand(command="full_automat", description="Полный автомат"),
         BotCommand(command="auto", description="Автомат в топике: /auto текст"),
+        BotCommand(command="rebuild_last", description="Перерендерить последнее видео"),
     ]
     try:
         await bot.set_my_commands(commands)

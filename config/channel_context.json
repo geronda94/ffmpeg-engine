@@ -38,10 +38,10 @@
       "default_hashtags": ["#православие", "#вера", "#бог", "#духовность"],
       "visual_rules": {
         "no_photos_of_people": true,
-        "banned_keywords": ["woman", "girl", "lady", "female", "mother", "sleep", "bed", "bedroom", "lying", "naked", "skin", "sensual", "boudoir", "lingerie", "bikini", "underwear", "shirtless", "model", "portrait man", "young man", "bald man", "sadhu", "guru", "yogi", "shaolin", "buddha", "buddhist", "tibet", "tibetan", "zen", "islam", "muslim", "mosque", "arab", "hindu", "india", "sikh", "jew", "jewish", "protestant", "catholic", "pope", "yoga", "meditation"],
+        "banned_keywords": ["woman", "girl", "lady", "female", "mother", "sleep", "bed", "bedroom", "lying", "naked", "skin", "sensual", "boudoir", "lingerie", "bikini", "underwear", "shirtless", "model", "portrait man", "young man", "bald man", "sadhu", "guru", "yogi", "shaolin", "buddha", "buddhist", "tibet", "tibetan", "zen", "islam", "muslim", "mosque", "arab", "hindu", "india", "sikh", "jew", "jewish", "protestant", "catholic", "pope", "yoga", "meditation", "lips", "mouth", "cheeks", "chest", "breast", "breasts", "cleavage", "shoulder", "shoulders", "neck", "sensual neck", "kiss", "kissing", "makeup", "seductive", "sensuality", "sensual lips", "bite", "biting", "carrot"],
         "preferred_keywords": ["orthodox icon", "orthodox church", "orthodox monastery", "candle prayer", "cross jesus", "christian saint", "priest orthodox", "jesus christ", "virgin mary icon", "angel orthodox", "bible prayer", "golden dome church", "orthodox monk"],
         "min_resolution": 800,
-        "style_notes": "ТОЛЬКО православная иконография. Запрещены ЛЮБЫЕ фото людей (кроме икон святых). Никаких photo portraits. Святые и Христос — строго иконы. Никаких других религий."
+        "style_notes": "ТОЛЬКО православная иконография. Запрещены ЛЮБЫЕ фото людей (кроме икон святых). Никаких photo portraits. Святые и Христос — строго иконы. Никаких других религий. Строжайший запрет на чувственные, эротические или романтические намеки, крупные планы губ, рта, щек, плеч, шеи или груди."
       },
       "logo_path": "local_assets/logo/logo-orthodox-transparent.png",
       "preview_bg_color": "#2E1A12",

@@ -145,11 +145,11 @@ def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_t
             
             # Используем слова, предварительно выровненные через LLM (в timing_agent)
             if 'words' in scene and scene['words']:
-                scene_whisper_words = scene['words']
+                scene_whisper_words = [dict(w) for w in scene['words']]
             else:
                 # Берем слова Whisper, которые попадают в интервал этой сцены.
                 scene_whisper_words = [
-                    w for w in all_whisper_words 
+                    dict(w) for w in all_whisper_words 
                     if w['start'] >= s_start - 0.1 and w['start'] < s_end + 0.1
                 ]
             
@@ -163,6 +163,26 @@ def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_t
                         'word': rw, 'start': s_start + i * dur, 'end': s_start + (i + 1) * dur,
                         'invisible': s_start + (i+1)*dur <= min_start_time
                     })
+
+            # Ограничиваем тайминги слов строго по границам сцены [s_start, s_end]
+            if scene_whisper_words:
+                # Сохраняем исходные точные тайминги аудио от Whisper! Никаких сдвигов (shift)!
+                # Просто гарантируем, что слова не выходят за рамки сцены.
+                for wd in scene_whisper_words:
+                    w_s = float(wd['start'])
+                    w_e = float(wd['end'])
+                    
+                    # Зажимаем в границы сцены
+                    if w_s < s_start:
+                        w_s = s_start
+                    if w_e > s_end:
+                        w_e = s_end
+                    if w_e < w_s:
+                        w_e = w_s
+                        
+                    wd['start'] = round(w_s, 3)
+                    wd['end'] = round(w_e, 3)
+                    wd['invisible'] = float(wd['end']) <= min_start_time
 
             # Разбиваем текст конкретной сцены на группы (обычно 1-2 группы на сцену)
             raw_scene_words = s_text.split()
@@ -195,20 +215,61 @@ def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_t
 
         if not word_groups: return None
 
+        # Вспомогательная функция масштабирования пословных таймингов
+        def adjust_word_timings(group, new_start, new_end):
+            old_start = group['start']
+            old_end = group['end']
+            group['start'] = round(new_start, 3)
+            group['end'] = round(new_end, 3)
+            
+            timings = group.get('word_timings', [])
+            if not timings:
+                return
+                
+            old_dur = old_end - old_start
+            new_dur = new_end - new_start
+            
+            if old_dur <= 0 or new_dur <= 0:
+                step = new_dur / len(timings)
+                for idx, wd in enumerate(timings):
+                    wd['start'] = round(new_start + idx * step, 3)
+                    wd['end'] = round(new_start + (idx + 1) * step, 3)
+                return
+                
+            for wd in timings:
+                rel_start = (float(wd['start']) - old_start) / old_dur
+                rel_end = (float(wd['end']) - old_start) / old_dur
+                wd['start'] = round(new_start + rel_start * new_dur, 3)
+                wd['end'] = round(new_start + rel_end * new_dur, 3)
+
         # --- АЛГОРИТМ ШЛИФОВКИ ТАЙМИНГОВ ---
-        # Устраняем наслоения и добавляем зазор для анимации (0.08с)
-        GAP = 0.08
+        # Сортируем группы по времени начала
+        word_groups.sort(key=lambda x: x['start'])
+
         for i in range(len(word_groups) - 1):
             curr, nxt = word_groups[i], word_groups[i+1]
-            if curr['end'] > nxt['start'] - GAP:
-                # Сжимаем текущий, чтобы дать место следующему
-                new_end = nxt['start'] - GAP
-                if new_end > curr['start'] + 0.1:
-                    curr['end'] = new_end
+            if curr['end'] > nxt['start'] - 0.01:
+                # Наложение обнаружено. Разрешаем его СТРОГО локально, не сдвигая внешние границы!
+                # Находим среднюю точку наложения
+                overlap = curr['end'] - nxt['start']
+                midpoint = nxt['start'] + (overlap / 2.0)
+                
+                # Пробуем разделить посередине, если это сохраняет минимальную длительность 150мс для обеих групп
+                if midpoint > curr['start'] + 0.15 and midpoint < nxt['end'] - 0.15:
+                    adjust_word_timings(curr, curr['start'], midpoint - 0.005)
+                    adjust_word_timings(nxt, midpoint + 0.005, nxt['end'])
+                elif curr['start'] + 0.15 < nxt['start'] - 0.01:
+                    # Если следующий нельзя сжать по времени начала, сжимаем только конец текущего
+                    adjust_word_timings(curr, curr['start'], nxt['start'] - 0.01)
+                elif nxt['end'] - 0.15 > curr['end'] + 0.01:
+                    # Если текущий нельзя сжать по времени конца, сжимаем только начало следующего
+                    adjust_word_timings(nxt, curr['end'] + 0.01, nxt['end'])
                 else:
-                    # Если места совсем нет, чуть-чуть двигаем начало следующего
-                    curr['end'] = curr['start'] + 0.1
-                    nxt['start'] = curr['end'] + GAP
+                    # В крайнем случае (критический зажим), делим доступный интервал пополам
+                    avail_dur = nxt['end'] - curr['start']
+                    mid = curr['start'] + avail_dur / 2.0
+                    adjust_word_timings(curr, curr['start'], mid - 0.005)
+                    adjust_word_timings(nxt, mid + 0.005, nxt['end'])
 
         events = []
         for g in word_groups:

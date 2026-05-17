@@ -66,6 +66,12 @@ async def ask_for_asset(message: types.Message, state: FSMContext, scene_idx: in
             
         scenes = proj_data.get('scenes', [])
         logger.info(f"ask_for_asset: project={project_id}, idx={scene_idx}, total={len(scenes)}")
+
+        # Пропускаем уже собранные сцены
+        assets = proj_data.get('assets', {})
+        while scene_idx < len(scenes) and str(scene_idx) in assets:
+            logger.info(f"ask_for_asset: skipping already collected scene {scene_idx}")
+            scene_idx += 1
         
         if scene_idx >= len(scenes):
             logger.info("All assets collected!")

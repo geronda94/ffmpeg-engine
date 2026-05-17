@@ -19,6 +19,9 @@ if not PEXELS_API_KEY:
 if not PIXABAY_API_KEY:
     logger.warning("PIXABAY_API_KEY not found in .env — Pixabay search will be disabled")
 
+# Global semaphore to throttle Pexels API calls to avoid HTTP 429 errors
+_pexels_semaphore = asyncio.Semaphore(3)
+
 
 async def optimize_query_ai(visual_description: str, scene_text: str = "", style_id: str = "",
                             script: str = "", prev_scene: str = "", next_scene: str = ""):
@@ -177,9 +180,9 @@ class ImageSearchAgent:
 
         for q in query_list:
             if source_type in ("all", "pixabay"):
-                tasks.append(self._search_pixabay(q, 15, color))
+                tasks.append(self._search_pixabay(q, 30, color))
             if source_type in ("all", "pexels"):
-                tasks.append(self._search_pexels(q, 15, color))
+                tasks.append(self._search_pexels(q, 30, color))
             # AI (Pollinations) — добавляем в all, но с низким приоритетом.
             # Итоговый shuffle перемешивает, а плохие картинки отсеиваются визуально на карусели.
             if source_type in ("all", "ai"):
@@ -244,34 +247,38 @@ class ImageSearchAgent:
         """
         if not PEXELS_API_KEY:
             return []
-        headers = {"Authorization": PEXELS_API_KEY}
-        params = {"query": query, "per_page": per_page}
-        if color:
-            params["color"] = color
 
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    self.pexels_url, headers=headers, params=params, timeout=12
-                ) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        return [
-                            {
-                                "url": p["src"].get("large2x") or p["src"]["large"],
-                                "photographer": p["photographer"],
-                                "source": "pexels",
-                                "width": p.get("width", 0),
-                                "height": p.get("height", 0),
-                                "tags": p.get("alt", ""),
-                            }
-                            for p in data.get("photos", [])
-                        ]
-                    else:
-                        logger.warning(f"Pexels returned status {resp.status}")
-        except Exception as e:
-            logger.error(f"Pexels error: {e}")
-        return []
+        async with _pexels_semaphore:
+            # Introduce a micro-delay to pace concurrent requests and avoid triggering firewall blocks
+            await asyncio.sleep(0.1)
+            headers = {"Authorization": PEXELS_API_KEY}
+            params = {"query": query, "per_page": per_page}
+            if color:
+                params["color"] = color
+
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        self.pexels_url, headers=headers, params=params, timeout=12
+                    ) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            return [
+                                {
+                                    "url": p["src"].get("large2x") or p["src"]["large"],
+                                    "photographer": p["photographer"],
+                                    "source": "pexels",
+                                    "width": p.get("width", 0),
+                                    "height": p.get("height", 0),
+                                    "tags": p.get("alt", ""),
+                                }
+                                for p in data.get("photos", [])
+                            ]
+                        else:
+                            logger.warning(f"Pexels returned status {resp.status}")
+            except Exception as e:
+                logger.error(f"Pexels error: {e}")
+            return []
 
     async def _search_pixabay(self, query: str, per_page: int, color: str = None):
         """

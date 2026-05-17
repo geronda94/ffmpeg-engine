@@ -376,6 +376,7 @@ async def cmd_full_automat(message: types.Message, state: FSMContext):
     names = {"orthodox": "☦️ Православный", "tech_business": "💻 IT и Бизнес"}
     for name in topics:
         kb.button(text=names.get(name, name), callback_data=f"faut_{name}")
+    kb.button(text="🔄 Перерендерить последнее видео", callback_data="rebuild_last_video")
     kb.adjust(1)
     await message.answer("🎯 **Выберите канал для автоматического ролика:**", reply_markup=kb.as_markup())
     await state.set_state(ProjectStates.choosing_channel_profile)
@@ -426,6 +427,17 @@ async def cmd_auto(message: types.Message):
                 break
         if not channel_name:
             return
+
+        # Если на сообщении уже есть реакция — другой бот обрабатывает или готово → пропустить
+        if getattr(message, 'reactions', None):
+            return
+
+        # Ставим 👍 — «взято в работу»
+        try:
+            await message.react([types.ReactionTypeEmoji(emoji="👍")])
+        except Exception:
+            pass
+
         from bot.handlers.auto_pipeline import run_auto_pipeline
         await run_auto_pipeline(message, channel_name, source_msg_id=message.message_id, script_text=script_text)
     except Exception as e:
