@@ -59,8 +59,105 @@ def _strip_markdown(content: str) -> str:
     return content
 
 
+def _is_boundary_quote(json_str: str, idx: int, n: int) -> bool:
+    peek = idx + 1
+    while peek < n and json_str[peek].isspace():
+        peek += 1
+    if peek >= n:
+        return True
+        
+    char = json_str[peek]
+    if char == ':':
+        post_peek = peek + 1
+        while post_peek < n and json_str[post_peek].isspace():
+            post_peek += 1
+        if post_peek < n and json_str[post_peek] in ('"', '[', '{', 't', 'f', 'n', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'):
+            return True
+        return False
+        
+    if char in (',', '}', ']'):
+        post_peek = peek + 1
+        while post_peek < n and json_str[post_peek].isspace():
+            post_peek += 1
+        if post_peek >= n:
+            return True
+        next_char = json_str[post_peek]
+        if char == ',':
+            return next_char in ('"', '{', '[', 't', 'f', 'n', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9')
+        if char in ('}', ']'):
+            return next_char in (',', '}', ']')
+        return False
+        
+    return False
+
+
+def _escape_inner_quotes(json_str: str) -> str:
+    result = []
+    in_string = False
+    escape_next = False
+    n = len(json_str)
+    i = 0
+    while i < n:
+        c = json_str[i]
+        if escape_next:
+            result.append(c)
+            escape_next = False
+            i += 1
+            continue
+            
+        if c == '\\':
+            result.append(c)
+            escape_next = True
+            i += 1
+            continue
+            
+        if c == '"':
+            if not in_string:
+                in_string = True
+                result.append(c)
+            else:
+                if _is_boundary_quote(json_str, i, n):
+                    in_string = False
+                    result.append(c)
+                else:
+                    result.append('\\"')
+        else:
+            result.append(c)
+        i += 1
+    return "".join(result)
+
+
 def _parse_json_response(content: str) -> dict:
-    cleaned = _strip_markdown(content)
+    cleaned = _strip_markdown(content).strip()
+    
+    # Try 1: Standard parsing
+    try:
+        return json.loads(cleaned)
+    except Exception:
+        pass
+        
+    # Try 2: Escape unescaped inner quotes in string values
+    try:
+        escaped = _escape_inner_quotes(cleaned)
+        return json.loads(escaped)
+    except Exception:
+        pass
+        
+    # Try 3: Use ast.literal_eval for extremely loose and resilient parsing
+    try:
+        import ast
+        prepared = cleaned
+        prepared = re.sub(r'\btrue\b', 'True', prepared)
+        prepared = re.sub(r'\bfalse\b', 'False', prepared)
+        prepared = re.sub(r'\bnull\b', 'None', prepared)
+        
+        val = ast.literal_eval(prepared)
+        if isinstance(val, dict):
+            return val
+    except Exception as e:
+        logger.error(f"Failed all JSON repair attempts. Original error: {e}")
+        
+    # Final fallback: just raise original json loads
     return json.loads(cleaned)
 
 

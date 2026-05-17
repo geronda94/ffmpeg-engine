@@ -147,7 +147,26 @@ async def render_project_video(project_id: str, audio_path: str, render_threads:
         
         pm.save_project(project_id, proj_data)
 
-    # 3. ПОДГОТОВКА СЦЕН ДЛЯ МОНТАЖА
+    # 3. ПОДГОТОВКА СЦЕН ДЛЯ МОНТАЖА (С ГАРАНТИЕЙ ПОЛНОЙ ЗАГРУЗКИ ВСЕХ ФАЙЛОВ НА ДИСК)
+    logger.info(f"Verifying all {len(scenes_data)} asset files are fully written to disk before starting montage...")
+    for attempt in range(15):  # Ждем до 30 секунд
+        missing = []
+        assets_map = proj_data.get('assets', {})
+        for i in range(len(scenes_data)):
+            a_info = assets_map.get(str(i), {})
+            path = a_info.get('path')
+            if not path or not os.path.exists(path) or os.path.getsize(path) < 100:
+                missing.append(i + 1)
+                
+        if not missing:
+            logger.info("All asset files verified successfully on disk!")
+            break
+            
+        logger.warning(f"Asset files for scenes {missing} not fully on disk yet. Waiting 2s (attempt {attempt+1}/15)...")
+        await asyncio.sleep(2)
+        proj_data = pm.load_project(project_id)
+        scenes_data = proj_data.get('scenes', scenes_data)
+
     scenes_for_agent = []
     assets_map = proj_data.get('assets', {})
     
