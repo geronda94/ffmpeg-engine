@@ -1,0 +1,23 @@
+{
+  "channels": {
+    "orthodox": {
+      "chat_username": "@content_factory111111",
+      "input_topic": 3,
+      "language": "Russian",
+      "translate_to": ["Romanian"],
+      "output_topics": {
+        "ru": 5,
+        "ro": 4
+      }
+    },
+    "tech_business": {
+      "chat_username": "@content_factory111111",
+      "input_topic": 41,
+      "language": "Russian",
+      "translate_to": [],
+      "output_topics": {
+        "ru": 43
+      }
+    }
+  }
+}

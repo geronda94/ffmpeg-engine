@@ -14,6 +14,7 @@ sys.path.append(str(root_dir))
 
 from bot.handlers import common, scripting, production, metadata, localization
 from bot.handlers.assets import router as assets_router
+from bot.handlers.auto_pipeline import router as auto_pipeline_router
 from bot.middlewares.errors import ErrorHandlingMiddleware
 from core.task_manager import task_manager
 
@@ -44,12 +45,15 @@ async def main():
     dp.include_router(production.router)
     dp.include_router(metadata.router)
     dp.include_router(localization.router)
+    dp.include_router(auto_pipeline_router)
 
     task_manager.start(bot)
 
     commands = [
         BotCommand(command="start", description="Начать новый видеопроект"),
         BotCommand(command="render_audio", description="Озвучить текст и продолжить"),
+        BotCommand(command="full_automat", description="Полный автомат"),
+        BotCommand(command="auto", description="Автомат в топике: /auto текст"),
     ]
     try:
         await bot.set_my_commands(commands)

@@ -23,6 +23,14 @@ pm = ProjectManager()
 SCORE_THRESHOLD = 5
 AUTO_FALLBACK_CHAIN = [("pexels", "📸 Pexels"), ("pixabay", "🖼 Pixabay"), ("ai", "🤖 AI Gen")]
 
+
+async def _safe_edit(msg, text: str):
+    """Обёртка edit_text, не роняет pipeline при сетевых ошибках."""
+    try:
+        await msg.edit_text(text)
+    except Exception as e:
+        logger.warning(f"Safe edit failed (network): {e}")
+
 CHRISTIAN_MARKERS = ["orthodox", "christian", "jesus", "bible", "church", "icon", "saint",
                      "cross", "virgin mary", "priest", "monastery", "angel", "god", "faith",
                      "holy", "prayer", "spiritual", "divine", "gospel", "cathedral"]
@@ -86,18 +94,38 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
 
         if search_source != "icon":
             import re
-            text_to_check = (visual + " " + spoken).lower()
-            is_saint_strong = bool(re.search(r'\b(saint|icon|икон\w*|святой|святая|святитель|jesus|christ|иисус|христос|apostle|апостол|нисский|златоуст|богослов|мария|богородица|преподобный|мученик|мученица|преподобная|праведный|праведная|ангел|архангел|праведник|праведница|икона|матрона|ксения|сергий|серафим|николай|пантелеимон|лука)\b', text_to_check))
+            # Проверяем и исходный текст, и то, что нагенерил AI (вдруг он сам добавил слово icon)
+            text_to_check = (visual + " " + spoken + " " + " ".join(queries)).lower()
+            
+            # Расширенный список ключевых слов для принудительного увода в DDG (иконы)
+            saint_keywords = [
+                # RU
+                r'икон\w*', 'святой', 'святая', 'святитель', 'иисус', 'христос', 'апостол', 
+                'богородица', 'мария', 'преподобный', 'мученик', 'мученица', 'ангел', 'архангел',
+                'икона', 'матрона', 'ксения', 'сергий', 'серафим', 'николай', 'пантелеимон', 'лука',
+                'спаситель', 'троица', 'господь',
+                # EN
+                'saint', 'icon', 'jesus', 'christ', 'mary', 'virgin', 'apostle', 'savior', 'saviour',
+                'lord', 'angel', 'archangel', 'theotokos', 'orthodox icon', 'crucifixion', 'resurrection'
+            ]
+            pattern = r'\b(' + '|'.join(saint_keywords) + r')\b'
+            
+            is_saint_strong = bool(re.search(pattern, text_to_check))
             if is_saint_strong:
                 search_source = "icon"
                 logger.info(f"Saint/icon scene {scene_idx}: forced routing to DDG (icon)")
+
+    # Orthodox: first 2 scenes always from web search (real icons/churches/monasteries)
+    if channel_profile_id == "orthodox" and scene_idx <= 1:
+        search_source = "icon"
+        logger.info(f"Orthodox scene {scene_idx}: forced DDG (first 2 scenes rule)")
 
     logger.info(f"Auto-select scene {scene_idx}: queries={queries}, source={search_source}")
 
     results = []
     if search_source in ("icon", "news", "web"):
         from ai.duckduckgo_search import search_images_ddg
-        await status_msg.edit_text(
+        await _safe_edit(status_msg,
             f"🤖 **Авто-подбор сцены {scene_idx + 1}/{total}**\n"
             f"🔍 Web поиск ({search_source}): {queries[0]}..."
         )
@@ -107,7 +135,7 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
         except Exception as ex:
             logger.error(f"DDG search error: {ex}")
     else:
-        await status_msg.edit_text(
+        await _safe_edit(status_msg,
             f"🤖 **Авто-подбор сцены {scene_idx + 1}/{total}**\n"
             f"🔍 Сток ({search_source}): {', '.join(queries[:2])}..."
         )
@@ -133,7 +161,7 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
                     img_score_val = img_score.get("score", 0)
                     label = "✅" if img_score_val >= SCORE_THRESHOLD else "⚠️"
                     pm.update_asset(project_id, scene_idx, local_path)
-                    await status_msg.edit_text(
+                    await _safe_edit(status_msg,
                         f"🤖 **Сцена {scene_idx + 1}/{total}** — {label} подобрана "
                         f"(score {img_score_val}/10)"
                     )
@@ -143,7 +171,7 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
 
     if not best_local and search_source not in ("icon", "news", "web"):
         for src_type, src_label in AUTO_FALLBACK_CHAIN:
-            await status_msg.edit_text(
+            await _safe_edit(status_msg,
                 f"🤖 **Сцена {scene_idx + 1}/{total}** — пробую {src_label}..."
             )
             try:
@@ -163,7 +191,7 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
                             if local_path:
                                 fb_score = img_score.get("score", 0)
                                 pm.update_asset(project_id, scene_idx, local_path)
-                                await status_msg.edit_text(
+                                await _safe_edit(status_msg,
                                     f"🤖 **Сцена {scene_idx + 1}/{total}** — ⚠️ {src_label} "
                                     f"(score {fb_score}/10)"
                                 )
@@ -176,7 +204,7 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
     if best_local:
         return best_local
 
-    await status_msg.edit_text(
+    await _safe_edit(status_msg,
         f"🤖 **Сцена {scene_idx + 1}/{total}** — ⚠️ не удалось подобрать"
     )
     return None
@@ -258,7 +286,7 @@ async def handle_auto_select(callback: types.CallbackQuery, state: FSMContext):
             if os.path.exists(picked):
                 os.remove(picked)
 
-    await status.edit_text(
+    await _safe_edit(status,
         f"🤖 **Авто-подбор завершён**\n"
         f"Подобрано: **{success}/{total}** сцен"
     )
@@ -278,4 +306,24 @@ async def handle_auto_select(callback: types.CallbackQuery, state: FSMContext):
         from bot.navigation import ask_for_tts_engine
         await ask_for_tts_engine(callback.message, state)
     else:
-        await ask_for_asset(callback.message, state, next_missing)
+        chat_type = callback.message.chat.type
+        if chat_type in ("group", "supergroup"):
+            kb = InlineKeyboardBuilder()
+            kb.button(text="📝 Продолжить сбор", callback_data=f"continue_asset:{project_id}")
+            await _safe_edit(status,
+                f"⚠️ **Не все сцены собраны** ({next_missing + 1}/{len(scenes)})\n"
+                f"Бот написал в ЛС — проверь."
+            )
+            try:
+                await callback.bot.send_message(
+                    chat_id=callback.from_user.id,
+                    text=f"⚠️ **В проекте `{project_id}` не собраны все сцены.**\n\n"
+                         f"Первая пропущенная: сцена **{next_missing + 1}/{len(scenes)}**\n\n"
+                         f"Нажми кнопку чтобы продолжить сбор вручную:",
+                    reply_markup=kb.as_markup(),
+                )
+            except Exception as e:
+                logger.warning(f"Failed to DM user: {e}")
+                await ask_for_asset(callback.message, state, next_missing)
+        else:
+            await ask_for_asset(callback.message, state, next_missing)

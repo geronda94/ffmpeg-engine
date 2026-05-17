@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from ai.llm_client import achat_json
 
 logger = logging.getLogger(__name__)
@@ -36,12 +37,24 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
         if any(tw in url_low for tw in trash_words):
             continue
 
+        tags_low = img.get("tags", "").lower()
         if no_people and search_source not in ("web", "news", "icon"):
-            people_words = ["portrait", "face", "man-", "woman-", "girl-", "model-",
-                           "person-", "people-", "actor", "photo-"]
-            is_person = any(pw in url_low for pw in people_words)
-            has_icon = "icon" in url_low or "saint" in url_low
-            if is_person and not has_icon:
+            people_words = ["portrait", "face", "man", "woman", "girl", "model",
+                            "person", "people", "actor", "photo", "lady", "guy", "boy"]
+            
+            # Проверяем URL
+            is_person_url = any(pw + "-" in url_low or "-" + pw in url_low for pw in people_words)
+            
+            # Проверяем ТЕГИ (точное совпадение слова с границами \b)
+            is_person_tags = False
+            for pw in people_words:
+                if re.search(r'\b' + re.escape(pw) + r'\b', tags_low):
+                    is_person_tags = True
+                    break
+            
+            has_icon = "icon" in url_low or "saint" in url_low or "icon" in tags_low or "saint" in tags_low
+            if (is_person_url or is_person_tags) and not has_icon:
+                logger.info(f"Pre-filter: rejecting person image (no_people=True) based on tags/URL: {tags_low[:60]}")
                 continue
                 
         # 4. ФИЛЬТР ЧУЖИХ РЕЛИГИЙ (ДЛЯ ПРАВОСЛАВИЯ)
@@ -54,7 +67,8 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
                 "shrine", "muslim", "allah", "quran", "minaret", "goddess", "mytholog", "occult", "shaman", 
                 "voodoo", "astrolog", "zodiac", "wicca"
             ]
-            if any(nc in url_low for nc in non_christian):
+            if any(nc in url_low for nc in non_christian) or any(nc in tags_low for nc in non_christian):
+                logger.info(f"Pre-filter: rejecting non-christian image based on tags/URL: {tags_low[:60]}")
                 continue
 
         # 5. ФИЛЬТР AI-ГЕНЕРАЦИЙ (ЖУТКИЕ ИКОНЫ) И PINTEREST
@@ -62,22 +76,31 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
             ai_words = ["ai-generated", "midjourney", "dall-e", "stablediffusion", "stable-diffusion", 
                        "generative", "neural", "ai-art", "generated", "pinimg.com", "pinterest", 
                        "deviantart", "artstation"]
-            if any(ai in url_low for ai in ai_words):
+            if any(ai in url_low for ai in ai_words) or any(ai in tags_low for ai in ai_words):
                 continue
 
         blocked = False
+        matched_bw = ""
         for bw in banned:
-            if len(bw) >= 4 and bw.lower() in url_low:
+            bw_low = bw.lower()
+            # 1. Проверяем URL
+            if len(bw_low) >= 4 and bw_low in url_low:
                 blocked = True
+                matched_bw = bw
                 break
-            # Check individual words in URL
             for url_part in url_low.replace("/", " ").replace("_", " ").replace("-", " ").split():
-                if url_part == bw.lower():
+                if url_part == bw_low:
                     blocked = True
+                    matched_bw = bw
                     break
-            if blocked:
+            # 2. Проверяем ТЕГИ с границами слова (\b)
+            if re.search(r'\b' + re.escape(bw_low) + r'\b', tags_low):
+                blocked = True
+                matched_bw = bw
                 break
+                
         if blocked:
+            logger.info(f"Pre-filter: rejecting image due to banned keyword '{matched_bw}' in tags/URL: {tags_low[:60]}")
             continue
 
         filtered.append(img)

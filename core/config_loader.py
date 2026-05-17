@@ -19,6 +19,8 @@ CONFIG_PATHS = {
     "transitions_registry": "config/transitions_registry.json",
     "music_library": "config/music_library.json",
     "preview_presets": "config/preview_presets.json",
+    "channel_topics": "config/channel_topics.json",
+    "auto_presets": "config/auto_presets.json",
 }
 
 

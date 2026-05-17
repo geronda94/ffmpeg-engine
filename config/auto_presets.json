@@ -1,0 +1,28 @@
+{
+  "presets": {
+    "orthodox": {
+      "channel_profile": "orthodox",
+      "script_style": "spiritual_direct",
+      "pacing": "super_dynamic",
+      "video_format": "vertical",
+      "tts_engine": "edge",
+      "tts_preset": "male_fast",
+      "auto_approve_preview": true,
+      "skip_seo": true,
+      "auto_select_assets": true,
+      "burn_subtitles": true
+    },
+    "tech_business": {
+      "channel_profile": "tech_business",
+      "script_style": "it_b2b_architect",
+      "pacing": "super_dynamic",
+      "video_format": "vertical",
+      "tts_engine": "edge",
+      "tts_preset": "male_fast",
+      "auto_approve_preview": true,
+      "skip_seo": true,
+      "auto_select_assets": true,
+      "burn_subtitles": true
+    }
+  }
+}

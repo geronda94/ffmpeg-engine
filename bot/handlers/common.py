@@ -361,3 +361,123 @@ async def handle_script_for_audio(message: types.Message, state: FSMContext):
     pm.save_project(project_id, proj)
     from bot.navigation import ask_for_tts_engine
     await ask_for_tts_engine(message, state)
+
+
+# ── /full_automat ──────────────────────────────────────────────────
+
+@router.message(Command("full_automat"))
+async def cmd_full_automat(message: types.Message, state: FSMContext):
+    await state.clear()
+    topics = get_config("channel_topics", ttl=0).get("channels", {})
+    if not topics:
+        await message.answer("❌ Нет настроенных каналов.")
+        return
+    kb = InlineKeyboardBuilder()
+    names = {"orthodox": "☦️ Православный", "tech_business": "💻 IT и Бизнес"}
+    for name in topics:
+        kb.button(text=names.get(name, name), callback_data=f"faut_{name}")
+    kb.adjust(1)
+    await message.answer("🎯 **Выберите канал для автоматического ролика:**", reply_markup=kb.as_markup())
+    await state.set_state(ProjectStates.choosing_channel_profile)
+
+
+@router.callback_query(F.data.startswith("faut_"), ProjectStates.choosing_channel_profile)
+async def faut_choose_channel(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    channel = callback.data.split("faut_", 1)[1]
+    await state.update_data(auto_channel=channel)
+    await callback.message.edit_text(
+        f"📝 **Канал: {channel}**\n\n"
+        f"Отправьте текст сценария для полного автомата:"
+    )
+    await state.set_state(ProjectStates.writing_topic)
+
+
+@router.message(ProjectStates.writing_topic, F.text)
+async def faut_handle_script(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    channel = data.get("auto_channel")
+    if not channel:
+        await message.answer("❌ Канал не выбран. Начните с /full_automat")
+        await state.clear()
+        return
+    await state.clear()
+    from bot.handlers.auto_pipeline import run_auto_pipeline
+    await run_auto_pipeline(message, channel, source_msg_id=message.message_id)
+
+
+# ── /auto — команда в топике группы ──────────────────────────────
+
+@router.message(Command("auto"), F.chat.type.in_({"group", "supergroup"}), F.message_thread_id)
+async def cmd_auto(message: types.Message):
+    if message.from_user and message.from_user.is_bot:
+        return
+    try:
+        parts = message.text.split(maxsplit=1)
+        if len(parts) < 2:
+            await message.answer("❌ Использование:\n`/auto текст сценария`")
+            return
+        script_text = parts[1].strip()
+        topics = get_config("channel_topics", ttl=0).get("channels", {})
+        channel_name = None
+        for name, cfg in topics.items():
+            if cfg.get("input_topic") == message.message_thread_id:
+                channel_name = name
+                break
+        if not channel_name:
+            return
+        from bot.handlers.auto_pipeline import run_auto_pipeline
+        await run_auto_pipeline(message, channel_name, source_msg_id=message.message_id, script_text=script_text)
+    except Exception as e:
+        logger.error(f"cmd_auto error: {e}", exc_info=True)
+        try:
+            await message.answer(f"❌ Ошибка: {e}")
+        except Exception:
+            pass
+
+
+# ── Continue asset (DM auto-select failure) ────────────────────────
+
+@router.callback_query(F.data.startswith("continue_asset:"))
+async def continue_asset_handler(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    from bot.navigation import ask_for_asset, ask_for_tts_engine
+    project_id = callback.data.split(":", 1)[1]
+    proj = pm.load_project(project_id)
+    if not proj:
+        await callback.message.answer("❌ Проект не найден.")
+        return
+    await state.update_data(
+        project_id=project_id,
+        user_id=str(callback.from_user.id),
+        language=proj.get('language', 'Russian'),
+        video_format=proj.get('video_format', 'vertical'),
+    )
+    scenes = proj.get('scenes', [])
+    assets = proj.get('assets', {})
+    next_idx = 0
+    for i in range(len(scenes)):
+        if str(i) not in assets:
+            next_idx = i
+            break
+    else:
+        next_idx = len(scenes)
+    if next_idx >= len(scenes):
+        await callback.message.answer("✅ Все сцены уже собраны. Переходим к озвучке.")
+        try:
+            await ask_for_tts_engine(callback.message, state)
+        except Exception as e:
+            logger.error(f"continue_asset tts failed: {e}", exc_info=True)
+            await callback.message.answer(f"❌ Ошибка перехода к озвучке: {e}")
+        return
+    try:
+        scene = scenes[next_idx]
+        desc = scene.get('visual_description', scene.get('text_segment', '...'))
+        await callback.message.answer(
+            f"🔄 **Продолжаем сбор** проекта `{project_id}`\n"
+            f"Сцена {next_idx + 1}/{len(scenes)}: _{desc}_"
+        )
+        await ask_for_asset(callback.message, state, next_idx)
+    except Exception as e:
+        logger.error(f"continue_asset ask_for_asset failed: {e}", exc_info=True)
+        await callback.message.answer(f"❌ Ошибка при показе меню: {e}")

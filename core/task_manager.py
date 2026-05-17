@@ -133,7 +133,8 @@ class RenderTaskManager:
                 # чтобы не блокировать воркер для следующего рендеринга.
                 if task['callback']:
                     logger.info(f"Worker: Launching background callback for {project_id}")
-                    asyncio.create_task(self._safe_callback(task))
+                    t = asyncio.create_task(self._safe_callback(task))
+                    t.add_done_callback(_safe_done_cb)
                 else:
                     logger.warning(f"Worker: No callback defined for {project_id}")
                     
@@ -148,9 +149,17 @@ class RenderTaskManager:
     async def _safe_callback(self, task: dict):
         """Безопасный запуск коллбэка в фоне (чтобы не уронить основной цикл)."""
         try:
-            await task['callback'](task)
+            cb = task.get('callback')
+            if cb is None:
+                logger.warning(f"No callback for task {task.get('project_id', '?')}")
+                return
+            await cb(task)
         except Exception as e:
-            logger.error(f"Error in background callback for {task['project_id']}: {e}")
+            logger.error(f"Error in background callback for {task.get('project_id', '?')}: {e}")
+
+def _safe_done_cb(t: asyncio.Task):
+    if not t.cancelled() and t.exception():
+        logger.warning(f"Background render callback task failed: {t.exception()}")
 
 # Синглтон для импорта
 task_manager = RenderTaskManager()

@@ -18,23 +18,53 @@ def _hex_to_ass(hex_color):
         return f"&H00{b}{g}{r}"
     return "&H00FFFFFF"
 
-def _group_words_2line(words, max_chars=18):
-    lines = []
-    curr_line, curr_len = [], 0
+def _group_words_2line(words, max_chars=20):
+    """
+    Разбивает список слов на группы по 1-2 строки, 
+    стараясь держать длину строки в диапазоне 12-20 символов и балансируя их.
+    """
+    # 1. Собираем "жадные" строки
+    temp_lines = []
+    curr, curr_l = [], 0
     for w in words:
-        if curr_len + len(w) + 1 > max_chars and curr_line:
-            lines.append(" ".join(curr_line))
-            curr_line, curr_len = [w], len(w)
+        if curr_l + len(w) + 1 > max_chars and curr:
+            temp_lines.append(curr)
+            curr, curr_l = [w], len(w)
         else:
-            curr_line.append(w)
-            curr_len += len(w) + 1
-    if curr_line: lines.append(" ".join(curr_line))
+            curr.append(w)
+            curr_l += len(w) + 1
+    if curr: temp_lines.append(curr)
     
+    # 2. Группируем по 2 и балансируем
     groups = []
-    for i in range(0, len(lines), 2):
-        block = lines[i]
-        if i + 1 < len(lines): block += "\\N" + lines[i+1]
-        groups.append(block)
+    i = 0
+    while i < len(temp_lines):
+        line1 = temp_lines[i]
+        if i + 1 < len(temp_lines):
+            line2 = temp_lines[i+1]
+            combined = line1 + line2
+            
+            # Ищем лучший вариант разделения для пары строк
+            best_diff = abs(len(" ".join(line1)) - len(" ".join(line2)))
+            best_split = (line1, line2)
+            
+            # Пробуем все возможные точки разрыва в этой комбинации
+            for j in range(1, len(combined)):
+                l1, l2 = combined[:j], combined[j:]
+                s1, s2 = " ".join(l1), " ".join(l2)
+                # Оба сегмента должны влезать в лимит
+                if len(s1) <= max_chars and len(s2) <= max_chars:
+                    diff = abs(len(s1) - len(s2))
+                    if diff < best_diff:
+                        best_diff = diff
+                        best_split = (l1, l2)
+            
+            groups.append(" ".join(best_split[0]) + "\\N" + " ".join(best_split[1]))
+            i += 2
+        else:
+            # Одиночная строка
+            groups.append(" ".join(line1))
+            i += 1
     return groups
 
 def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_time=0.0, aligned_words=None, language=""):
@@ -136,7 +166,7 @@ def generate_ass_from_project(scenes, whisper_segments, output_path, min_start_t
 
             # Разбиваем текст конкретной сцены на группы (обычно 1-2 группы на сцену)
             raw_scene_words = s_text.split()
-            groups = _group_words_2line(raw_scene_words, max_chars=24)
+            groups = _group_words_2line(raw_scene_words, max_chars=20)
             
             sw_cursor = 0
             for g in groups:

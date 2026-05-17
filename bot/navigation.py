@@ -69,6 +69,14 @@ async def ask_for_asset(message: types.Message, state: FSMContext, scene_idx: in
         
         if scene_idx >= len(scenes):
             logger.info("All assets collected!")
+
+            # Auto-pipeline: завершить автоматом без меню
+            if proj_data and proj_data.get('auto_pipeline'):
+                logger.info(f"Auto-pipeline project, resuming auto flow for {project_id}")
+                from bot.handlers.auto_pipeline import resume_auto_after_assets
+                await resume_auto_after_assets(message, state, project_id)
+                return
+
             proj_check = pm.load_project(project_id)
             if proj_check and proj_check.get('current_audio_path'):
                 audio_path = proj_check['current_audio_path']
