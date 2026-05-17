@@ -87,7 +87,7 @@
     },
     {
       "id": "news",
-      "name": "📰 Новости",
+      "name": "📰 True News",
       "channel_topic": "Актуальные новости, события в мире, аналитика, репортажи.",
       "tone_of_voice": "Объективный, динамичный, официальный. Четкая подача информации.",
       "target_platform": "YouTube / Shorts / Telegram",
@@ -100,16 +100,16 @@
         "style_notes": "Серьёзно, фактологически. Студийные фото, репортажи, карты. Без мемов и развлечений."
       },
       "logo_path": "local_assets/logo/news.png",
-      "preview_bg_color": "#0F1115",
+      "preview_bg_color": "#0A101D",
       "preview_text_color": "#FFFFFF",
       "preview_secondary_color": "#DC2626",
       "preview_font_path": "assets/fonts/Montserrat-Bold.ttf",
       "subtitle_style": {
-        "primary_color": "#DC2626",
-        "secondary_color": "#FFFFFF",
-        "outline_color": "#000000",
+        "primary_color": "#FFFFFF",
+        "secondary_color": "#E2E8F0",
+        "outline_color": "#0A101D",
         "shadow_color": "#000000",
-        "outline_width": 8,
+        "outline_width": 6,
         "shadow_width": 0
       }
     },

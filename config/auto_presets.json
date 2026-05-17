@@ -23,6 +23,30 @@
       "skip_seo": true,
       "auto_select_assets": true,
       "burn_subtitles": true
+    },
+    "lifestyle": {
+      "channel_profile": "lifestyle",
+      "script_style": "lifestyle_aesthetic",
+      "pacing": "super_dynamic",
+      "video_format": "vertical",
+      "tts_engine": "edge",
+      "tts_preset": "female_soft",
+      "auto_approve_preview": true,
+      "skip_seo": true,
+      "auto_select_assets": true,
+      "burn_subtitles": true
+    },
+    "news": {
+      "channel_profile": "news",
+      "script_style": "news_broadcast",
+      "pacing": "super_dynamic",
+      "video_format": "vertical",
+      "tts_engine": "edge",
+      "tts_preset": "announcer",
+      "auto_approve_preview": true,
+      "skip_seo": true,
+      "auto_select_assets": true,
+      "burn_subtitles": true
     }
   }
 }

@@ -18,6 +18,25 @@
       "output_topics": {
         "ru": 43
       }
+    },
+    "lifestyle": {
+      "chat_username": "@content_factory111111",
+      "input_topic": 150,
+      "language": "Romanian",
+      "translate_to": [],
+      "output_topics": {
+        "ro": 152
+      }
+    },
+    "news": {
+      "chat_username": "@content_factory111111",
+      "input_topic": 144,
+      "language": "Russian",
+      "translate_to": ["English"],
+      "output_topics": {
+        "ru": 146,
+        "en": 148
+      }
     }
   }
 }

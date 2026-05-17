@@ -373,7 +373,12 @@ async def cmd_full_automat(message: types.Message, state: FSMContext):
         await message.answer("❌ Нет настроенных каналов.")
         return
     kb = InlineKeyboardBuilder()
-    names = {"orthodox": "☦️ Православный", "tech_business": "💻 IT и Бизнес"}
+    names = {
+        "orthodox": "☦️ Православный", 
+        "tech_business": "💻 IT и Бизнес",
+        "lifestyle": "🌸 Женский Lifestyle",
+        "news": "📰 True News"
+    }
     for name in topics:
         kb.button(text=names.get(name, name), callback_data=f"faut_{name}")
     kb.button(text="🔄 Перерендерить последнее видео", callback_data="rebuild_last_video")
