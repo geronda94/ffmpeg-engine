@@ -31,13 +31,86 @@ WATERMARK_BLACKLIST = [
     # Competitor logos / generic breaking news watermarks
     "breaking news", "breakingnews", "breaking-news", "breaking_news",
     "bbc", "cnn", "foxnews", "msnbc", "aljazeera", "reuters", "bloomberg",
-    "nytimes", "washingtonpost"
+    "nytimes", "washingtonpost",
     "iconarchive", "iconmonstr", "iconduck", "iconscout",
     # Design/UI platforms
     "dribbble", "behance",
     # E-commerce / product catalogs
     "salko", "lamoda", "wildberries", "aliexpress",
 ]
+
+import urllib.request
+import urllib.parse
+import json
+
+def search_images_searxng(query: str, max_results: int = 15, min_size: int = 300) -> list:
+    """Поиск изображений через SearXNG агрегатор с блеклистами и парсингом разрешения."""
+    url = "https://search.it2b.top/search"
+    params = {
+        "q": query,
+        "format": "json",
+        "categories": "images"
+    }
+    try:
+        query_string = urllib.parse.urlencode(params)
+        full_url = f"{url}?{query_string}"
+        
+        req = urllib.request.Request(
+            full_url, 
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
+        )
+        
+        with urllib.request.urlopen(req, timeout=12) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode("utf-8"))
+                raw_results = data.get("results", [])
+                
+                results = []
+                for r in raw_results:
+                    img_url = r.get("img_src", "")
+                    if not img_url:
+                        continue
+                    
+                    # Фильтрация по черному списку ватермарок и брендов
+                    img_url_lower = img_url.lower()
+                    source_url_lower = r.get("url", "").lower()
+                    title_lower = r.get("title", "").lower()
+                    if any(bad in img_url_lower or bad in source_url_lower or bad in title_lower
+                           for bad in WATERMARK_BLACKLIST):
+                        continue
+                    
+                    # Парсинг разрешения картинки (например, "2121 x 1414")
+                    w, h = 0, 0
+                    res_str = r.get("resolution", "")
+                    if res_str and "x" in res_str:
+                        try:
+                            parts = res_str.split("x")
+                            w = int(parts[0].strip())
+                            h = int(parts[1].strip())
+                        except ValueError:
+                            pass
+                    
+                    if min_size > 0 and w > 0 and h > 0 and (w < min_size or h < min_size):
+                        continue
+                    
+                    results.append({
+                        "url": img_url,
+                        "photographer": f"SearXNG ({r.get('engine', 'unknown')})",
+                        "source": "searxng",
+                        "width": w,
+                        "height": h,
+                        "title": r.get("title", ""),
+                        "tags": r.get("title", ""),
+                    })
+                    if len(results) >= max_results:
+                        break
+                
+                logger.info(f"SearXNG search successful: {len(results)} results found for query '{query}'")
+                return results
+    except Exception as e:
+        logger.warning(f"SearXNG search '{query}' failed, fallback to DuckDuckGo: {e}")
+    return []
+
 
 
 
@@ -48,9 +121,18 @@ async def search_images_ddg_async(query: str, max_results: int = 15, min_size: i
 
 def search_images_ddg(query: str, max_results: int = 15, min_size: int = 300,
                        max_retries: int = 3) -> list:
-    """Поиск изображений через DuckDuckGo с ретраями и backoff."""
+    """Поиск изображений через SearXNG с прозрачным фоллбэком на DuckDuckGo при сбоях."""
+    # Попытка поиска через SearXNG (основной движок)
+    searxng_results = search_images_searxng(query, max_results, min_size)
+    if searxng_results:
+        return searxng_results
+
     if not DDG_AVAILABLE:
+        logger.warning("SearXNG returned zero, and legacy DuckDuckGo search is unavailable.")
         return []
+
+    logger.info(f"SearXNG returned 0 results for '{query}'. Falling back to DuckDuckGo search...")
+
 
     for attempt in range(max_retries):
         try:

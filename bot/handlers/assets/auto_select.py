@@ -73,12 +73,12 @@ SAFE_FALLBACK_QUERIES = ["church building dome", "candle prayer light", "cross s
 
 CHANNEL_FALLBACK_POOLS = {
     "orthodox": [
-        "orthodox monastery interior golden light",
-        "candle church prayer orthodox",
-        "golden dome cathedral russia",
-        "stained glass church window",
-        "bible book open pages",
-        "cross christian church landscape",
+        "православный храм внутри свечи",
+        "золотые купола православного храма",
+        "православный крест купол небо",
+        "открытая библия при свечах",
+        "интерьер православного монастыря",
+        "молитва перед иконой свеча",
     ],
     "news": [
         "city skyline aerial view dark",
@@ -153,11 +153,30 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
             
             # Расширенный список ключевых слов для принудительного увода в DDG (иконы)
             saint_keywords = [
-                # RU
-                r'икон\w*', 'святой', 'святая', 'святитель', 'иисус', 'христос', 'апостол', 
-                'богородица', 'мария', 'преподобный', 'мученик', 'мученица', 'ангел', 'архангел',
-                'икона', 'матрона', 'ксения', 'сергий', 'серафим', 'николай', 'пантелеимон', 'лука',
-                'спаситель', 'троица', 'господь',
+                # RU - Shrines & relics
+                r'святын\w*', r'мощ\w*', r'рак\w*', r'ковчег\w*', r'лавр\w*', r'паломник\w*', 
+                r'купел\w*', r'источник\w*', r'святог\w*', r'афон\w*', r'монастыр\w*',
+                # RU - Martyrs & Saints
+                r'мученик\w*', r'страстотерп\w*', r'исповедник\w*', r'пророк\w*', r'праведн\w*', 
+                r'преподобн\w*', r'святител\w*', r'свято\w*', r'старец', r'старц\w*',
+                # RU - Mother of God & Marian
+                r'богородиц\w*', r'богоматер\w*', r'благовещен\w*', r'успен\w*', r'дева\s+мари\w*', 
+                r'введен\w*\s+во\s+храм\w*',
+                # RU - Scriptures & Testaments
+                r'писани\w*', r'евангел\w*', r'библи\w*', r'завет\w*', r'псалтир\w*', r'псалом\w*', 
+                r'псалм\w*', r'заповед\w*', r'скрижал\w*', r'моисе\w*', r'авраам\w*', r'адам\w*', 
+                r'\bева\b', r'\bевы\b', r'\bеву\b', r'\bной\b', r'\bноя\b', r'райск\w*', r'покаян\w*', 
+                r'грех\w*',
+                # RU - Clergy & Church
+                r'храм\w*', r'церков\w*', r'собор\w*', r'священник\w*', r'батюшк\w*', r'монах\w*', 
+                r'монахин\w*', r'алтар\w*', r'анало\w*', r'иконостас\w*', r'кадил\w*', r'лампад\w*', 
+                r'\bмиро\b', r'\bмиром\b', r'\bелей\b', r'\bелеем\b', r'просфор\w*', r'распяти\w*', 
+                # RU - Holidays & Theology
+                r'литурги\w*', r'причаст\w*', r'крещен\w*', r'венчан\w*', r'соборов\w*', r'молебен\w*', 
+                r'панихид\w*', r'воскресен\w*', r'вознесен\w*', r'пасх\w*', r'рождеств\w*', 
+                r'богоявлен\w*', r'преображен\w*', r'велики\w*\s+пост\w*', r'троиц\w*', r'господ\w*',
+                r'икон\w*', r'иисус\w*', r'христос\w*', r'ангел\w*', r'архангел\w*', r'бес\w*', 
+                r'демон\w*', r'дьявол\w*', r'сатан\w*', r'духовн\w*',
                 # EN
                 'saint', 'icon', 'jesus', 'christ', 'mary', 'virgin', 'apostle', 'savior', 'saviour',
                 'lord', 'angel', 'archangel', 'theotokos', 'orthodox icon', 'crucifixion', 'resurrection'
@@ -188,7 +207,13 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
             f"🔍 Web поиск ({search_source}): {queries[0]}..."
         )
         try:
-            ddg_q = f"orthodox icon {queries[0]}" if search_source == "icon" else queries[0]
+            if search_source == "icon":
+                if channel_profile_id == "orthodox":
+                    ddg_q = f"православная икона {queries[0]}" if "икон" not in queries[0].lower() else queries[0]
+                else:
+                    ddg_q = f"orthodox icon {queries[0]}" if "icon" not in queries[0].lower() else queries[0]
+            else:
+                ddg_q = queries[0]
             results = await asyncio.to_thread(search_images_ddg, ddg_q, max_results=15)
         except Exception as ex:
             logger.error(f"DDG search error: {ex}")
@@ -532,10 +557,31 @@ async def auto_pick_for_project(
                 text_to_check = (visual + " " + spoken + " " + " ".join(queries)).lower()
                 
                 saint_keywords = [
-                    r'икон\w*', 'святой', 'святая', 'святитель', 'иисус', 'христос', 'апостол', 
-                    'богородица', 'мария', 'преподобный', 'мученик', 'мученица', 'ангел', 'архангел',
-                    'икона', 'матрона', 'ксения', 'сергий', 'серафим', 'николай', 'пантелеимон', 'лука',
-                    'спаситель', 'троица', 'господь',
+                    # RU - Shrines & relics
+                    r'святын\w*', r'мощ\w*', r'рак\w*', r'ковчег\w*', r'лавр\w*', r'паломник\w*', 
+                    r'купел\w*', r'источник\w*', r'святог\w*', r'афон\w*', r'монастыр\w*',
+                    # RU - Martyrs & Saints
+                    r'мученик\w*', r'страстотерп\w*', r'исповедник\w*', r'пророк\w*', r'праведн\w*', 
+                    r'преподобн\w*', r'святител\w*', r'свято\w*', r'старец', r'старц\w*',
+                    # RU - Mother of God & Marian
+                    r'богородиц\w*', r'богоматер\w*', r'благовещен\w*', r'успен\w*', r'дева\s+мари\w*', 
+                    r'введен\w*\s+во\s+храм\w*',
+                    # RU - Scriptures & Testaments
+                    r'писани\w*', r'евангел\w*', r'библи\w*', r'завет\w*', r'псалтир\w*', r'псалом\w*', 
+                    r'псалм\w*', r'заповед\w*', r'скрижал\w*', r'моисе\w*', r'авраам\w*', r'адам\w*', 
+                    r'\bева\b', r'\bевы\b', r'\bеву\b', r'\bной\b', r'\bноя\b', r'райск\w*', r'покаян\w*', 
+                    r'грех\w*',
+                    # RU - Clergy & Church
+                    r'храм\w*', r'церков\w*', r'собор\w*', r'священник\w*', r'батюшк\w*', r'монах\w*', 
+                    r'монахин\w*', r'алтар\w*', r'анало\w*', r'иконостас\w*', r'кадил\w*', r'лампад\w*', 
+                    r'\bмиро\b', r'\bмиром\b', r'\bелей\b', r'\bелеем\b', r'просфор\w*', r'распяти\w*', 
+                    # RU - Holidays & Theology
+                    r'литурги\w*', r'причаст\w*', r'крещен\w*', r'венчан\w*', r'соборов\w*', r'молебен\w*', 
+                    r'панихид\w*', r'воскресен\w*', r'вознесен\w*', r'пасх\w*', r'рождеств\w*', 
+                    r'богоявлен\w*', r'преображен\w*', r'велики\w*\s+пост\w*', r'троиц\w*', r'господ\w*',
+                    r'икон\w*', r'иисус\w*', r'христос\w*', r'ангел\w*', r'архангел\w*', r'бес\w*', 
+                    r'демон\w*', r'дьявол\w*', r'сатан\w*', r'духовн\w*',
+                    # EN
                     'saint', 'icon', 'jesus', 'christ', 'mary', 'virgin', 'apostle', 'savior', 'saviour',
                     'lord', 'angel', 'archangel', 'theotokos', 'orthodox icon', 'crucifixion', 'resurrection'
                 ]
@@ -718,6 +764,41 @@ async def auto_pick_for_project(
                     except Exception:
                         pass
 
+            if not best_local:
+                logger.info(f"Scene {idx}: All stock platforms failed. Trying polite SearXNG fallback search...")
+                from ai.duckduckgo_search import search_images_ddg
+                try:
+                    fb_q = queries[0]
+                    if channel_profile_id == "orthodox" and any(k in fb_q.lower() for k in ["икон", "свято", "богородиц", "старец"]):
+                        fb_q = f"православная икона {fb_q}" if "икон" not in fb_q.lower() else fb_q
+                    
+                    await asyncio.sleep(1.0)  # Polite delay
+                    web_results = await asyncio.to_thread(search_images_ddg, fb_q, max_results=10)
+                    if web_results:
+                        scored = await score_images(
+                            web_results[:10], scene.get("text_segment", ""),
+                            scene.get("image_prompt") or scene.get("visual_description") or "",
+                            rules, search_source="web"
+                        )
+                        if scored and scored.get("scores"):
+                            sorted_scores = sorted(scored["scores"], key=lambda x: x.get("score", 0), reverse=True)
+                            for img_score in sorted_scores:
+                                url = img_score.get("url", "")
+                                if not url or img_score.get("score", 0) < 3:
+                                    continue
+                                if url in selected_urls:
+                                    continue
+                                selected_urls.add(url)
+                                local_path = await _download_and_dedup(url, channel_profile_id)
+                                if local_path:
+                                    best_local = local_path
+                                    logger.info(f"✅ Scene {idx+1}/{total} stock pick OK via SearXNG fallback: {best_local}")
+                                    break
+                                else:
+                                    selected_urls.remove(url)
+                except Exception as ex:
+                    logger.error(f"SearXNG fallback error for stock scene {idx}: {ex}")
+
             if best_local:
                 logger.info(f"✅ Scene {idx+1}/{total} stock pick OK: {best_local}")
             else:
@@ -754,7 +835,13 @@ async def auto_pick_for_project(
         results = []
         for q in queries:
             try:
-                ddg_q = f"orthodox icon {q}" if search_source == "icon" else q
+                if search_source == "icon":
+                    if channel_profile_id == "orthodox":
+                        ddg_q = f"православная икона {q}" if "икон" not in q.lower() else q
+                    else:
+                        ddg_q = f"orthodox icon {q}" if "icon" not in q.lower() else q
+                else:
+                    ddg_q = q
                 # Fetch more results to increase chances of finding a good image in 1 request
                 await asyncio.sleep(2.0)  # Пауза против бана по IP
                 q_results = await asyncio.to_thread(search_images_ddg, ddg_q, max_results=20)
@@ -785,7 +872,13 @@ async def auto_pick_for_project(
                 if new_qs:
                     queries = list(new_qs)
                     for q in queries:
-                        new_ddg_q = f"orthodox icon {q}" if search_source == "icon" else q
+                        if search_source == "icon":
+                            if channel_profile_id == "orthodox":
+                                new_ddg_q = f"православная икона {q}" if "икон" not in q.lower() else q
+                            else:
+                                new_ddg_q = f"orthodox icon {q}" if "icon" not in q.lower() else q
+                        else:
+                            new_ddg_q = q
                         try:
                             await asyncio.sleep(2.0)  # Пауза против бана по IP
                             results = await asyncio.to_thread(search_images_ddg, new_ddg_q, max_results=20)

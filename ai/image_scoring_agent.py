@@ -59,7 +59,7 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
             continue
         if no_people and search_source not in ("web", "news", "icon"):
             people_words = ["portrait", "face", "man", "woman", "girl", "model",
-                            "person", "people", "actor", "photo", "lady", "guy", "boy",
+                            "person", "people", "actor", "lady", "guy", "boy",
                             "female", "neck", "shoulder", "chest", "jewelry", "necklace", 
                             "sensual", "romance", "glamour", "fashion", "cleavage", "lingerie", 
                             "boudoir", "seductive", "lips", "mouth"]
@@ -83,9 +83,9 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
         # Если включен no_people (характерно для православного профиля), жестко отсекаем йогу, буддизм и т.д.
         if no_people:
             non_christian = [
-                "buddha", "buddhist", "yoga", "zen", "meditat", "hindu", "islam", "mosque", "monk", "temple", 
+                "buddha", "buddhist", "yoga", "zen", "meditat", "hindu", "islam", "mosque",
                 "karma", "chakra", "witch", "magic", "spell", "statue", "sculpture", "idol", "pagan", "tarot", 
-                "demon", "devil", "satan", "shiva", "ganesha", "nirvana", "mantra", "guru", "mandala", "pagoda", 
+                "shiva", "ganesha", "nirvana", "mantra", "guru", "mandala", "pagoda", 
                 "shrine", "muslim", "allah", "quran", "minaret", "goddess", "mytholog", "occult", "shaman", 
                 "voodoo", "astrolog", "zodiac", "wicca"
             ]

@@ -40,22 +40,19 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
         if style_id in ORTHODOX_STYLES:
             style_hint = (
                 "STYLE CONTEXT: Orthodox Christian / spiritual content.\n"
-                "FORBIDDEN in ANY query: woman, girl, female, lady, mother, man, person, "
-                "people, human, model, actor, musician, violin, nude, skin, body.\n"
-                "Instead of 'monk' → 'church interior prayer' (monk is ambiguous: Buddhist/Christian)\n"
-                "Instead of 'temple' → 'church building' (temple could be Hindu/Buddhist)\n"
-                "Instead of 'priest' → 'church service' (priest ambiguous across religions)\n"
-                "SAFE Christian-specific terms you CAN use:\n"
-                "  'bible book', 'cross christian', 'church building', 'christian angel',\n"
-                "  'candle prayer', 'golden dome church', 'icon painting', 'stained glass'\n"
-                "  'cathedral interior', 'altar', 'rosary', 'christian saint icon'\n"
-                "For a saint by name: search 'saint name orthodox icon' via images.\n"
-                "For atmosphere: 'church interior candle', 'golden light cathedral', 'faith hope love'\n"
-                "CRITICAL: If a scene describes a specific person (e.g. 'woman at mirror', 'musician playing'),\n"
-                "DO NOT search for that person. Replace with Christian SYMBOL:\n"
-                "  'woman at mirror' → 'icon virgin mary' or 'cross reflection'\n"
-                "  'musician violin' → 'church choir' or 'candle light prayer'\n"
-                "  'person silhouette' → 'cross silhouette'\n"
+                "CRITICAL LANGUAGE RULE: ALL search queries MUST be strictly in Russian! (e.g. 'православная икона', 'свеча в храме').\n"
+                "ALLOWED SPIRITUAL SUBJECTS (in Russian): You CAN and SHOULD search for monks ('монах', 'монахиня', 'старец'), "
+                "priests ('священник', 'батюшка', 'патриарх', 'служба в храме'), angels ('ангел', 'архангел'), and demons/evil forces "
+                "('демон', 'бес', 'дьявол' on icons), churches, and open bibles.\n"
+                "STRICTLY FORBIDDEN (in Russian or English): Modern/secular people, lifestyle models, secular women/girls "
+                "('девушка', 'женщина', 'модель', 'мода'), nudity, non-Christian/esoteric items.\n"
+                "For a saint by name: search 'икона [имя святого] православная'.\n"
+                "For atmosphere: 'церковь интерьер свеча', 'золотой свет собор', 'библия книга'\n"
+                "CRITICAL: If a scene describes a specific modern secular person (e.g. 'woman at mirror', 'musician playing'), "
+                "DO NOT search for that person. Replace with Russian Christian SYMBOL:\n"
+                "  'woman at mirror' → 'икона божией матери' or 'крест отражение'\n"
+                "  'musician violin' → 'церковный хор' or 'свеча молитва'\n"
+                "  'person silhouette' → 'силуэт креста'\n"
             )
         elif style_id in IT_STYLES:
             style_hint = (
@@ -150,7 +147,7 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
             f"7. Second & Third: the main subject simplified to 2-3 words, using different synonyms.\n"
             f"8. Fourth & Fifth: the mood or atmosphere related to the overall script context.\n"
             f"9. Sixth to Tenth: broader symbolic fallbacks, related locations, or alternative details from the video's main topic.\n"
-            f"10. All queries in English, 2-5 words each. NO camera directions (cinematic, 4k, bokeh).\n"
+            f"10. Language rule: For ORTHODOX style_id, all queries MUST be strictly in Russian! For all other styles, all queries MUST be strictly in English. NO camera directions (cinematic, 4k, bokeh).\n"
             f"11. ABSTRACTION RULE: For 'stock' source, if the literal subject is unlikely on stock photos, replace with its visual essence. "
             f"BUT for 'web', 'news', or 'icon' sources, DO NOT abstract! Use the exact name of the person or event.\n"
             f"12. ANATOMY RULE: NEVER use 'hands' or 'fingers' as the PRIMARY subject of a query "
@@ -180,10 +177,10 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
 
         source_val = result.get("source", "stock").lower()
 
-        # Enforce strict domain/style prefixes for DDG search
+        # Enforce strict domain/style prefixes for DDG/SearXNG search
         if source_val == "icon" and style_id in ORTHODOX_STYLES:
-            # Force DDG to look for orthodox icons (allows both painted ones and photos of them)
-            k_list = [f"orthodox icon {q}" if "icon" not in q.lower() else q for q in k_list]
+            # Force SearXNG/DDG to look for orthodox icons in Russian
+            k_list = [f"православная икона {q}" if "икон" not in q.lower() else q for q in k_list]
         elif source_val == "news" and style_id == "news_broadcast":
             # Force DDG to look for real photography, not graphs/clipart
             k_list = [f"documentary photo {q}" if "photo" not in q.lower() else q for q in k_list]
