@@ -74,8 +74,11 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
                     is_person_tags = True
                     break
             
-            has_icon = "icon" in url_low or "saint" in url_low or "icon" in tags_low or "saint" in tags_low
-            if (is_person_url or is_person_tags) and not has_icon:
+            # Разрешаем изображения людей в религиозном контексте (монах, священник, молящийся у свечи)
+            religious_keywords = ["icon", "saint", "pray", "prayer", "monk", "priest", "bible", "church", "worship", "christian", "spiritual", "orthodox", "liturgy"]
+            has_religious_exception = any(rw in url_low or rw in tags_low for rw in religious_keywords)
+            
+            if (is_person_url or is_person_tags) and not has_religious_exception:
                 logger.info(f"Pre-filter: rejecting person image (no_people=True) based on tags/URL: {tags_low[:60]}")
                 continue
                 

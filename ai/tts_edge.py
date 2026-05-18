@@ -85,9 +85,64 @@ async def optimize_text_for_tts(text: str, lang: str, rate: str = "+0%"):
         return text
 
 
-async def generate_tts(text: str, output_path: str, lang: str = "Russian", voice: str = None, rate: str = "+0%", pitch: str = "+0Hz"):
+async def post_process_audio(file_path: str, profile: str):
     """
-    Генерация озвучки через Microsoft Edge TTS.
+    Применяет аудиофильтры ffmpeg для создания премиального/атмосферного звучания
+    и уникализации звука для алгоритмов соцсетей.
+    """
+    if not profile or not os.path.exists(file_path):
+        return
+        
+    profile = profile.lower()
+    filters = None
+    
+    if "orthodox" in profile:
+        # Эхо собора (ослаблено) + усиленные басы (глубокий духовный голос) + поднятый уровень громкости голоса
+        filters = "bass=g=8:f=110:w=0.6,aecho=0.85:0.88:60:0.18,volume=1.25"
+        logger.info(f"Applying Orthodox spiritual cathedral acoustics to: {file_path}")
+    elif "tech" in profile or "it" in profile:
+        # Ультра-кристальный стерео-расширитель + высокие частоты (стиль подкастов / техно-ноир)
+        filters = "treble=g=3:f=5000,apulsator=hz=0.1:amount=0.1:offset_r=0.2"
+        logger.info(f"Applying Tech-Noir clean spatial filter to: {file_path}")
+        
+    if not filters:
+        return
+        
+    temp_output = file_path + ".processed.wav"
+    try:
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", file_path,
+            "-af", filters,
+            temp_output
+        ]
+        
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode == 0 and os.path.exists(temp_output) and os.path.getsize(temp_output) > 0:
+            os.replace(temp_output, file_path)
+            logger.info("✨ Audio post-processing completed successfully!")
+        else:
+            err_msg = stderr.decode('utf-8', errors='ignore')
+            logger.error(f"ffmpeg processing failed: {err_msg}")
+    except Exception as e:
+        logger.error(f"Error during audio post-processing: {e}")
+    finally:
+        if os.path.exists(temp_output):
+            try:
+                os.remove(temp_output)
+            except:
+                pass
+
+
+async def generate_tts(text: str, output_path: str, lang: str = "Russian", voice: str = None, rate: str = "+0%", pitch: str = "+0Hz", channel_profile: str = None):
+    """
+    Генерация озвучки через Microsoft Edge TTS с автоматическим пост-процессингом звука.
     """
     try:
         optimized_text = await optimize_text_for_tts(text, lang, rate)
@@ -108,6 +163,8 @@ async def generate_tts(text: str, output_path: str, lang: str = "Russian", voice
                 await communicate.save(output_path)
                 if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
                     logger.info(f"TTS generated: {output_path}")
+                    if channel_profile:
+                        await post_process_audio(output_path, channel_profile)
                     return output_path
             except Exception as e:
                 logger.warning(f"Edge TTS sub-attempt {sub_attempt+1} failed: {e}")

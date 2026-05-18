@@ -105,6 +105,10 @@ async def run_auto_pipeline(
             raise ValueError(f"Preset '{channel_name}' not found")
 
         script_text = script_text or message.text or message.caption or ""
+        if script_text.startswith("/"):
+            import re
+            script_text = re.sub(r"^/[a-zA-Z0-9_]+(@[a-zA-Z0-9_]+)?\s*", "", script_text)
+
         if not script_text.strip():
             await message.answer("❌ Пустой текст сценария.")
             return

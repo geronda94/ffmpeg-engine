@@ -123,6 +123,10 @@ async def parse_incoming_media(
     clean_text = re.sub(r"https?://\S+", "", clean_text)
     clean_text = re.sub(r"\n{3,}", "\n\n", clean_text).strip()
 
+    # Очищаем от любых ведущих Telegram команд (например, /auto, /auto@botname)
+    if clean_text.startswith("/"):
+        clean_text = re.sub(r"^/[a-zA-Z0-9_]+(@[a-zA-Z0-9_]+)?\s*", "", clean_text)
+
     logger.info(
         f"Media parser: {len(preloaded)} files preloaded for {project_id}, "
         f"clean script: {len(clean_text)} chars"

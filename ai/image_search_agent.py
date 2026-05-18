@@ -41,18 +41,17 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
             style_hint = (
                 "STYLE CONTEXT: Orthodox Christian / spiritual content.\n"
                 "CRITICAL LANGUAGE RULE: ALL search queries MUST be strictly in Russian! (e.g. 'православная икона', 'свеча в храме').\n"
-                "ALLOWED SPIRITUAL SUBJECTS (in Russian): You CAN and SHOULD search for monks ('монах', 'монахиня', 'старец'), "
-                "priests ('священник', 'батюшка', 'патриарх', 'служба в храме'), angels ('ангел', 'архангел'), and demons/evil forces "
-                "('демон', 'бес', 'дьявол' on icons), churches, and open bibles.\n"
+                "CRITICAL FIRST-TWO-QUERIES RULE (SAINT/GOD SEARCH):\n"
+                "  - The FIRST and SECOND queries in your list MUST be highly specific searches for the HOLY SAINT, GOD, or MOTHER OF GOD mentioned in the scene's spoken text or visual description! Do NOT use abstract or generalized queries here.\n"
+                "  - If Seraphim of Sarov is mentioned -> first 2 queries MUST be: 'икона серафим саровский', 'серафим саровский православный'.\n"
+                "  - If God/Jesus is mentioned -> first 2 queries MUST be: 'иисус христос икона', 'икона спаситель'.\n"
+                "  - If Mother of God/Virgin Mary is mentioned -> first 2 queries MUST be: 'икона божией матери', 'богородица дева мария'.\n"
+                "  - If no specific saint is mentioned, search for God: 'иисус христос', 'господь бог'.\n"
+                "CRITICAL ATMOSPHERIC FOLLOW-UPS (QUERIES 3 TO 10):\n"
+                "  - Queries 3 to 10 should branch out into related thematic, symbolic, or atmospheric spiritual concepts (e.g. 'свеча молитва', 'храм купола', 'православный крест', 'библия книга').\n"
+                "  - NEVER generate combined, overly complex queries (like 'икона рука ребенка силуэт'). Keep queries extremely simple (2 to 4 words maximum).\n"
                 "STRICTLY FORBIDDEN (in Russian or English): Modern/secular people, lifestyle models, secular women/girls "
                 "('девушка', 'женщина', 'модель', 'мода'), nudity, non-Christian/esoteric items.\n"
-                "For a saint by name: search 'икона [имя святого] православная'.\n"
-                "For atmosphere: 'церковь интерьер свеча', 'золотой свет собор', 'библия книга'\n"
-                "CRITICAL: If a scene describes a specific modern secular person (e.g. 'woman at mirror', 'musician playing'), "
-                "DO NOT search for that person. Replace with Russian Christian SYMBOL:\n"
-                "  'woman at mirror' → 'икона божией матери' or 'крест отражение'\n"
-                "  'musician violin' → 'церковный хор' or 'свеча молитва'\n"
-                "  'person silhouette' → 'силуэт креста'\n"
             )
         elif style_id in IT_STYLES:
             style_hint = (
@@ -127,17 +126,18 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
             f"RULES FOR QUERIES:\n"
             f"1. CONTEXT FIRST: Use the FULL SCRIPT CONTEXT to understand the video's topic. "
             f"Search for images that MATCH the overall topic, not just the literal scene description.\n"
-            f"2. NARRATIVE THINKING: Identify the MAIN SUBJECT (person/object) in this scene. "
+            f"2. STRICT QUERY LENGTH LIMIT: Each query MUST contain exactly 2 to 4 words. Keep queries extremely simple, clean, and direct (e.g. 'свеча молитва', 'храм золотые купола', 'православная икона крест'). NEVER use long sentences, wordy descriptions, or combine multiple separate visual subjects in one query.\n"
+            f"3. NARRATIVE THINKING: Identify the MAIN SUBJECT (person/object) in this scene. "
             f"If prev/next scenes are provided, keep the subject consistent — if prev scene was about a monk "
             f"and this scene is about walking, search for 'monk walking' not just 'walking'.\n"
-            f"3. ACTION IS CONTEXT, NOT QUERY: 'he walked', 'she looked' → do NOT search for walking or looking. "
+            f"4. ACTION IS CONTEXT, NOT QUERY: 'he walked', 'she looked' → do NOT search for walking or looking. "
             f"Search for WHAT they walked towards or WHO they are.\n"
-            f"4. REALITY CHECK: NEVER search for abstract, impossible, or AI-generated-looking scenes. "
+            f"5. REALITY CHECK: NEVER search for abstract, impossible, or AI-generated-looking scenes. "
             f"If the visual description describes something that doesn't exist in stock photo "
             f"databases (e.g. 'a tower made of light', 'cracks shaped like a cross'), "
             f"break it down: search for each concrete element separately "
             f"('light beams', 'tower silhouette', 'stone cracks', 'cross shape').\n"
-            f"5. BRAINSTORMING: Generate between 6 and 10 queries per scene to provide maximum search coverage.\n"
+            f"6. BRAINSTORMING: Generate between 6 and 10 queries per scene to provide maximum search coverage.\n"
             f"6. First query: the most specific but REALISTIC visual.\n"
             f"7. Second & Third: the main subject simplified to 2-3 words, using different synonyms.\n"
             f"8. Fourth & Fifth: the mood or atmosphere related to the overall script context.\n"
@@ -175,7 +175,16 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
         # Enforce strict domain/style prefixes for DDG/SearXNG search
         if source_val == "icon" and style_id in ORTHODOX_STYLES:
             # Force SearXNG/DDG to look for orthodox icons in Russian
-            k_list = [f"православная икона {q}" if "икон" not in q.lower() else q for q in k_list]
+            new_k_list = []
+            for q in k_list:
+                q_low = q.lower()
+                # Если запрос содержит абстрактные/атмосферные понятия, не навязываем префикс 'икона'
+                abstract_words = ["рука", "силуэт", "свеча", "храм", "церковь", "купол", "небо", "ребенок", "книга", "библия", "вода", "огонь", "крест", "окно"]
+                if any(aw in q_low for aw in abstract_words):
+                    new_k_list.append(q)
+                else:
+                    new_k_list.append(f"православная икона {q}" if "икон" not in q_low else q)
+            k_list = new_k_list
         elif source_val == "news" and style_id == "news_broadcast":
             # Force DDG to look for real photography, not graphs/clipart
             k_list = [f"documentary photo {q}" if "photo" not in q.lower() else q for q in k_list]

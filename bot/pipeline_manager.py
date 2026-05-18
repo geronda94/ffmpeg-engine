@@ -51,7 +51,8 @@ async def generate_project_audio(project_id: str, preset: dict):
                     lang=lang,
                     voice=preset.get('voice'),
                     rate=preset.get('rate', '+0%'),
-                    pitch=preset.get('pitch', '+0Hz')
+                    pitch=preset.get('pitch', '+0Hz'),
+                    channel_profile=proj_data.get('channel_profile')
                 )
                 if res: return res
             elif engine == 'gemini':

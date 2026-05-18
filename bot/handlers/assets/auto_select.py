@@ -207,16 +207,39 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
             f"🔍 Web поиск ({search_source}): {queries[0]}..."
         )
         try:
-            if search_source == "icon":
-                if channel_profile_id == "orthodox":
-                    ddg_q = f"православная икона {queries[0]}" if "икон" not in queries[0].lower() else queries[0]
+            # Запускаем поиск по первым 3 запросам параллельно для максимального охвата!
+            tasks = []
+            for q in queries[:3]:
+                if search_source == "icon":
+                    q_low = q.lower()
+                    abstract_words = ["рука", "силуэт", "свеча", "храм", "церковь", "купол", "небо", "ребенок", "книга", "библия", "вода", "огонь", "крест", "окно", "hand", "silhouette", "candle", "temple", "church", "dome", "sky", "child", "book", "bible", "water", "fire", "cross", "window"]
+                    if any(aw in q_low for aw in abstract_words):
+                        ddg_q = q
+                    elif channel_profile_id == "orthodox":
+                        ddg_q = f"православная икона {q}" if "икон" not in q_low else q
+                    else:
+                        ddg_q = f"orthodox icon {q}" if "icon" not in q_low else q
                 else:
-                    ddg_q = f"orthodox icon {queries[0]}" if "icon" not in queries[0].lower() else queries[0]
-            else:
-                ddg_q = queries[0]
-            results = await asyncio.to_thread(search_images_ddg, ddg_q, max_results=15)
+                    ddg_q = q
+                tasks.append(asyncio.to_thread(search_images_ddg, ddg_q, max_results=10))
+                
+            responses = await asyncio.gather(*tasks, return_exceptions=True)
+            for res in responses:
+                if isinstance(res, list):
+                    results.extend(res)
+            
+            # Дедупликация результатов по URL
+            seen_urls = set()
+            unique_results = []
+            for r in results:
+                url = r.get("url")
+                if url and url not in seen_urls:
+                    unique_results.append(r)
+                    seen_urls.add(url)
+            results = unique_results
+            logger.info(f"Web search gathered {len(results)} unique results across queries: {queries[:3]}")
         except Exception as ex:
-            logger.error(f"SearXNG search error: {ex}")
+            logger.error(f"DDG multi-search error: {ex}")
     else:
         await _safe_edit(status_msg,
             f"🤖 **Авто-подбор сцены {scene_idx + 1}/{total}**\n"
@@ -289,7 +312,8 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
             )
 
         if fb_results:
-            scored_fb = await score_images(fb_results[:15], spoken, visual, rules, search_source=fb_source)
+            fb_desc = f"Symbolic fallback representation: {fb_queries[0]}. original context: {visual}"
+            scored_fb = await score_images(fb_results[:15], spoken, fb_desc, rules, search_source=fb_source)
             if scored_fb and scored_fb.get("scores"):
                 sorted_scores = sorted(scored_fb["scores"], key=lambda x: x.get("score", 0), reverse=True)
                 for img_score in sorted_scores[:5]:
@@ -836,10 +860,14 @@ async def auto_pick_for_project(
         for q in queries:
             try:
                 if search_source == "icon":
-                    if channel_profile_id == "orthodox":
-                        ddg_q = f"православная икона {q}" if "икон" not in q.lower() else q
+                    q_low = q.lower()
+                    abstract_words = ["рука", "силуэт", "свеча", "храм", "церковь", "купол", "небо", "ребенок", "книга", "библия", "вода", "огонь", "крест", "окно", "hand", "silhouette", "candle", "temple", "church", "dome", "sky", "child", "book", "bible", "water", "fire", "cross", "window"]
+                    if any(aw in q_low for aw in abstract_words):
+                        ddg_q = q
+                    elif channel_profile_id == "orthodox":
+                        ddg_q = f"православная икона {q}" if "икон" not in q_low else q
                     else:
-                        ddg_q = f"orthodox icon {q}" if "icon" not in q.lower() else q
+                        ddg_q = f"orthodox icon {q}" if "icon" not in q_low else q
                 else:
                     ddg_q = q
                 # Fetch more results to increase chances of finding a good image in 1 request
@@ -863,6 +891,7 @@ async def auto_pick_for_project(
             if before_dedup > len(results):
                 logger.info(f"Scene {idx}: SearXNG dedup {before_dedup} → {len(results)}")
             
+            is_reformulated = False
             if not results:
                 from ai.duckduckgo_search import reformulate_query_ai
                 new_qs = await reformulate_query_ai(
@@ -870,13 +899,18 @@ async def auto_pick_for_project(
                     queries, style_id, full_script
                 )
                 if new_qs:
+                    is_reformulated = True
                     queries = list(new_qs)
                     for q in queries:
                         if search_source == "icon":
-                            if channel_profile_id == "orthodox":
-                                new_ddg_q = f"православная икона {q}" if "икон" not in q.lower() else q
+                            q_low = q.lower()
+                            abstract_words = ["рука", "силуэт", "свеча", "храм", "церковь", "купол", "небо", "ребенок", "книга", "библия", "вода", "огонь", "крест", "окно", "hand", "silhouette", "candle", "temple", "church", "dome", "sky", "child", "book", "bible", "water", "fire", "cross", "window"]
+                            if any(aw in q_low for aw in abstract_words):
+                                new_ddg_q = q
+                            elif channel_profile_id == "orthodox":
+                                new_ddg_q = f"православная икона {q}" if "икон" not in q_low else q
                             else:
-                                new_ddg_q = f"orthodox icon {q}" if "icon" not in q.lower() else q
+                                new_ddg_q = f"orthodox icon {q}" if "icon" not in q_low else q
                         else:
                             new_ddg_q = q
                         try:
@@ -886,9 +920,13 @@ async def auto_pick_for_project(
                         except Exception:
                             pass
 
+            visual_desc = scene.get("image_prompt") or scene.get("visual_description") or ""
+            if is_reformulated and queries:
+                visual_desc = f"Symbolic fallback representation: {queries[0]}. original context: {visual_desc}"
+
             scored = await score_images(
                 results[:20], scene.get("text_segment", ""),
-                scene.get("image_prompt") or scene.get("visual_description") or "",
+                visual_desc,
                 rules, search_source=search_source
             )
             if scored and scored.get("scores"):
