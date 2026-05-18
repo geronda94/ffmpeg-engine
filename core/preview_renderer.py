@@ -99,11 +99,35 @@ def create_preview_overlay(asset_path, preview_text, highlight_word,
     
     bg_rgb = _hex_to_rgb(bg_hex)
     
-    # 1. CONTRAST GUARD: Если фон светлый, а текст светлый, принудительно делаем подложку темной
-    brightness = 0.299 * bg_rgb[0] + 0.587 * bg_rgb[1] + 0.114 * bg_rgb[2]
-    if brightness > 150:
-        bg_rgb = (20, 20, 20) # Переключаем на благородный темный для идеального чтения светлого текста
+    # Вспомогательная функция яркости
+    def _get_brightness(rgb):
+        return 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
         
+    p_rgb = _hex_to_rgb(primary_hex)
+    s_rgb = _hex_to_rgb(secondary_hex)
+    p_bright = _get_brightness(p_rgb)
+    s_bright = _get_brightness(s_rgb)
+    
+    # 1. SMART CONTRAST GUARD: Интеллектуальный выбор темы карты и оптимизация цветов текста
+    if p_bright < 130:
+        # ТЕМНЫЙ ТЕКСТ -> СВЕТЛАЯ КАРТА (например, для Lifestyle)
+        # Принудительно делаем подложку светлой для идеального чтения темного текста
+        bg_rgb = (250, 245, 245) if _get_brightness(bg_rgb) < 180 else bg_rgb
+        card_alpha = 200 # Высокая плотность (около 80%), чтобы приглушить фоновое видео
+        
+        # Защита контраста: если вторичный цвет слишком светлый (как #E5A9A9), делаем его темнее и контрастнее (красивый сочный бордово-розовый)
+        if s_bright > 130:
+            secondary_hex = "#9E4B58" # Благородный глубокий розовый с великолепной читаемостью
+    else:
+        # СВЕТЛЫЙ ТЕКСТ -> ТЕМНАЯ КАРТА (например, для Православия или IT)
+        # Принудительно делаем подложку темной
+        bg_rgb = (20, 20, 20) if _get_brightness(bg_rgb) > 100 else bg_rgb
+        card_alpha = 145 # Около 57% непрозрачности для мягкого киноэффекта
+        
+        # Защита контраста: если вторичный цвет слишком темный, переключаем его на читаемый светлый
+        if s_bright < 150:
+            secondary_hex = "#E5A9A9" # Приятный читаемый пастельно-розовый
+            
     # 2. ПОЛУЧЕНИЕ И РАЗМЫТИЕ ПЕРВОГО КАДРА ЗАДНЕГО ПЛАНА
     bg_image = None
     if asset_path and os.path.exists(asset_path):
@@ -166,13 +190,13 @@ def create_preview_overlay(asset_path, preview_text, highlight_word,
         temp = TextClip(text=ln, font_size=base_font_size, color=color, font=font, method="label")
         scale = min(max_scale, target_w / temp.w) if temp.w > 0 else 1.0
         f_size = int(base_font_size * scale)
-        line_h = int(f_size * 1.2)
+        line_h = int(f_size * 1.28) # Даем больше воздуха по вертикали внутри контейнера строки
         tc = TextClip(text=ln, font_size=f_size, color=color, font=font, method="caption", size=(frame_width, line_h), text_align="center").with_duration(duration)
         text_clips.append(tc)
 
-    line_spacing = -10  # Отрицательный чтобы компенсировать padding контейнера
+    line_spacing = 25  # Щедрый положительный интервал для отличной читаемости и воздуха
     total_text_h = sum(c.h for c in text_clips) + (len(text_clips)-1)*line_spacing
-    margin = 40
+    margin = 45
     total_h = total_text_h
     if logo_clip: total_h += logo_clip.h + margin
     
@@ -181,16 +205,16 @@ def create_preview_overlay(asset_path, preview_text, highlight_word,
     
     # 4. ВЫЧИСЛЕНИЕ ГРАНИЦ И СОЗДАНИЕ СТЕКЛЯННОЙ КАРТОЧКИ
     card_w = int(frame_width * 0.94)
-    card_h = total_h + 90
+    card_h = total_h + 100
     card_x = (frame_width - card_w) // 2
-    card_y = start_y - 45
+    card_y = start_y - 50
     radius = 36
     
     # Вырезаем размытую область из подготовленного фона
     sub_img = blurred_bg.crop((card_x, card_y, card_x + card_w, card_y + card_h)).convert("RGBA")
     
-    # Накладываем цвет подложки с 55% непрозрачности (alpha=140)
-    color_layer = _PILImage.new("RGBA", sub_img.size, bg_rgb + (140,))
+    # Накладываем цвет подложки с нужной непрозрачностью
+    color_layer = _PILImage.new("RGBA", sub_img.size, bg_rgb + (card_alpha,))
     sub_img = _PILImage.alpha_composite(sub_img, color_layer)
     
     # Скругляем углы с помощью альфа-маски
