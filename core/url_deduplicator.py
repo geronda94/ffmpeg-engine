@@ -7,7 +7,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 STORAGE_DIR = Path(__file__).resolve().parent.parent / "projects" / "used_urls"
-TTL_SECONDS = 7 * 24 * 3600  # 7 дней
+TTL_SECONDS = 4 * 24 * 3600  # 4 дня
 
 
 class URLDeduplicator:
@@ -17,6 +17,11 @@ class URLDeduplicator:
         self._dir = Path(storage_dir) if storage_dir else STORAGE_DIR
         self._dir.mkdir(parents=True, exist_ok=True)
         self._cache: dict[str, dict] = {}  # channel -> {url_hash: data}
+
+    def _channel_key(self, channel: str, language: str = None) -> str:
+        if language:
+            return f"{channel}_{language.lower().strip()}"
+        return channel
 
     def _channel_file(self, channel: str) -> Path:
         return self._dir / f"{channel}.json"
@@ -45,11 +50,12 @@ class URLDeduplicator:
         import hashlib
         return hashlib.md5(url.encode()).hexdigest()[:12]
 
-    def is_used(self, url: str, channel: str) -> bool:
-        """Проверяет, использовался ли URL в последние 7 дней."""
+    def is_used(self, url: str, channel: str, language: str = None) -> bool:
+        """Проверяет, использовался ли URL в последние 4 дня."""
         if not url:
             return False
-        data = self._load(channel)
+        channel_key = self._channel_key(channel, language)
+        data = self._load(channel_key)
         key = self._url_key(url)
         entry = data.get(key)
         if not entry:
@@ -57,18 +63,19 @@ class URLDeduplicator:
         age = time.time() - entry.get("used_at", 0)
         return age < TTL_SECONDS
 
-    def mark_used(self, url: str, channel: str, scene_text: str = ""):
+    def mark_used(self, url: str, channel: str, scene_text: str = "", language: str = None):
         """Помечает URL как использованный."""
         if not url or not channel:
             return
-        data = self._load(channel)
+        channel_key = self._channel_key(channel, language)
+        data = self._load(channel_key)
         key = self._url_key(url)
         data[key] = {
             "url": url,
             "used_at": time.time(),
             "scene_text": scene_text[:200],
         }
-        self._save(channel)
+        self._save(channel_key)
 
     def cleanup_old(self):
         """Удаляет записи старше TTL."""
@@ -84,11 +91,11 @@ class URLDeduplicator:
                 self._save(channel)
                 logger.info(f"URL dedup: cleaned {old_count - len(data)} old entries for {channel}")
 
-    def filter_results(self, results: list, channel: str) -> list:
+    def filter_results(self, results: list, channel: str, language: str = None) -> list:
         """Фильтрует список результатов, убирая использованные URL."""
-        return [r for r in results if not self.is_used(r.get("url", ""), channel)]
+        return [r for r in results if not self.is_used(r.get("url", ""), channel, language)]
 
-    def mark_project_assets(self, project_id: str, channel: str, project_manager=None):
+    def mark_project_assets(self, project_id: str, channel: str, project_manager=None, language: str = None):
         """Сохраняет URL всех ассетов проекта в хранилище."""
         if not project_manager:
             from core.project_manager import ProjectManager
@@ -96,6 +103,8 @@ class URLDeduplicator:
         proj = project_manager.load_project(project_id)
         if not proj:
             return
+        if not language:
+            language = proj.get("language")
         assets = proj.get("assets", {})
         scenes = proj.get("scenes", [])
         for idx_str, ainfo in assets.items():
@@ -103,7 +112,7 @@ class URLDeduplicator:
             if url:
                 idx = int(idx_str)
                 scene_text = scenes[idx].get("text_segment", "") if idx < len(scenes) else ""
-                self.mark_used(url, channel, scene_text)
+                self.mark_used(url, channel, scene_text, language)
 
 
 # Синглтон

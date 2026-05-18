@@ -44,3 +44,11 @@
 2026-05-17 18:28:16,423 - INFO - Polling stopped for bot @openclaw_it2b_bot id=8236315941 - 'openclaw'
 2026-05-17 18:28:16,423 - INFO - Polling stopped
 2026-05-17 18:28:16,674 - INFO - Update id=706532317 is not handled. Duration 31818 ms by bot id=8236315941
+2026-05-18 22:28:07,553 - INFO - Render Task Manager started.
+2026-05-18 22:28:07,555 - INFO - URL deduplicator cleanup done.
+2026-05-18 22:28:07,890 - INFO - 🤖 Starting AUTO Content Factory...
+2026-05-18 22:28:07,890 - INFO - Start polling
+2026-05-18 22:28:07,981 - INFO - Run polling for bot @openclaw_it2b_bot id=8236315941 - 'Бот завод'
+2026-05-18 22:28:33,800 - WARNING - Received SIGTERM signal
+2026-05-18 22:28:33,801 - INFO - Polling stopped for bot @openclaw_it2b_bot id=8236315941 - 'Бот завод'
+2026-05-18 22:28:33,801 - INFO - Polling stopped

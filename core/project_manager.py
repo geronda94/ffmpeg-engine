@@ -63,13 +63,22 @@ class ProjectManager:
         if not source_path.exists():
             return None
             
+        source_data = self.load_project(source_id) or {}
+        has_preloaded = bool(source_data.get('preloaded_media'))
+        
         new_id = f"{source_id}_{target_lang.lower()[:2]}_{int(time.time()) % 100}"
         new_path = self.get_project_path(new_id)
         
-        # Копируем структуру проекта, пропуская тяжелые медиа-файлы и папки
-        shutil.copytree(source_path, new_path, ignore=shutil.ignore_patterns(
-            '*.mp4', '*.ass', '__pycache__', 'temp_*', 'audio', 'video_with_subtitles.mp4', 'final_video.mp4'
-        ))
+        # Копируем структуру проекта, пропуская тяжелые медиа-файлы, папки и кадры (assets)
+        ignore_list = ['*.mp4', '*.ass', '__pycache__', 'temp_*', 'audio', 'video_with_subtitles.mp4', 'final_video.mp4', 'assets']
+        if not has_preloaded:
+            ignore_list.append('preloaded')
+            
+        shutil.copytree(source_path, new_path, ignore=shutil.ignore_patterns(*ignore_list))
+        
+        # Создаем пустую директорию ассетов в новом проекте
+        assets_dir = new_path / "assets"
+        assets_dir.mkdir(exist_ok=True)
         
         # Обновляем JSON в новом проекте
         proj_data = self.load_project(new_id)
@@ -81,6 +90,7 @@ class ProjectManager:
         
         # Очищаем результаты предыдущего рендера и тайминги
         proj_data.pop('current_audio_path', None)
+        proj_data.pop('video_result_path', None)
         proj_data.pop('metadata', None)
         proj_data.pop('whisper_segments', None)
         proj_data.pop('aligned_words', None)
@@ -93,17 +103,19 @@ class ProjectManager:
             scene.pop('transition', None)
             scene.pop('words', None)
 
+        # Очищаем ассеты полностью, чтобы искать новые под каждый перевод
+        proj_data['assets'] = {}
         
-        # Обновляем пути к ассетам в новом JSON
-        assets = proj_data.get('assets', {})
-        for a_idx, a_info in assets.items():
-            if 'path' in a_info:
-                # Путь остается внутри папки проекта, так как мы скопировали всё дерево
-                # Но если путь был абсолютным или указывал на старый ID, надо поправить
+        # Обновляем пути и сбрасываем состояние preloaded_media (для новостей/пользовательских материалов)
+        preloaded = proj_data.get('preloaded_media', [])
+        for med in preloaded:
+            med['used'] = False
+            if 'local_path' in med:
                 old_rel = f"projects/{source_id}/"
                 new_rel = f"projects/{new_id}/"
-                a_info['path'] = a_info['path'].replace(old_rel, new_rel)
-                
+                med['local_path'] = med['local_path'].replace(old_rel, new_rel)
+        proj_data['preloaded_media'] = preloaded
+                 
         self.save_project(new_id, proj_data)
         return new_id
 

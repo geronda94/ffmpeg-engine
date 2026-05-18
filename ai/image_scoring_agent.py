@@ -28,7 +28,8 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
         w = img.get("width", 0) or 0
         h = img.get("height", 0) or 0
 
-        if w < min_res or h < min_res:
+        # Разрешаем изображения с неизвестным размером (w == 0 or h == 0)
+        if (w > 0 and w < min_res) or (h > 0 and h < min_res):
             continue
 
         tags_low = img.get("tags", "").lower()
@@ -124,6 +125,15 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
                 matched_bw = bw
                 break
                 
+        if blocked:
+            # Исключение для религиозных икон/изображений: не баним их из-за описания частей тела или терминов семьи/портрета
+            religious_keywords = ["icon", "saint", "pray", "prayer", "monk", "priest", "bible", "church", "worship", "christian", "spiritual", "orthodox", "liturgy", "christ", "jesus", "cross", "mary", "god"]
+            is_religious = any(rw in url_low or rw in tags_low for rw in religious_keywords)
+            bypassed_religious_banned = {"neck", "shoulder", "shoulders", "lips", "mouth", "cheeks", "mother", "skin", "young man", "portrait man"}
+            
+            if is_religious and matched_bw.lower() in bypassed_religious_banned:
+                blocked = False
+
         if blocked:
             logger.info(f"Pre-filter: rejecting image due to banned keyword '{matched_bw}' in tags/URL: {tags_low[:60]}")
             continue

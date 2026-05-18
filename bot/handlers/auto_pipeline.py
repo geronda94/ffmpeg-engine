@@ -470,7 +470,7 @@ def _make_auto_callback(channel_name: str):
         # Сохраняем использованные URL в дедупликатор
         try:
             from core.url_deduplicator import deduplicator
-            deduplicator.mark_project_assets(project_id, channel_name)
+            deduplicator.mark_project_assets(project_id, channel_name, language=proj.get("language"))
         except Exception as e:
             logger.warning(f"Deduplicator mark failed: {e}")
 
@@ -504,6 +504,21 @@ async def _run_translation_pipeline(
     proj['auto_pipeline'] = src.get('auto_pipeline', {})
     pm.save_project(new_id, proj)
     pm.recalc_scene_durations(new_id)
+    proj = pm.load_project(new_id)
+
+    # Фоновый авто-подбор ассетов для перевода (DuckDuckGo/SearXNG или preloaded_media)
+    from bot.handlers.assets.auto_select import auto_pick_for_project
+    try:
+        logger.info(f"Translation pipeline: running asset selection for {new_id} ({lang})")
+        await auto_pick_for_project(
+            proj['scenes'], proj.get('channel_profile'),
+            proj.get('script_style', ''), proj['script'],
+            status_msg=None, project_id=new_id
+        )
+    except Exception as e:
+        logger.error(f"Translation asset selection crashed for {new_id}: {e}", exc_info=True)
+
+    # Заново загружаем проект с подобранными ассетами
     proj = pm.load_project(new_id)
 
     preview = await generate_preview_text(

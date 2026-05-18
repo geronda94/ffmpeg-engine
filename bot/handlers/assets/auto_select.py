@@ -28,6 +28,8 @@ _last_edit_times = {}
 
 async def _safe_edit(msg, text: str, force: bool = False):
     """Обёртка edit_text с троттлингом 3с и обработкой Flood Control."""
+    if not msg:
+        return
     import time, asyncio
     from aiogram.exceptions import TelegramRetryAfter
     
@@ -103,9 +105,11 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
     if not visual and not spoken:
         return None
 
+    proj_data = pm.load_project(project_id) or {}
+    proj_lang = proj_data.get("language", "Russian")
+
     # ── Приоритет 0: preloaded_media — если раскадровщик пометил use_preloaded ──
     if scene.get("use_preloaded") == True:
-        proj_data = pm.load_project(project_id) or {}
         preloaded = proj_data.get('preloaded_media', [])
         for med in preloaded:
             if med.get('used') or med.get('type') not in ('image', None, ''):
@@ -320,7 +324,7 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
                     url = img_score.get("url", "")
                     if not url or img_score.get("score", 0) < 3:
                         continue
-                    local_path = await _download_and_dedup(url, channel_profile_id)
+                    local_path = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
                     if local_path:
                         pm.update_asset(project_id, scene_idx, local_path)
                         best_local = local_path
@@ -368,7 +372,7 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
                     url = img_score.get("url", "")
                     if not url or img_score.get("score", 0) == 0:
                         continue
-                    local_path = await _download_and_dedup(url, channel_profile_id)
+                    local_path = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
                     if local_path:
                         pm.update_asset(project_id, scene_idx, local_path)
                         best_local = local_path
@@ -409,7 +413,11 @@ async def _perform_download(url: str) -> str | None:
     local = f"temp/auto_{int(time.time())}_{hash(url) & 0xffffffff}.jpg"
     try:
         logger.info(f"Auto download: GET {url[:80]}...")
-        async with aiohttp.ClientSession() as session:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+        }
+        async with aiohttp.ClientSession(headers=headers) as session:
             async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
                 if resp.status != 200:
                     logger.warning(f"Auto download failed: HTTP {resp.status} for {url[:60]}")
@@ -436,13 +444,13 @@ async def _perform_download(url: str) -> str | None:
     return None
 
 
-async def _download_and_dedup(url: str, channel: str, scene_text: str = "") -> str | None:
+async def _download_and_dedup(url: str, channel: str, scene_text: str = "", language: str = None) -> str | None:
     """Скачивает URL и помечает его в дедупликаторе."""
     local = await _download_best(url)
     if local:
         try:
             from core.url_deduplicator import deduplicator
-            deduplicator.mark_used(url, channel, scene_text[:200])
+            deduplicator.mark_used(url, channel, scene_text[:200], language=language)
         except Exception:
             pass
     return local
@@ -487,6 +495,7 @@ async def auto_pick_for_project(
     Возвращает количество успешно подобранных сцен.ё
     """
     proj_data = pm.load_project(project_id) or {}
+    proj_lang = proj_data.get("language", "Russian")
     assets = proj_data.get("assets", {})
     total = len(scenes)
 
@@ -503,7 +512,7 @@ async def auto_pick_for_project(
     scraped_urls = await scrape_article_images(full_script)
     scraped_local_paths = []
     for surl in scraped_urls:
-        lpath = await _download_and_dedup(surl, channel_profile_id)
+        lpath = await _download_and_dedup(surl, channel_profile_id, language=proj_lang)
         if lpath and os.path.exists(lpath):
             scraped_local_paths.append(lpath)
 
@@ -671,7 +680,7 @@ async def auto_pick_for_project(
                 # URL дедупликация (7 дней)
                 from core.url_deduplicator import deduplicator
                 before_dedup = len(results)
-                results = deduplicator.filter_results(results, channel_profile_id)
+                results = deduplicator.filter_results(results, channel_profile_id, language=proj_lang)
                 if before_dedup > len(results):
                     logger.info(f"Scene {idx}: stock dedup {before_dedup} → {len(results)}")
                 if not results:
@@ -727,7 +736,7 @@ async def auto_pick_for_project(
 
                         # Reserve immediately to prevent race conditions during concurrent downloads
                         selected_urls.add(url)
-                        local_path = await _download_and_dedup(url, channel_profile_id)
+                        local_path = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
                         if local_path:
                             best_local = local_path
                             break
@@ -813,7 +822,7 @@ async def auto_pick_for_project(
                                 if url in selected_urls:
                                     continue
                                 selected_urls.add(url)
-                                local_path = await _download_and_dedup(url, channel_profile_id)
+                                local_path = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
                                 if local_path:
                                     best_local = local_path
                                     logger.info(f"✅ Scene {idx+1}/{total} stock pick OK via SearXNG fallback: {best_local}")
@@ -871,7 +880,7 @@ async def auto_pick_for_project(
                 else:
                     ddg_q = q
                 # Fetch more results to increase chances of finding a good image in 1 request
-                await asyncio.sleep(2.0)  # Пауза против бана по IP
+                await asyncio.sleep(1.0)  # Пауза против бана по IP
                 q_results = await asyncio.to_thread(search_images_ddg, ddg_q, max_results=20)
                 if q_results:
                     results.extend(q_results)
@@ -887,7 +896,7 @@ async def auto_pick_for_project(
             # URL дедупликация (7 дней)
             from core.url_deduplicator import deduplicator
             before_dedup = len(results)
-            results = deduplicator.filter_results(results, channel_profile_id)
+            results = deduplicator.filter_results(results, channel_profile_id, language=proj_lang)
             if before_dedup > len(results):
                 logger.info(f"Scene {idx}: SearXNG dedup {before_dedup} → {len(results)}")
             
@@ -914,7 +923,7 @@ async def auto_pick_for_project(
                         else:
                             new_ddg_q = q
                         try:
-                            await asyncio.sleep(2.0)  # Пауза против бана по IP
+                            await asyncio.sleep(1.0)  # Пауза против бана по IP
                             results = await asyncio.to_thread(search_images_ddg, new_ddg_q, max_results=20)
                             if results: break
                         except Exception:
@@ -956,7 +965,7 @@ async def auto_pick_for_project(
                         continue
 
                     selected_urls.add(url)
-                    local_path = await _download_and_dedup(url, channel_profile_id)
+                    local_path = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
                     if local_path:
                         pm.update_asset(project_id, idx, local_path)
                         best_local = local_path
@@ -975,7 +984,7 @@ async def auto_pick_for_project(
                     await _safe_edit(status_msg, f"🤖 **Фоллбэк (safe Web/SearXNG)**\n🔍 Сцена {idx+1}/{total}: {fb_q}...")
                     from ai.duckduckgo_search import search_images_ddg
                     try:
-                        await asyncio.sleep(2.0)  # Пауза против бана по IP
+                        await asyncio.sleep(1.0)  # Пауза против бана по IP
                         fb_results = await asyncio.to_thread(search_images_ddg, fb_q, max_results=15)
                         if fb_results:
                             fb_q_text = f"Channel background: {fb_q}"
@@ -987,7 +996,7 @@ async def auto_pick_for_project(
                                     if not url or img_score.get("score", 0) < 3 or url in selected_urls:
                                         continue
                                     selected_urls.add(url)
-                                    local_path = await _download_and_dedup(url, channel_profile_id)
+                                    local_path = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
                                     if local_path:
                                         pm.update_asset(project_id, idx, local_path)
                                         best_local = local_path
@@ -1036,7 +1045,7 @@ async def auto_pick_for_project(
                                         if not url or img_score.get("score", 0) < 3 or url in selected_urls:
                                             continue
                                         selected_urls.add(url)
-                                        local_path = await _download_and_dedup(url, channel_profile_id)
+                                        local_path = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
                                         if local_path:
                                             pm.update_asset(project_id, idx, local_path)
                                             best_local = local_path
@@ -1055,7 +1064,7 @@ async def auto_pick_for_project(
             logger.warning(f"❌ Scene {idx+1}/{total} SearXNG pick FAILED completely")
 
         # Вежливая пауза
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(1.0)
 
     # Загружаем актуальное состояние проекта
     proj_final = pm.load_project(project_id) or {}
