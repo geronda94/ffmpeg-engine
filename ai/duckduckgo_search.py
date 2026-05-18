@@ -28,6 +28,10 @@ WATERMARK_BLACKLIST = [
     "stockphoto", "canva", "adobe", "pond5", "bigstockphoto", "cn-", "cn_",
     # Vector icon repos (NOT Orthodox painted icons!)
     "flaticon", "icons8", "svgrepo", "thenounproject", "iconfinder",
+    # Competitor logos / generic breaking news watermarks
+    "breaking news", "breakingnews", "breaking-news", "breaking_news",
+    "bbc", "cnn", "foxnews", "msnbc", "aljazeera", "reuters", "bloomberg",
+    "nytimes", "washingtonpost"
     "iconarchive", "iconmonstr", "iconduck", "iconscout",
     # Design/UI platforms
     "dribbble", "behance",

@@ -81,11 +81,11 @@ CHANNEL_FALLBACK_POOLS = {
         "cross christian church landscape",
     ],
     "news": [
-        "breaking news press conference",
-        "news studio broadcast professional",
         "city skyline aerial view dark",
-        "parliament building government",
         "world map global network",
+        "press room empty microphones podium",
+        "tv studio control room screens",
+        "police car sirens lights night blurred",
     ]
 }
 

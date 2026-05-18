@@ -44,9 +44,9 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
             "redbubble", "teepublic", "society6", "deviantart",
             # Vector/illustration types
             "vector", "illustration", "cartoon", "drawing", "sketch", "clipart",
-            # Competitor news logos
+            # Competitor news logos & breaking news generic watermarks
             "bbc", "cnn", "foxnews", "msnbc", "aljazeera", "reuters", "bloomberg",
-            "nytimes", "washingtonpost",
+            "nytimes", "washingtonpost", "breaking news", "breakingnews", "breaking-news", "breaking_news",
             # UI/UX design platforms and mockups (frequently pollute news searches)
             "dribbble", "behance", "figma", "ui-kit", "uikit", "mockup", "wireframe",
             "color-palette", "colorpalette", "palette", "color-scheme", "swatches",
