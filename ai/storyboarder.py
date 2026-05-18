@@ -36,9 +36,21 @@ while ensuring high VISUAL HARMONY and COLOR CONSISTENCY across the entire video
 def _get_visual_directive(style_id: str) -> str:
     presets = get_config("script_presets", ttl=0)
     style_config = next((s for s in presets.get('styles', []) if s['id'] == style_id), None)
+    directive = ""
     if style_config and 'visual_directive' in style_config:
-        return "\n" + style_config['visual_directive']
-    return ""
+        directive += "\n" + style_config['visual_directive']
+        
+    ORTHODOX_STYLES = {"spiritual_direct", "spiritual_conflict", "theology_architect", "sacred_storyteller", "orthodox"}
+    if style_id in ORTHODOX_STYLES:
+        directive += (
+            "\n\nCRITICAL CHANNEL RULE (ORTHODOX):\n"
+            "1. You MUST NEVER generate visual descriptions containing ordinary people, women, girls, men, faces, bodies, hands, lips, or human figures.\n"
+            "2. EXCEPTION: If the script explicitly talks about Jesus Christ, the Virgin Mary (Mother of God), or a specific Saint, you CAN and SHOULD describe an 'orthodox icon of [Name]'. But NEVER describe them as realistic humans — ALWAYS as orthodox icons.\n"
+            "3. For ordinary people (e.g., 'a monk', 'a woman', 'a girl'): replace them in the visual description with a symbolic object (e.g., 'an ancient bible', 'a burning candle', 'an orthodox icon', 'a golden cross', 'church interior').\n"
+            "4. NEVER describe anatomical parts. Always describe still lifes, architecture, textures, or orthodox iconography."
+        )
+        
+    return directive
 
 
 def _get_pacing_config(pacing_mode: str) -> dict:
@@ -107,7 +119,8 @@ def _build_scene_duration_instruction(pacing_mode: str, script_len: int) -> str:
 
 def generate_storyboard(script: str, language: str = "Russian",
                         style_id: str = "narrative",
-                        pacing_mode: str = "normal"):
+                        pacing_mode: str = "normal",
+                        preloaded_count: int = 0):
     style_directive = _get_visual_directive(style_id)
     pacing_instruction = _build_scene_duration_instruction(pacing_mode, len(script))
 
@@ -115,6 +128,18 @@ def generate_storyboard(script: str, language: str = "Russian",
     if style_directive:
         system_prompt += f"\n{style_directive}"
     system_prompt += f"\n{pacing_instruction}"
+
+    if preloaded_count > 0:
+        preload_rule = (
+            f"\n### REAL PHOTOS USAGE (CRITICAL):\n"
+            f"The user sent {preloaded_count} real photo(s) from the event location. "
+            f"You MUST select exactly {preloaded_count} scene(s) that best represent "
+            f"FACTUAL VISUAL CONTENT — actual events, destruction, people, places, "
+            f"or incidents described in the script. "
+            f"Add `\"use_preloaded\": true` to exactly {preloaded_count} scenes "
+            f"in the JSON output. Do NOT add this flag to abstract or concept scenes."
+        )
+        system_prompt += preload_rule
 
     data = chat_json(
         system_prompt=system_prompt,

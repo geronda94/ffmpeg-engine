@@ -129,6 +129,14 @@ async def align_scenes_with_audio(scenes: list, audio_path: str, whisper_segment
         for j in range(m + 1):
             dp[0][j] = j * 2.0
 
+        # ── CRITICAL FIX: Initialize boundary parents so traceback never hits None ──
+        # Without this, when the path reaches the grid edge, parent[i][0] or parent[0][j]
+        # is None, causing "cannot unpack non-iterable NoneType" crash → subtitles desync
+        for i in range(1, n + 1):
+            parent[i][0] = (i - 1, 0)
+        for j in range(1, m + 1):
+            parent[0][j] = (0, j - 1)
+
         for i in range(1, n + 1):
             sw_clean = total_scene_words[i - 1]['clean']
             for j in range(1, m + 1):

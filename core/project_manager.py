@@ -216,7 +216,9 @@ class ProjectManager:
         self.save_project(project_id, data)
         return True
 
-    def update_asset(self, project_id: str, scene_idx: int, asset_path: str, offset: float = 0, allow_montage_effects: bool = True):
+    def update_asset(self, project_id: str, scene_idx: int, asset_path: str,
+                     offset: float = 0, allow_montage_effects: bool = True,
+                     source_url: str = None):
         data = self.load_project(project_id)
         if not data:
             data = self.create_project(project_id)
@@ -230,13 +232,16 @@ class ProjectManager:
         new_path = dest_dir / f"scene_{scene_idx}{ext}"
         
         shutil.copy(asset_path, new_path)
-        data['assets'][str(scene_idx)] = {
+        asset_info = {
             "path": str(new_path),
             "original_path": asset_path,
             "type": "video" if ext in ['.mp4', '.mov', '.avi'] else "image",
             "start_offset": offset,
             "allow_montage_effects": allow_montage_effects
         }
+        if source_url:
+            asset_info["source_url"] = source_url
+        data['assets'][str(scene_idx)] = asset_info
         self.save_project(project_id, data)
         return True
 

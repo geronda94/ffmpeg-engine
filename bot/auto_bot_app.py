@@ -49,6 +49,14 @@ async def main():
 
     task_manager.start(bot)
 
+    # Очистка старых URL из дедупликатора при старте
+    try:
+        from core.url_deduplicator import deduplicator
+        deduplicator.cleanup_old()
+        logging.info("URL deduplicator cleanup done.")
+    except Exception as e:
+        logging.warning(f"URL deduplicator cleanup failed: {e}")
+
     commands = [
         BotCommand(command="start", description="Начать новый видеопроект"),
         BotCommand(command="render_audio", description="Озвучить текст и продолжить"),

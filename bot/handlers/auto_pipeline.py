@@ -116,6 +116,12 @@ async def run_auto_pipeline(
         project_id = f"proj_{dt_str}"
         pm.create_project(project_id, str(chat_id))
         proj = pm.load_project(project_id)
+
+        # Парсим ссылки и медиа из сообщения
+        from ai.media_parser import parse_incoming_media
+        clean_text, preloaded = await parse_incoming_media(message, project_id)
+        if clean_text.strip():
+            script_text = clean_text
         proj['script'] = script_text
         proj['language'] = channel_cfg.get('language', 'Russian')
         proj['channel_profile'] = preset.get('channel_profile')
@@ -124,6 +130,7 @@ async def run_auto_pipeline(
         proj['scene_pacing'] = preset.get('pacing', 'super_dynamic')
         proj['script_mode'] = 'auto'
         proj['burn_subtitles'] = preset.get('burn_subtitles', True)
+        proj['preloaded_media'] = preloaded or []
         proj['status'] = 'auto_pipeline'
         proj['auto_pipeline'] = {
             'channel_name': channel_name,
@@ -156,6 +163,7 @@ async def run_auto_pipeline(
                 proj['language'],
                 preset.get('script_style', 'spiritual_direct'),
                 preset.get('pacing', 'super_dynamic'),
+                len(proj.get('preloaded_media', [])),
             )
             scenes = result.get('scenes', [])
             if not scenes:
@@ -454,6 +462,13 @@ def _make_auto_callback(channel_name: str):
                 )
             except Exception:
                 pass
+
+        # Сохраняем использованные URL в дедупликатор
+        try:
+            from core.url_deduplicator import deduplicator
+            deduplicator.mark_project_assets(project_id, channel_name)
+        except Exception as e:
+            logger.warning(f"Deduplicator mark failed: {e}")
 
     return callback
 

@@ -67,6 +67,11 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
                 "PREFER: code on dark monitor, server room, dashboard UI, modern office, "
                 "network infrastructure, data visualization, specific tech logos.\n"
                 "AVOID: abstract technology backgrounds, generic glowing lines, generic hackers with hoodies, retro tech, clipart.\n"
+                "BRAINSTORMING SYNONYMS (for your 6-10 queries): Diversify your queries across:\n"
+                "  - Exact tech/brand names (e.g. 'Docker logo transparent', 'AWS architecture diagram')\n"
+                "  - IDE/Code context ('python code dark theme', 'react js monitor')\n"
+                "  - Infrastructure/Hardware ('server rack blue light', 'data center corridor')\n"
+                "  - B2B/Business Metaphors ('business analytics dashboard', 'team meeting office board')\n"
             )
         elif style_id == "news_broadcast":
             style_hint = (
@@ -77,6 +82,11 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
                 "3. SPECIFIC EVENTS & MEETINGS: For summits or meetings, set 'source' to 'news'.\n"
                 "4. MAPS & LOCATIONS: For geopolitical maps, cities, borders, or institutions (e.g., 'Moscow map highlighted', 'Kremlin'), set 'source' to 'web'.\n"
                 "5. DEFAULT TO NEWS/WEB: In 'news_broadcast' style, 95% of scenes represent real events. Set 'source' to 'news' or 'web'. ONLY use 'stock' for purely abstract concepts (generic charts, generic police lights).\n"
+                "BRAINSTORMING SYNONYMS (for your 6-10 queries): Diversify your queries across:\n"
+                "  - Exact Names & Events ('Putin press conference', 'JD Vance rally')\n"
+                "  - Geography & Buildings ('Kremlin exterior day', 'White House briefing room')\n"
+                "  - Military/Police assets ('military drone flight', 'police flashing lights night')\n"
+                "  - Financial/Macro ('stock market red chart', 'oil pump jack sunset')\n"
             )
         elif style_id == "lifestyle_aesthetic":
             style_hint = (
@@ -85,6 +95,11 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
                 "1. CELEBRITIES & DESIGNERS: If mentioning a specific celebrity, actress, or model, set 'source' to 'web'. Exact name query.\n"
                 "2. BRANDS & RUNWAYS: If mentioning a specific perfume brand, fashion show, or designer collection (e.g., 'Chanel perfume', 'Dior runway'), set 'source' to 'web'.\n"
                 "3. AESTHETIC LIFESTYLE: For cozy atmosphere, morning coffee, journaling, skincare routines, or self-care, set 'source' to 'stock'. Prefer warm pastel aesthetics.\n"
+                "BRAINSTORMING SYNONYMS (for your 6-10 queries): Diversify your queries across:\n"
+                "  - Concrete Aesthetic Objects ('beige coffee cup bed', 'open journal pen wooden table')\n"
+                "  - Emotional/State Metaphors ('woman walking beach sunset', 'smiling girl city street')\n"
+                "  - Interior Vibes ('cozy minimalist apartment neutral', 'candles bathtub aesthetic')\n"
+                "  - Abstract Textures/Details ('silk fabric pastel pink', 'dry flowers aesthetic background')\n"
             )
 
         context_block = ""
@@ -113,7 +128,7 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
             f"{style_hint}\n"
             f"TASK: Output EXACTLY this JSON format:\n"
             f"{{\n"
-            f"  \"queries\": [\"query1\", \"query2\", \"query3\", \"query4\"],\n"
+            f"  \"queries\": [\"query1\", \"query2\", \"query3\", \"query4\", \"...up to 10\"],\n"
             f"  \"color\": \"color_name_or_none\",\n"
             f"  \"source\": \"stock\"\n"
             f"}}\n\n"
@@ -130,14 +145,15 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
             f"databases (e.g. 'a tower made of light', 'cracks shaped like a cross'), "
             f"break it down: search for each concrete element separately "
             f"('light beams', 'tower silhouette', 'stone cracks', 'cross shape').\n"
-            f"5. First query: the most specific but REALISTIC visual.\n"
-            f"6. Second query: the main subject simplified to 2-3 words.\n"
-            f"7. Third query: the mood or atmosphere related to the overall script context.\n"
-            f"8. Fourth query: a broad symbolic fallback from the video's main topic.\n"
-            f"9. All queries in English, 2-4 words each. NO camera directions (cinematic, 4k, bokeh).\n"
-            f"10. ABSTRACTION RULE: For 'stock' source, if the literal subject is unlikely on stock photos, replace with its visual essence. "
+            f"5. BRAINSTORMING: Generate between 6 and 10 queries per scene to provide maximum search coverage.\n"
+            f"6. First query: the most specific but REALISTIC visual.\n"
+            f"7. Second & Third: the main subject simplified to 2-3 words, using different synonyms.\n"
+            f"8. Fourth & Fifth: the mood or atmosphere related to the overall script context.\n"
+            f"9. Sixth to Tenth: broader symbolic fallbacks, related locations, or alternative details from the video's main topic.\n"
+            f"10. All queries in English, 2-5 words each. NO camera directions (cinematic, 4k, bokeh).\n"
+            f"11. ABSTRACTION RULE: For 'stock' source, if the literal subject is unlikely on stock photos, replace with its visual essence. "
             f"BUT for 'web', 'news', or 'icon' sources, DO NOT abstract! Use the exact name of the person or event.\n"
-            f"11. ANATOMY RULE: NEVER use 'hands' or 'fingers' as the PRIMARY subject of a query "
+            f"12. ANATOMY RULE: NEVER use 'hands' or 'fingers' as the PRIMARY subject of a query "
             f"(AI models generate anatomically broken hands). Use 'hands' only as a secondary modifier.\n"
             f"12. For color: choose ONE from: red, orange, yellow, green, turquoise, blue, "
             f"violet, pink, brown, black, gray, white — or 'none' if not important.\n"
@@ -163,6 +179,14 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
             c_val = None
 
         source_val = result.get("source", "stock").lower()
+
+        # Enforce strict domain/style prefixes for DDG search
+        if source_val == "icon" and style_id in ORTHODOX_STYLES:
+            # Force DDG to look for orthodox icons (allows both painted ones and photos of them)
+            k_list = [f"orthodox icon {q}" if "icon" not in q.lower() else q for q in k_list]
+        elif source_val == "news" and style_id == "news_broadcast":
+            # Force DDG to look for real photography, not graphs/clipart
+            k_list = [f"documentary photo {q}" if "photo" not in q.lower() else q for q in k_list]
 
         logger.info(f"AI Search Optimization: queries={k_list}, color={c_val}, source={source_val}")
         return k_list, c_val, source_val

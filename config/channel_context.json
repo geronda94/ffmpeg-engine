@@ -94,10 +94,10 @@
       "avoid_topics": ["фейки", "желтая пресса"],
       "default_hashtags": ["#новости", "#события", "#актуально"],
       "visual_rules": {
-        "banned_keywords": ["cartoon", "meme", "nsfw", "entertainment", "funny", "bbc", "cnn", "fox news", "foxnews", "rt", "al jazeera", "aljazeera", "reuters", "bloomberg", "msnbc", "competitor logo", "watermark"],
-        "preferred_keywords": ["news studio", "report", "broadcast", "journalist", "press conference", "breaking news", "world map", "newspaper"],
+        "banned_keywords": ["cartoon", "meme", "nsfw", "entertainment", "funny", "bbc", "cnn", "fox news", "foxnews", "rt", "al jazeera", "aljazeera", "reuters", "bloomberg", "msnbc", "competitor logo", "watermark", "icon", "vector", "illustration", "drawing", "clipart", "silhouette", "3d render"],
+        "preferred_keywords": ["news studio", "report", "broadcast", "journalist", "press conference", "breaking news", "world map", "newspaper", "real documentary photography"],
         "min_resolution": 800,
-        "style_notes": "Серьёзно, фактологически. Студийные фото, репортажи, карты. Без мемов и развлечений. Строгий запрет на логотипы чужих телеканалов (BBC, CNN, Fox News, RT и т.д.) — в кадре должны быть только общие плашки 'Breaking News' или 'Live'."
+        "style_notes": "Серьёзно, фактологически. Студийные фото, репортажи, карты, реальные документальные фото. Без мемов и развлечений. Строгий запрет на векторные иконки, 3D рендеры, рисунки. Строгий запрет на логотипы чужих телеканалов (BBC, CNN, Fox News, RT и т.д.) — в кадре должны быть только общие плашки 'Breaking News' или 'Live'."
       },
       "logo_path": "local_assets/logo/news_transparent.png",
       "preview_bg_color": "#0A101D",

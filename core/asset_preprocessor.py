@@ -7,34 +7,45 @@ logger = logging.getLogger(__name__)
 
 
 def auto_crop_borders(img: _PILImage.Image) -> _PILImage.Image:
-    """Удаляет сплошные черные или белые рамки (паспарту) вокруг изображения."""
+    """Удаляет сплошные черные или белые рамки (паспарту) вокруг изображения.
+    Поддерживает JPEG-артефакты (допуск ±18 на угловые пиксели)."""
     try:
         w, h = img.size
-        # Берем угловые пиксели для определения цвета фона
-        corners = [img.getpixel((0, 0)), img.getpixel((w-1, 0)), img.getpixel((0, h-1)), img.getpixel((w-1, h-1))]
-        
-        # Если углы не одинаковые, значит сплошной рамки нет
-        if not all(corners[0] == c for c in corners[1:]):
+        if w < 10 or h < 10:
             return img
 
-        bg_color = corners[0]
-        # Проверяем, что фон действительно черный (r,g,b < 25) или белый (r,g,b > 230)
-        is_black = all(val < 25 for val in bg_color[:3])
-        is_white = all(val > 230 for val in bg_color[:3])
-        
+        corners = [img.getpixel((0, 0)), img.getpixel((w-1, 0)),
+                   img.getpixel((0, h-1)), img.getpixel((w-1, h-1))]
+
+        def _close(c1, c2, tol=18) -> bool:
+            return all(abs(int(a) - int(b)) <= tol for a, b in zip(c1[:3], c2[:3]))
+
+        ref = corners[0]
+        if not all(_close(ref, c) for c in corners[1:]):
+            return img
+
+        avg_r = sum(c[0] for c in corners) // 4
+        avg_g = sum(c[1] for c in corners) // 4
+        avg_b = sum(c[2] for c in corners) // 4
+
+        is_black = avg_r < 35 and avg_g < 35 and avg_b < 35
+        is_white = avg_r > 200 and avg_g > 200 and avg_b > 200
         if not (is_black or is_white):
             return img
 
-        bg = _PILImage.new(img.mode, img.size, bg_color)
-        diff = ImageChops.difference(img, bg)
-        bbox = diff.getbbox()
-        
+        # Строим однородный фон по средним угловым пикселям и ищем bbox отличий
+        bg_color = (avg_r, avg_g, avg_b)
+        bg = _PILImage.new("RGB", img.size, bg_color)
+        diff = ImageChops.difference(img.convert("RGB"), bg)
+        # Binarize diff with threshold=22 to ignore JPEG noise
+        diff_gray = diff.convert("L").point(lambda x: 255 if x > 22 else 0)
+        bbox = diff_gray.getbbox()
+
         if bbox:
             bx1, by1, bx2, by2 = bbox
-            # Обрезаем только если рамка занимает больше 3% от размера
-            if bx1 > w*0.03 or by1 > h*0.03 or (w - bx2) > w*0.03 or (h - by2) > h*0.03:
+            if bx1 > w * 0.03 or by1 > h * 0.03 or (w - bx2) > w * 0.03 or (h - by2) > h * 0.03:
                 cropped = img.crop(bbox)
-                logger.info(f"✨ Auto-cropped borders from size {img.size} to {cropped.size} (bg: {bg_color})")
+                logger.info(f"✨ Auto-cropped borders {img.size} → {cropped.size} (bg≈{bg_color})")
                 return cropped
     except Exception as e:
         logger.warning(f"Auto-crop borders failed: {e}")

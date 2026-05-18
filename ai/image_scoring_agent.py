@@ -35,14 +35,24 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
 
         # 3. ФИЛЬТР КОММЕРЧЕСКОГО МУСОРА, ВАТЕРМАРОК И ВЕКТОРОВ
         trash_words = [
-            "shutterstock", "dreamstime", "alamy", "gettyimages", "istock", "depositphotos", 
+            # Watermark/stock commercial sites
+            "shutterstock", "dreamstime", "alamy", "gettyimages", "istock", "depositphotos",
             "adobestock", "123rf", "watermark", "watermarked", "premium-preview", "sample",
             "album-cover", "poster-", "cd-cover", "advertisement", "promo-", "legacyicons",
             "monasteryicons", "cn-", "cn_", "stockphoto", "bigstockphoto", "canva", "freepik",
-            "vecteezy", "vectorstock", "pinterest", "etsy", "ebay", "amazon", "redbubble",
-            "teepublic", "society6", "deviantart",
+            "vecteezy", "vectorstock", "pinterest", "pinimg", "etsy", "ebay", "amazon",
+            "redbubble", "teepublic", "society6", "deviantart",
+            # Vector/illustration types
             "vector", "illustration", "cartoon", "drawing", "sketch", "clipart",
-            "bbc", "cnn", "foxnews", "msnbc", "aljazeera", "reuters", "bloomberg", "nytimes", "washingtonpost"
+            # Competitor news logos
+            "bbc", "cnn", "foxnews", "msnbc", "aljazeera", "reuters", "bloomberg",
+            "nytimes", "washingtonpost",
+            # UI/UX design platforms and mockups (frequently pollute news searches)
+            "dribbble", "behance", "figma", "ui-kit", "uikit", "mockup", "wireframe",
+            "color-palette", "colorpalette", "palette", "color-scheme", "swatches",
+            "app-screenshot", "mobile-app", "android-app", "ios-app", "inbox-app",
+            "template", "dashboard-design", "landing-page", "web-design", "branding",
+            "colorhunt", "colordrop", "colorhex", "coolors",
         ]
         if any(tw in url_low for tw in trash_words) or any(tw in tags_low for tw in trash_words):
             logger.info(f"Pre-filter: rejecting commercial/watermarked image: {url_low[:60]}")
@@ -136,29 +146,42 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
         f"SCENE TEXT: {scene_text[:200]}\n"
         f"VISUAL DESCRIPTION: {visual_description[:300]}\n\n"
         f"CHANNEL RULES:\n"
-        f"  BANNED keywords (REJECT immediately any image that depicts or suggests these): {', '.join(banned)}\n"
-        f"  PREFERRED keywords (bonus points if image matches these): {', '.join(preferred)}\n"
-        f"  MINIMUM resolution per side: {min_res}px\n"
+        f"  BANNED keywords (REJECT immediately): {', '.join(banned)}\n"
+        f"  PREFERRED keywords: {', '.join(preferred)}\n"
         f"  STYLE NOTES: {style}\n\n"
         f"BATCH OF {len(photos)} IMAGES:\n"
         f"{json.dumps(photos, ensure_ascii=False)}\n\n"
-        f"SCORE each image 0-10:\n"
-        f"- Relevance to scene (0-3): Does this image match the scene's visual description? (Evaluate using the 'tags' field!)\n"
-        f"- Channel rules compliance (0-3): Does it follow banned/preferred rules? (Check 'tags' carefully!)\n"
-        f"- Resolution quality (0-2): Is it >= {min_res}px per side?\n"
-        f"- Aesthetic (0-2): Composition, lighting, mood fit.\n\n"
-        f"CRITICAL RULES:\n"
-        f"1. If an image's tags or URL clearly violate banned keywords (e.g., woman, shaolin, islam for orthodox channel) → score = 0.\n"
-        f"   - For Orthodox/spiritual channels, ANY close-ups or partial views of human body parts (such as necks, female neck, jewelry on neck, bare shoulders, collarbones, cleavage, chests, breasts, lips, mouths, cheeks) or any images with sensual, seductive, glamour, or romantic undertones are STRICTLY FORBIDDEN and MUST receive a score of 0. We only want sacred, clean, non-sensual images.\n"
-        f"   EXCEPTION: For Orthodox channel, if search_source is 'web', 'news' or 'icon', photos of CONTEMPORARY CLERGY or ANCIENT SAINTS ARE ALLOWED and should not be penalized by the 'no people' rule.\n"
-        f"2. ENTITY VERIFICATION: This is CRITICAL. If the scene requires a SPECIFIC KNOWN PERSON (e.g. 'Metropolitan Pavel', 'Gregory of Nyssa') and the image tags describe a DIFFERENT person (e.g. 'Singer', 'Joe Biden', 'Jesus Christ' when looking for a saint) → score = 0.\n"
-        f"   - If looking for an 'icon', and the result is a modern photo of a person → score = 0 (unless it's a modern saint/cleric).\n"
-        f"   - If looking for a specific saint, and the result is an album cover, movie poster, or modern celebrity → score = 0.\n"
-        f"3. NO WATERMARKS, COMMERCIAL OVERLAYS, OR COMPETITOR LOGOS: This is CRITICAL. If tags or URL suggest visible watermarks (e.g. 'LEGACY ICONS', 'monasteryicons', 'CN', 'Shutterstock', 'Depositphotos', copyright symbols), sample text, web shop overlays, foreign text on signs, or competitor news logos (e.g., 'BBC', 'CNN', 'Fox News', 'Reuters', 'Bloomberg', 'MSNBC', 'Al Jazeera') → score = 0. We want clean, unblemished, textless images. For news channel, we only accept generic 'Breaking News' or 'Live' banners without specific network branding.\n"
-        f"4. ANALOGY RULE: If the scene is an analogy (e.g. 'violinist', 'body cells'), allow the subject even if 'no people' is active, but prioritize ARTISTIC, SILHOUETTE, or NON-MODERN shots over generic smiling stock people.\n\n"
+        f"TASK: Score each image 0-10 AND decide if the ENTIRE BATCH is off-topic.\n\n"
+        f"SCORING (per image):\n"
+        f"- Relevance to scene (0-3): Use BOTH 'tags' AND 'url' path segments as evidence.\n"
+        f"- Channel rules (0-3): Check banned/preferred in tags AND url.\n"
+        f"- Resolution (0-2): >= {min_res}px per side.\n"
+        f"- Aesthetic (0-2): Mood, composition fit.\n\n"
+        f"CRITICAL SCORING RULES:\n"
+        f"1. EMPTY TAGS → analyze URL path: words like 'palette','mockup','template','ui','inbox',"
+        f"'clothing','jacket','embroidery','textile','craft','notebook','product' → score=0.\n"
+        f"2. CONTEXT MISMATCH → score=0 even without banned keywords. Examples:\n"
+        f"   - Color palette chart for a war/attack news scene → 0\n"
+        f"   - Clothing product photo for any news/orthodox scene → 0\n"
+        f"   - Embroidery/folk textile for Ukraine attack news → 0\n"
+        f"   - E-commerce catalog (multiple products) for any scene → 0\n"
+        f"   - Vector/outline graphic (white bg, black lines) for orthodox icon scene → 0\n"
+        f"3. ORTHODOX ICON RULE: 'icon' source means a PAINTED RELIGIOUS ICON on wood (gold background).\n"
+        f"   A vector SVG cross, outline cross, or clipart cross is NOT an orthodox icon → score=0.\n"
+        f"4. BANNED KEYWORD VIOLATIONS → score=0.\n"
+        f"   Orthodox: body parts, sensual content, non-Christian religions → 0.\n"
+        f"5. COMPETITOR LOGOS → score=0 (BBC, CNN, Fox, Reuters, etc.).\n"
+        f"6. ANALOGY RULE: If scene is metaphorical, allow indirect subjects but prefer artistic shots.\n\n"
+        f"BATCH RELEVANCE DECISION:\n"
+        f"After scoring, if ALL images score < 3 OR are clearly unrelated to the topic:\n"
+        f"  → set 'all_irrelevant': true\n"
+        f"  → provide 3 new 'fallback_queries' (English, 2-4 words, completely different angle)\n"
+        f"  Example: if searching 'Ukraine attack' returned embroidery/clothing:\n"
+        f"    fallback_queries: ['bomb explosion aftermath city', 'destroyed building rubble', 'air raid siren ukraine']\n\n"
         f"Return ONLY valid JSON:\n"
-        f"{'{'} \"scores\": [ {{\"url\": \"...\", \"score\": 7, \"reason\": \"краткое пояснение\"}} ], "
-        f"\"best_url\": \"...\", \"best_score\": 7 {'}'}"
+        f"{{ \"scores\": [{{\"url\": \"...\", \"score\": 7, \"reason\": \"brief\"}}], "
+        f"\"best_url\": \"...\", \"best_score\": 7, "
+        f"\"all_irrelevant\": false, \"fallback_queries\": [] }}"
     )
 
     try:
@@ -166,18 +189,31 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
         scores = result.get("scores", [])
         best_url = result.get("best_url", "")
         best_score = result.get("best_score", 0)
+        all_irrelevant = result.get("all_irrelevant", False)
+        fallback_queries = result.get("fallback_queries", [])
 
         if not best_url and scores:
             best = max(scores, key=lambda x: x.get("score", 0))
             best_url = best.get("url", "")
             best_score = best.get("score", 0)
 
-        logger.info(f"Image scoring: {len(scores)} evaluated, best={best_score}/10")
+        # Auto-detect all_irrelevant if LLM didn't set it
+        if not all_irrelevant and best_score < 3 and len(scores) >= 3:
+            all_irrelevant = True
+
+        logger.info(
+            f"Image scoring: {len(scores)} evaluated, best={best_score}/10"
+            f"{' [ALL IRRELEVANT → reformulate]' if all_irrelevant else ''}"
+        )
         return {
             "best_url": best_url,
             "best_score": best_score,
-            "scores": scores
+            "scores": scores,
+            "all_irrelevant": all_irrelevant,
+            "fallback_queries": fallback_queries,
         }
     except Exception as e:
         logger.error(f"Image scoring error: {e}", exc_info=True)
-        return {"best_url": None, "best_score": 0, "scores": []}
+        return {"best_url": None, "best_score": 0, "scores": [],
+                "all_irrelevant": True, "fallback_queries": []}
+

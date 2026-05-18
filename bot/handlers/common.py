@@ -419,7 +419,8 @@ async def cmd_auto(message: types.Message):
     if message.from_user and message.from_user.is_bot:
         return
     try:
-        parts = message.text.split(maxsplit=1)
+        text = message.text or message.caption or ""
+        parts = text.split(maxsplit=1)
         if len(parts) < 2:
             await message.answer("❌ Использование:\n`/auto текст сценария`")
             return
@@ -444,7 +445,11 @@ async def cmd_auto(message: types.Message):
             pass
 
         from bot.handlers.auto_pipeline import run_auto_pipeline
-        await run_auto_pipeline(message, channel_name, source_msg_id=message.message_id, script_text=script_text)
+        await run_auto_pipeline(
+            message, channel_name,
+            source_msg_id=message.message_id,
+            script_text=script_text,
+        )
     except Exception as e:
         logger.error(f"cmd_auto error: {e}", exc_info=True)
         try:
