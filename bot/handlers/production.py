@@ -448,6 +448,7 @@ async def approve_audio(event: types.CallbackQuery | types.Message, state: FSMCo
     channel_to_style = {
         'orthodox': f"{suffix}orthodox",
         'tech_business': f"{suffix}tech",
+        'lifestyle': f"{suffix}feminine",
         'entertainment': f"{suffix}feminine",
         'educational': f"{suffix}mixed_ai",
     }

@@ -19,48 +19,106 @@ pm = ProjectManager()
 
 @router.message(Command("clean"))
 async def cmd_clean(message: types.Message):
-    """Принудительная очистка старого мусора. Оставляет только видео."""
-    status_msg = await message.answer("🧹 Сканирую базу и очищаю чат от промежуточных сообщений...")
+    """Принудительная очистка старого мусора, кэша temp/ и старых проектов (кроме последнего)."""
+    status_msg = await message.answer("🧹 Очищаю кэш temp/, старые проекты и чат от сообщений...")
     
-    # 1. Собираем ID всех важных видеосообщений из глобального реестра
+    # -----------------------------------------------------------------
+    # 1. Очистка кэша temp/
+    # -----------------------------------------------------------------
+    temp_dir = "temp"
+    deleted_temp_count = 0
+    if os.path.exists(temp_dir):
+        for name in os.listdir(temp_dir):
+            path = os.path.join(temp_dir, name)
+            try:
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+                else:
+                    os.remove(path)
+                deleted_temp_count += 1
+            except Exception as e:
+                logger.error(f"Failed to delete temp item {path}: {e}")
+
+    # -----------------------------------------------------------------
+    # 2. Очистка старых проектов (оставляем только самый последний/новый)
+    # -----------------------------------------------------------------
+    projects_dir = "projects"
+    deleted_projects_count = 0
+    kept_project_name = "Нет проектов"
+    if os.path.exists(projects_dir):
+        project_dirs = []
+        for name in os.listdir(projects_dir):
+            path = os.path.join(projects_dir, name)
+            if os.path.isdir(path):
+                project_dirs.append((path, os.path.getmtime(path), name))
+        
+        if len(project_dirs) > 1:
+            # Сортируем по времени изменения папки (самый новый в конце)
+            project_dirs.sort(key=lambda x: x[1])
+            
+            # Сохраняем самый последний проект
+            kept_project_path, _, kept_project_name = project_dirs[-1]
+            
+            # Удаляем все остальные папки
+            for path, _, name in project_dirs[:-1]:
+                try:
+                    shutil.rmtree(path)
+                    deleted_projects_count += 1
+                except Exception as e:
+                    logger.error(f"Failed to delete old project {path}: {e}")
+        elif len(project_dirs) == 1:
+            kept_project_name = project_dirs[0][2]
+
+    # -----------------------------------------------------------------
+    # 3. Очистка сообщений в чате
+    # -----------------------------------------------------------------
     protected_msg_ids = pm.get_protected_messages()
-                
-    # Добавляем ID сообщения-статуса и самой команды, чтобы их тоже потом грохнуть
     protected_msg_ids.add(status_msg.message_id)
     
     current_msg_id = message.message_id
     start_id = max(0, current_msg_id - 1500) # Проверяем последние 1500 сообщений
     
-    deleted_count = 0
-    # Пытаемся удалить саму команду /clean
+    deleted_msg_count = 0
     try: await message.delete()
     except Exception: pass
     
-    # Идем от старых к новым
     for msg_id in range(current_msg_id, start_id - 1, -1):
         if msg_id in protected_msg_ids:
             continue
             
         try:
             await message.bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
-            deleted_count += 1
-            await asyncio.sleep(0.02) # Уменьшенная пауза для ускорения
+            deleted_msg_count += 1
+            await asyncio.sleep(0.02)
             
-            # Обновляем статус каждые 20 удаленных сообщений
-            if deleted_count % 20 == 0:
-                try: await status_msg.edit_text(f"🧹 Сканирую базу и очищаю чат...\nУдалено: {deleted_count}")
+            if deleted_msg_count % 30 == 0:
+                try: 
+                    await status_msg.edit_text(
+                        f"🧹 Очищаю систему...\n"
+                        f"• Сообщений удалено: {deleted_msg_count}\n"
+                        f"• Кэш temp/ очищен: {deleted_temp_count} файлов\n"
+                        f"• Старых проектов удалено: {deleted_projects_count}"
+                    )
                 except Exception: pass
         except Exception:
             pass
             
-    # Удаляем сообщение статуса
     try:
         await status_msg.delete()
     except Exception:
         pass
         
-    # Отправляем уведомление об успехе (оставляем его, чтобы юзер видел результат)
-    await message.answer(f"✨ Чат очищен! Удалено старых сообщений: {deleted_count}.")
+    # Итоговый красивый рапорт
+    report = (
+        f"✨ **Система успешно очищена!**\n\n"
+        f"🧹 **Результаты:**\n"
+        f"• Удалено временных файлов (`temp/`): **{deleted_temp_count}**\n"
+        f"• Удалено старых папок проектов: **{deleted_projects_count}**\n"
+        f"• Очищено сообщений в чате: **{deleted_msg_count}**\n\n"
+        f"💾 **Сохранен последний активный проект:**\n"
+        f"└ `{kept_project_name}` (не затронут для безопасности)"
+    )
+    await message.answer(report, parse_mode="Markdown")
 
 @router.message(Command("clear_projects"))
 async def cmd_clear_projects(message: types.Message):

@@ -87,6 +87,7 @@ def create_preview_overlay(asset_path, preview_text, highlight_word,
                            color_scheme=None, duration=3.0,
                            logo_path=None, bg_color=None, text_color=None,
                            secondary_color=None, custom_font_path=None):
+    from PIL import ImageFilter
     display_dur = duration
     primary_hex = text_color if text_color else "#F5F5DC"
     secondary_hex = secondary_color if secondary_color else "#9B1B30"
@@ -97,31 +98,52 @@ def create_preview_overlay(asset_path, preview_text, highlight_word,
     base_font_size = 110 # База чуть больше
     
     bg_rgb = _hex_to_rgb(bg_hex)
-    bg_clip = ColorClip(size=(frame_width, frame_height), color=bg_rgb).with_opacity(0.42).with_duration(duration)
     
-    # Оптимизация: генерируем 10 кадров шума заранее и циклически их показываем
-    # Это в разы быстрее, чем генерировать шум каждый кадр
-    noise_frames = []
-    rng = np.random.RandomState(42)
-    for _ in range(10):
-        h_n, w_n = frame_height // 3, frame_width // 3
-        noise_small = rng.randint(-14, 14, (h_n, w_n, 3), dtype=np.int16)
-        noise_img = _PILImage.fromarray((noise_small + 14).astype(np.uint8))
-        noise_large = np.array(noise_img.resize((frame_width, frame_height), _PILImage.NEAREST)).astype(np.int16) - 14
-        noise_frames.append(noise_large)
-
-    def _add_grain_effect(get_frame, t):
-        frame = get_frame(t)
-        # Выбираем один из заранее сгенерированных кадров шума
-        idx = int(t * 12) % 10
-        noise = noise_frames[idx]
-        res = frame.copy().astype(np.int16)
-        res[..., :3] = np.clip(res[..., :3] + noise, 0, 255)
-        return res.astype(np.uint8)
-
-    bg_clip = bg_clip.transform(_add_grain_effect)
-    all_layers = [bg_clip]
-
+    # 1. CONTRAST GUARD: Если фон светлый, а текст светлый, принудительно делаем подложку темной
+    brightness = 0.299 * bg_rgb[0] + 0.587 * bg_rgb[1] + 0.114 * bg_rgb[2]
+    if brightness > 150:
+        bg_rgb = (20, 20, 20) # Переключаем на благородный темный для идеального чтения светлого текста
+        
+    # 2. ПОЛУЧЕНИЕ И РАЗМЫТИЕ ПЕРВОГО КАДРА ЗАДНЕГО ПЛАНА
+    bg_image = None
+    if asset_path and os.path.exists(asset_path):
+        try:
+            ext = os.path.splitext(asset_path)[1].lower()
+            if ext in ['.mp4', '.mov', '.avi', '.mkv']:
+                from moviepy import VideoFileClip
+                with VideoFileClip(asset_path) as temp_video:
+                    frame = temp_video.get_frame(0)
+                    bg_image = _PILImage.fromarray(frame)
+            else:
+                bg_image = _PILImage.open(asset_path).convert("RGBA")
+        except Exception as e:
+            logger.warning(f"Failed to load backdrop first frame for glass blur: {e}")
+            
+    if not bg_image:
+        # Резервный благородный темный фон, если файл не прочитался
+        bg_image = _PILImage.new("RGBA", (frame_width, frame_height), (15, 15, 15, 255))
+        
+    # Resize and crop to COVER frame_width x frame_height
+    iw, ih = bg_image.size
+    target_ratio = frame_width / frame_height
+    img_ratio = iw / ih
+    if img_ratio > target_ratio:
+        new_h = frame_height
+        new_w = int(iw * (frame_height / ih))
+        bg_resized = bg_image.resize((new_w, new_h), _PILImage.Resampling.LANCZOS)
+        x_offset = (new_w - frame_width) // 2
+        bg_cropped = bg_resized.crop((x_offset, 0, x_offset + frame_width, frame_height))
+    else:
+        new_w = frame_width
+        new_h = int(ih * (frame_width / iw))
+        bg_resized = bg_image.resize((new_w, new_h), _PILImage.Resampling.LANCZOS)
+        y_offset = (new_h - frame_height) // 2
+        bg_cropped = bg_resized.crop((0, y_offset, frame_width, y_offset + frame_height))
+        
+    # Размываем фоновое изображение
+    blurred_bg = bg_cropped.filter(ImageFilter.GaussianBlur(radius=25))
+    
+    # 3. ПОДГОТОВКА ЛОГОТИПА И СТРОК ТЕКСТА
     logo_clip = None
     if logo_path and os.path.exists(logo_path):
         try:
@@ -140,12 +162,10 @@ def create_preview_overlay(asset_path, preview_text, highlight_word,
     max_scale = 1.8 # Ограничили, чтобы слова не были гигантскими
     
     for i, ln in enumerate(lines):
-        # Чередуем цвета: 1-я слоновая кость, 2-я багряная, 3-я слоновая кость
         color = primary_hex if i % 2 == 0 else secondary_hex
         temp = TextClip(text=ln, font_size=base_font_size, color=color, font=font, method="label")
         scale = min(max_scale, target_w / temp.w) if temp.w > 0 else 1.0
         f_size = int(base_font_size * scale)
-        # 1.2x: достаточно для descenders + анимация 1.08x, без лишних пустот
         line_h = int(f_size * 1.2)
         tc = TextClip(text=ln, font_size=f_size, color=color, font=font, method="caption", size=(frame_width, line_h), text_align="center").with_duration(duration)
         text_clips.append(tc)
@@ -158,6 +178,44 @@ def create_preview_overlay(asset_path, preview_text, highlight_word,
     
     start_y = (frame_height - total_h) // 2 - int(frame_height * 0.05)
     if start_y < 110: start_y = 110
+    
+    # 4. ВЫЧИСЛЕНИЕ ГРАНИЦ И СОЗДАНИЕ СТЕКЛЯННОЙ КАРТОЧКИ
+    card_w = int(frame_width * 0.94)
+    card_h = total_h + 90
+    card_x = (frame_width - card_w) // 2
+    card_y = start_y - 45
+    radius = 36
+    
+    # Вырезаем размытую область из подготовленного фона
+    sub_img = blurred_bg.crop((card_x, card_y, card_x + card_w, card_y + card_h)).convert("RGBA")
+    
+    # Накладываем цвет подложки с 55% непрозрачности (alpha=140)
+    color_layer = _PILImage.new("RGBA", sub_img.size, bg_rgb + (140,))
+    sub_img = _PILImage.alpha_composite(sub_img, color_layer)
+    
+    # Скругляем углы с помощью альфа-маски
+    mask = _PILImage.new('L', sub_img.size, 0)
+    draw_mask = ImageDraw.Draw(mask)
+    draw_mask.rounded_rectangle([(0, 0), (card_w - 1, card_h - 1)], radius=radius, fill=255)
+    
+    rounded_sub = _PILImage.new("RGBA", sub_img.size, (0, 0, 0, 0))
+    rounded_sub.paste(sub_img, (0, 0), mask)
+    
+    # Добавляем благородную тонкую светлую рамку с альфой 60 (эффект грани стекла)
+    draw_border = ImageDraw.Draw(rounded_sub)
+    draw_border.rounded_rectangle([(0, 0), (card_w - 1, card_h - 1)], radius=radius, outline=(255, 255, 255, 60), width=2)
+    
+    # Размещаем готовую карточку на полноразмерном прозрачном холсте
+    canvas = _PILImage.new("RGBA", (frame_width, frame_height), (0, 0, 0, 0))
+    canvas.paste(rounded_sub, (card_x, card_y))
+    
+    # Создаем ImageClip для стеклянной подложки
+    canvas_arr = np.array(canvas)
+    card_clip = ImageClip(canvas_arr[:, :, :3]).with_duration(duration)
+    card_clip.mask = ImageClip(canvas_arr[:, :, 3] / 255.0, is_mask=True).with_duration(duration)
+    card_clip = card_clip.with_position((0, 0))
+    
+    all_layers = [card_clip]
         
     if logo_clip:
         lx, lw, lh = (frame_width - logo_clip.w) // 2, logo_clip.w, logo_clip.h
@@ -171,7 +229,6 @@ def create_preview_overlay(asset_path, preview_text, highlight_word,
     else: curr_y = start_y
 
     # Пользователь попросил убрать затухание (FadeIn), чтобы превью было с первой миллисекунды (для обложек)
-    anim_cfg = display_config.get("animation", {})
     fade_duration = 0 # Жестко отключаем фейд-ин
     pop_duration, pop_delay = 0.6, 0.2
     for i, tc in enumerate(text_clips):
@@ -198,7 +255,7 @@ def create_preview_overlay(asset_path, preview_text, highlight_word,
         line_scale_fn = make_scale_fn(st)
         line_pos_fn = make_pos_fn(st, tx, line_y, tw, th, line_scale_fn)
         
-        # Применяем эффекты и плавное появление каждой строки
+        # Применяем эффекты
         line_clip = tc.with_effects([vfx.Resize(line_scale_fn)]).with_position(line_pos_fn)
         if fade_duration > 0:
             line_clip = line_clip.with_effects([vfx.FadeIn(fade_duration)])
@@ -208,7 +265,6 @@ def create_preview_overlay(asset_path, preview_text, highlight_word,
 
     final_overlay = CompositeVideoClip(all_layers, size=(frame_width, frame_height)).with_duration(duration)
     if fade_duration > 0:
-        # Дополнительно фейдим весь оверлей для мягкости
         final_overlay = final_overlay.with_effects([vfx.FadeIn(fade_duration)])
         
     return final_overlay

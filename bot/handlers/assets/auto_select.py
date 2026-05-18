@@ -186,16 +186,16 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
             is_saint_strong = bool(re.search(pattern, text_to_check))
             if is_saint_strong:
                 search_source = "icon"
-                logger.info(f"Saint/icon scene {scene_idx}: forced routing to DDG (icon)")
+                logger.info(f"Saint/icon scene {scene_idx}: forced routing to SearXNG/Web (icon)")
 
     # Orthodox: first 2 scenes always from web search (real icons/churches/monasteries)
     if channel_profile_id == "orthodox" and scene_idx <= 1:
         search_source = "icon"
-        logger.info(f"Orthodox scene {scene_idx}: forced DDG (first 2 scenes rule)")
+        logger.info(f"Orthodox scene {scene_idx}: forced SearXNG/Web (first 2 scenes rule)")
 
     if channel_profile_id == "news" and search_source not in ("news", "web", "ai"):
         search_source = "news"
-        logger.info(f"News scene {scene_idx}: forced routing to DDG (news real-world rule)")
+        logger.info(f"News scene {scene_idx}: forced routing to SearXNG/Web (news real-world rule)")
 
     logger.info(f"Auto-select scene {scene_idx}: queries={queries}, source={search_source}")
 
@@ -216,7 +216,7 @@ async def _auto_pick_for_scene(scene: dict, scene_idx: int, channel_profile_id: 
                 ddg_q = queries[0]
             results = await asyncio.to_thread(search_images_ddg, ddg_q, max_results=15)
         except Exception as ex:
-            logger.error(f"DDG search error: {ex}")
+            logger.error(f"SearXNG search error: {ex}")
     else:
         await _safe_edit(status_msg,
             f"🤖 **Авто-подбор сцены {scene_idx + 1}/{total}**\n"
@@ -593,11 +593,11 @@ async def auto_pick_for_project(
 
         if channel_profile_id == "orthodox" and idx <= 1:
             search_source = "icon"
-            logger.info(f"Orthodox scene {idx}: forced DDG (first 2 scenes rule)")
+            logger.info(f"Orthodox scene {idx}: forced SearXNG/Web (first 2 scenes rule)")
 
         if channel_profile_id == "news" and search_source not in ("news", "web", "ai"):
             search_source = "news"
-            logger.info(f"News scene {idx}: forced routing to DDG (news real-world rule)")
+            logger.info(f"News scene {idx}: forced routing to SearXNG/Web (news real-world rule)")
 
         scene_data = {
             "idx": idx,
@@ -827,7 +827,7 @@ async def auto_pick_for_project(
             continue
 
         await _safe_edit(status_msg,
-            f"🤖 **Подбор (веб-поиск DDG)**\n"
+            f"🤖 **Подбор (веб-поиск SearXNG/Web)**\n"
             f"🔍 Сцена {idx+1}/{total}: {queries[0]}..."
         )
 
@@ -849,7 +849,7 @@ async def auto_pick_for_project(
                     results.extend(q_results)
                     break # Stop if we found results for this query
             except Exception as ex:
-                logger.error(f"DDG search error for scene {idx}, query '{q}': {ex}")
+                logger.error(f"SearXNG search error for scene {idx}, query '{q}': {ex}")
 
         best_local = None
         if results:
@@ -861,7 +861,7 @@ async def auto_pick_for_project(
             before_dedup = len(results)
             results = deduplicator.filter_results(results, channel_profile_id)
             if before_dedup > len(results):
-                logger.info(f"Scene {idx}: DDG dedup {before_dedup} → {len(results)}")
+                logger.info(f"Scene {idx}: SearXNG dedup {before_dedup} → {len(results)}")
             
             if not results:
                 from ai.duckduckgo_search import reformulate_query_ai
@@ -914,7 +914,7 @@ async def auto_pick_for_project(
                         continue
                     
                     if url in selected_urls:
-                        logger.info(f"Avoiding duplicate DDG image for scene {idx}: {url[:60]}")
+                        logger.info(f"Avoiding duplicate SearXNG image for scene {idx}: {url[:60]}")
                         continue
 
                     selected_urls.add(url)
@@ -927,14 +927,14 @@ async def auto_pick_for_project(
                         selected_urls.remove(url)
 
         if not best_local:
-            logger.info(f"⚠️ DDG pick failed for scene {idx+1}, triggering fallbacks...")
+            logger.info(f"⚠️ SearXNG pick failed for scene {idx+1}, triggering fallbacks...")
             
             if channel_profile_id in ("orthodox", "news"):
                 import random
                 pool = CHANNEL_FALLBACK_POOLS.get(channel_profile_id, [])
                 if pool:
                     fb_q = random.choice(pool)
-                    await _safe_edit(status_msg, f"🤖 **Фоллбэк (safe DDG)**\n🔍 Сцена {idx+1}/{total}: {fb_q}...")
+                    await _safe_edit(status_msg, f"🤖 **Фоллбэк (safe Web/SearXNG)**\n🔍 Сцена {idx+1}/{total}: {fb_q}...")
                     from ai.duckduckgo_search import search_images_ddg
                     try:
                         await asyncio.sleep(2.0)  # Пауза против бана по IP
@@ -958,7 +958,7 @@ async def auto_pick_for_project(
                                     else:
                                         selected_urls.remove(url)
                     except Exception as e:
-                        logger.error(f"DDG fallback error: {e}")
+                        logger.error(f"SearXNG fallback error: {e}")
                         
             if not best_local:
                 await _safe_edit(status_msg, f"🤖 **Фоллбэк на стоки**\n🔍 Сцена {idx+1}/{total}...")
@@ -1012,9 +1012,9 @@ async def auto_pick_for_project(
                         pass
 
         if best_local:
-            logger.info(f"✅ Scene {idx+1}/{total} DDG/fallback pick OK: {best_local}")
+            logger.info(f"✅ Scene {idx+1}/{total} SearXNG/fallback pick OK: {best_local}")
         else:
-            logger.warning(f"❌ Scene {idx+1}/{total} DDG pick FAILED completely")
+            logger.warning(f"❌ Scene {idx+1}/{total} SearXNG pick FAILED completely")
 
         # Вежливая пауза
         await asyncio.sleep(1.5)

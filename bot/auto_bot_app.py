@@ -63,6 +63,7 @@ async def main():
         BotCommand(command="full_automat", description="Полный автомат"),
         BotCommand(command="auto", description="Автомат в топике: /auto текст"),
         BotCommand(command="rebuild_last", description="Перерендерить последнее видео"),
+        BotCommand(command="clean", description="Очистить временные файлы и старые проекты"),
     ]
     try:
         await bot.set_my_commands(commands)

@@ -66,10 +66,10 @@
       "avoid_topics": ["политика", "развлечения", "слухи"],
       "default_hashtags": ["#it", "#бизнес", "#автоматизация", "#технологии"],
       "visual_rules": {
-        "banned_keywords": ["cartoon", "abstract", "nature", "baby", "child", "nsfw", "retro", "vintage"],
-        "preferred_keywords": ["server", "code", "dashboard", "office modern", "network", "technology", "ui interface", "data center", "digital", "startup"],
+        "banned_keywords": ["cartoon", "abstract", "nature", "baby", "child", "nsfw", "retro", "vintage", "suit shaking hands", "fake smile", "cliché presentation", "boring meeting", "white background smile"],
+        "preferred_keywords": ["cyberpunk developer workspace", "glowing keyboard macro", "neon dark room coding", "futuristic data center server racks", "abstract neural network digital", "sleek dark dashboard ui", "hardware microchip glowing led"],
         "min_resolution": 800,
-        "style_notes": "Минималистично, современно. Серверные, код, дашборды, офисы. Без стоковых улыбок и ретро."
+        "style_notes": "Стиль Tech-Noir / Cyber-Minimalism. Эстетика темных пространств, неоновая подсветка клавиатуры, макросъемка кода и процессоров, мигающие диоды серверов. Категорический запрет на скучные офисные улыбки и рукопожатия."
       },
       "logo_path": "local_assets/logo/tech.png",
       "preview_bg_color": "#0F141E",
@@ -150,10 +150,10 @@
       "avoid_topics": ["политика", "криминал", "агрессия", "токсичность"],
       "default_hashtags": ["#эстетика", "#психология", "#красота", "#саморазвитие"],
       "visual_rules": {
-        "banned_keywords": ["blood", "gore", "violence", "horror", "war", "weapons", "dark", "scary", "grunge", "dirty"],
-        "preferred_keywords": ["aesthetic", "cozy", "pastels", "woman smiling", "coffee cup", "flowers", "morning light", "journaling", "skincare", "yoga", "soft light", "minimalist"],
+        "banned_keywords": ["blood", "gore", "violence", "horror", "war", "weapons", "dark", "scary", "grunge", "dirty", "fake smile", "laughing salad", "flat lighting", "studio white background", "heavy makeup closeups", "plastic skin"],
+        "preferred_keywords": ["cozy morning aesthetic", "soft sunlight linen bed", "ceramic coffee cup steam", "minimalist beige interior", "slow motion candle flame", "aesthetic journaling hands", "skincare organic glass bottle", "pastel pink flowers soft light"],
         "min_resolution": 800,
-        "style_notes": "Мягкий свет, пастельные тона, эстетика уюта и минимализма. Фокус на красоте, спокойствии и женственности."
+        "style_notes": "Pinterest Cozy & Slow Living. Мягкий рассеянный свет, теплые пастельные и бежевые тона, органические текстуры (лен, дерево, керамика, бумага), эстетичные детали крупным планом. Запрещены пластиковые лица, натянутые стоковые улыбки и плоский белый свет."
       },
       "logo_path": "local_assets/logo/lifestyle.png",
       "preview_bg_color": "#FAF5F5",

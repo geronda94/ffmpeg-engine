@@ -56,19 +56,15 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
             )
         elif style_id in IT_STYLES:
             style_hint = (
-                "STYLE CONTEXT: IT/Business content.\n"
-                "CRITICAL: Be extremely DIRECT and SPECIFIC about technologies. "
-                "If the text mentions a specific technology (e.g. 'Vue.js', 'React', 'Python', 'Docker', 'AWS'), "
-                "your queries MUST include the exact technology name with 'logo' or 'code snippet' (e.g., 'vue js logo', 'python code editor').\n"
-                "If it mentions 'website' or 'dashboard', search for 'dashboard ui', 'website wireframe', 'code screenshot'.\n"
-                "PREFER: code on dark monitor, server room, dashboard UI, modern office, "
-                "network infrastructure, data visualization, specific tech logos.\n"
-                "AVOID: abstract technology backgrounds, generic glowing lines, generic hackers with hoodies, retro tech, clipart.\n"
+                "STYLE CONTEXT: IT, Business, High-Tech, Cyberpunk Developer, and Tech-Noir Minimalist.\n"
+                "CRITICAL SEARCH STRATEGY: Absolutely AVOID boring office meetings, handshakes on white backgrounds, and cheesy smiling people. Emphasize dark mode workspaces, coding setups with neon glow, and high-tech minimalist layouts.\n"
+                "1. TECHNOLOGY SPECIFICS: If the text mentions a specific library, tool, or brand (e.g. 'Docker', 'React', 'Kubernetes', 'Python'), include its logo or code snippet. Set 'source' to 'web' for logos, or 'stock' for generic code screenshots.\n"
+                "2. VISUAL THEMES: Prefer neon-lit server rooms, macro shots of circuit boards, mechanical keyboard glow, abstract neural networks from particles, and dark dashboards.\n"
                 "BRAINSTORMING SYNONYMS (for your 6-10 queries): Diversify your queries across:\n"
-                "  - Exact tech/brand names (e.g. 'Docker logo transparent', 'AWS architecture diagram')\n"
-                "  - IDE/Code context ('python code dark theme', 'react js monitor')\n"
-                "  - Infrastructure/Hardware ('server rack blue light', 'data center corridor')\n"
-                "  - B2B/Business Metaphors ('business analytics dashboard', 'team meeting office board')\n"
+                "  - Developer Spaces ('cyberpunk developer dark room workspace', 'glowing mechanical keyboard coding macro')\n"
+                "  - Hardware & Circuitry ('hardware microchip glowing blue led lights', 'server rack blue flashing light data center')\n"
+                "  - Dashboards & Data UI ('dark neon dashboard wireframe', 'cyber charts statistics dark background')\n"
+                "  - High-Tech Metaphors ('abstract neural network brain digital particles', 'abstract database server cluster neon')\n"
             )
         elif style_id == "news_broadcast":
             style_hint = (
@@ -87,16 +83,15 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
             )
         elif style_id == "lifestyle_aesthetic":
             style_hint = (
-                "STYLE CONTEXT: Women's Lifestyle, Fashion, Psychology, Aesthetics.\n"
-                "SEARCH STRATEGY:\n"
-                "1. CELEBRITIES & DESIGNERS: If mentioning a specific celebrity, actress, or model, set 'source' to 'web'. Exact name query.\n"
-                "2. BRANDS & RUNWAYS: If mentioning a specific perfume brand, fashion show, or designer collection (e.g., 'Chanel perfume', 'Dior runway'), set 'source' to 'web'.\n"
-                "3. AESTHETIC LIFESTYLE: For cozy atmosphere, morning coffee, journaling, skincare routines, or self-care, set 'source' to 'stock'. Prefer warm pastel aesthetics.\n"
+                "STYLE CONTEXT: Women's Lifestyle, Cozy Pinterest Aesthetic, Slow Living, Psychology.\n"
+                "CRITICAL SEARCH STRATEGY: Absolutely AVOID cheap/artificial stock imagery, fake toothy smiles, flat studio lighting, or 'laughing salad' tropes. Focus on soft light, pastel/neutral beige colors, and warm cozy vibes.\n"
+                "1. CELEBRITIES & DESIGNERS: If mentioning a specific celebrity, designer brand, or runway, set 'source' to 'web'. (e.g. 'Chanel perfume aesthetic', 'Dior fashion show close up').\n"
+                "2. AESTHETIC LIFESTYLE (Cozy/Pastel): Search for organic textures, soft shadows, linen, ceramics, paper, or beautiful cozy close-ups. Set 'source' to 'stock'.\n"
                 "BRAINSTORMING SYNONYMS (for your 6-10 queries): Diversify your queries across:\n"
-                "  - Concrete Aesthetic Objects ('beige coffee cup bed', 'open journal pen wooden table')\n"
-                "  - Emotional/State Metaphors ('woman walking beach sunset', 'smiling girl city street')\n"
-                "  - Interior Vibes ('cozy minimalist apartment neutral', 'candles bathtub aesthetic')\n"
-                "  - Abstract Textures/Details ('silk fabric pastel pink', 'dry flowers aesthetic background')\n"
+                "  - Aesthetic Mornings ('cozy morning aesthetic linen', 'ceramic coffee cup steam morning light')\n"
+                "  - Daily Rituals & Self-care ('skincare organic bottle glass pastel', 'journaling close up hands wooden table')\n"
+                "  - Cozy Spaces ('minimalist neutral warm apartment', 'bathtub candle flame aesthetic soft')\n"
+                "  - Organic Details & Textures ('dry pampas grass warm breeze', 'pastel pink silk fabric soft shadows')\n"
             )
 
         context_block = ""

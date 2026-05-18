@@ -72,27 +72,40 @@
       "id": "v_orthodox",
       "mode": "ai",
       "name": "☦️ Православный (Атмосферный)",
-      "description": "Глубокие, медитативные эффекты. Light leak, дрейф, хроматическая аберрация.",
+      "description": "Глубокие, медитативные эффекты. Медленный наезд, параллакс-дрейф, теплое дыхание света.",
       "resize_mode": "fit",
-      "effects": [],
+      "effects": [
+        {"type": "ken_burns", "zoom_from": 1.0, "zoom_to": 1.12, "start_frac": 0.1, "end_frac": 0.9},
+        {"type": "parallax", "direction": "left", "strength": 0.03, "start_frac": 0.0, "end_frac": 1.0},
+        {"type": "vignette_breathe", "max_opacity": 0.2, "frequency": 0.3},
+        {"type": "light_leak", "side": "top_left", "opacity": 0.08, "color": [255, 215, 179]}
+      ],
       "transition": { "type": "blur_dissolve", "duration": 0.6 }
     },
     {
       "id": "v_tech",
       "mode": "ai",
       "name": "💻 IT (Динамичный)",
-      "description": "Чёткие движения, snap-zoom, глитч-переходы. Современный технологичный стиль.",
+      "description": "Чёткие движения, snap-zoom, глитч-эффекты. Современный технологичный стиль.",
       "resize_mode": "fit",
-      "effects": [],
+      "effects": [
+        {"type": "snap_zoom", "zoom_target": 1.15, "snap_duration": 0.1, "settle_duration": 0.25},
+        {"type": "glitch_rgb_split", "max_offset": 6.0, "decay": 4.0},
+        {"type": "vignette_breathe", "max_opacity": 0.3, "frequency": 0.8}
+      ],
       "transition": { "type": "slide_left", "duration": 0.3 }
     },
     {
       "id": "v_feminine",
       "mode": "ai",
       "name": "🌸 Женский (Тёплый)",
-      "description": "Мягкие переходы, световые засветки, плавные зуммы. Уютная кинематографичность.",
+      "description": "Мягкие переходы, нежное дыхание света, уютный медленный зум. Теплые пастельные тона.",
       "resize_mode": "fit",
-      "effects": [],
+      "effects": [
+        {"type": "ken_burns", "zoom_from": 1.0, "zoom_to": 1.15, "start_frac": 0.15, "end_frac": 0.8},
+        {"type": "light_leak", "side": "top_right", "opacity": 0.12, "color": [255, 230, 220]},
+        {"type": "vignette_breathe", "max_opacity": 0.15, "frequency": 0.4}
+      ],
       "transition": { "type": "crossfade", "duration": 0.5 }
     }
   ],
@@ -148,7 +161,12 @@
       "name": "☦️ Православный (Атмосферный)",
       "description": "Глубокие, медитативные эффекты для широкого формата.",
       "resize_mode": "fit",
-      "effects": [],
+      "effects": [
+        {"type": "ken_burns", "zoom_from": 1.0, "zoom_to": 1.12, "start_frac": 0.1, "end_frac": 0.9},
+        {"type": "parallax", "direction": "left", "strength": 0.03, "start_frac": 0.0, "end_frac": 1.0},
+        {"type": "vignette_breathe", "max_opacity": 0.2, "frequency": 0.3},
+        {"type": "light_leak", "side": "top_left", "opacity": 0.08, "color": [255, 215, 179]}
+      ],
       "transition": { "type": "blur_dissolve", "duration": 0.7 }
     },
     {
@@ -157,7 +175,11 @@
       "name": "💻 IT (Динамичный)",
       "description": "Технологичные эффекты и переходы для широкого формата.",
       "resize_mode": "fit",
-      "effects": [],
+      "effects": [
+        {"type": "snap_zoom", "zoom_target": 1.15, "snap_duration": 0.1, "settle_duration": 0.25},
+        {"type": "glitch_rgb_split", "max_offset": 6.0, "decay": 4.0},
+        {"type": "vignette_breathe", "max_opacity": 0.3, "frequency": 0.8}
+      ],
       "transition": { "type": "slide_left", "duration": 0.3 }
     },
     {
@@ -166,7 +188,11 @@
       "name": "🌸 Женский (Тёплый)",
       "description": "Мягкие эффекты для широкого формата.",
       "resize_mode": "fit",
-      "effects": [],
+      "effects": [
+        {"type": "ken_burns", "zoom_from": 1.0, "zoom_to": 1.15, "start_frac": 0.15, "end_frac": 0.8},
+        {"type": "light_leak", "side": "top_right", "opacity": 0.12, "color": [255, 230, 220]},
+        {"type": "vignette_breathe", "max_opacity": 0.15, "frequency": 0.4}
+      ],
       "transition": { "type": "crossfade", "duration": 0.6 }
     }
   ]
