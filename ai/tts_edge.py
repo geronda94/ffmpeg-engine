@@ -97,9 +97,9 @@ async def post_process_audio(file_path: str, profile: str):
     filters = None
     
     if "orthodox" in profile:
-        # Великий соборный резонанс (глубокий бас, длинные рассеянные рикошеты от дальних стен, тихое благородное эхо)
-        filters = "bass=g=11:f=90:w=0.6,aecho=0.85:0.85:150|300:0.16|0.06,volume=1.25"
-        logger.info(f"Applying Orthodox spiritual cathedral acoustics to: {file_path}")
+            # Мощный басовый фундамент и длинный, но очень тихий шлейф эха
+            filters = "bass=g=15:f=90:w=0.8,aecho=0.85:0.70:180|360|540:0.06|0.03|0.01,volume=1.3"
+            logger.info(f"Applying Orthodox spiritual cathedral acoustics to: {file_path}")
     elif "tech" in profile or "it" in profile:
         # Ультра-кристальный стерео-расширитель + высокие частоты (стиль подкастов / техно-ноир)
         filters = "treble=g=3:f=5000,apulsator=hz=0.1:amount=0.1:offset_r=0.2"
