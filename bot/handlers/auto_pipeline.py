@@ -196,6 +196,49 @@ async def run_auto_pipeline(
                 success = len(proj.get("assets", {}))
 
             proj = pm.load_project(project_id)
+
+            # ── Batch AI Reviewer: проверяем контекстные нестыковки ──
+            try:
+                from core.query_knowledge import query_knowledge
+                from ai.query_reviewer import batch_reviewer
+                review_queue = []
+                for i, sc in enumerate(scenes):
+                    asset = proj.get("assets", {}).get(str(i), {})
+                    if not asset.get("path"):
+                        continue
+                    entity_keys = query_knowledge.detect_entity_keys(
+                        (sc.get("image_prompt", "") or sc.get("visual_description", "") or "")
+                        + " " + sc.get("text_segment", ""),
+                        channel_name
+                    )
+                    if entity_keys:
+                        review_queue.append({
+                            "scene_idx": i,
+                            "entity_keys": entity_keys,
+                            "url": asset.get("source_url", asset.get("path", "")),
+                            "score": asset.get("score", 0),
+                        })
+
+                if review_queue:
+                    review_results = await batch_reviewer.review_assets(
+                        project_id, channel_name, review_queue
+                    )
+                    for scene_idx_str, result in review_results.items():
+                        if isinstance(result, dict) and result.get("status") == "mismatch":
+                            matched = [r for r in review_queue if str(r["scene_idx"]) == scene_idx_str]
+                            if matched:
+                                for ek in matched[0].get("entity_keys", []):
+                                    query_knowledge.record_mismatch(channel_name, ek)
+                                    query_knowledge.update_filters(channel_name, ek,
+                                        add_exclude_url=result.get("new_filters", {}).get("exclude_url_add", []),
+                                        add_exclude_tags=result.get("new_filters", {}).get("exclude_tags_add", []),
+                                    )
+                                logger.info(f"BatchReviewer: scene {scene_idx_str} mismatch — filters updated")
+                            else:
+                                logger.warning(f"BatchReviewer: scene_idx {scene_idx_str} from LLM not found in review_queue — ignoring")
+            except Exception as e:
+                logger.error(f"BatchReviewer error: {e}")
+
             missing = [i for i in range(len(scenes)) if str(i) not in proj.get("assets", {})]
 
             if missing:

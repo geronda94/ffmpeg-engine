@@ -1,0 +1,373 @@
+{
+  "beauty_skincare": {
+    "aliases": [
+      "красота",
+      "уход за кожей",
+      "косметика",
+      "макияж",
+      "крем",
+      "beauty",
+      "skincare",
+      "makeup",
+      "cosmetic",
+      "face cream",
+      "skincare routine"
+    ],
+    "queries": [
+      "beauty skincare routine",
+      "natural skincare products",
+      "clean beauty minimalist",
+      "skincare bottle cosmetic",
+      "glowing healthy skin"
+    ],
+    "source": "stock",
+    "color": "pink",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "medical",
+        "surgery",
+        "clinical"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "fashion_style": {
+    "aliases": [
+      "мода",
+      "модный",
+      "стиль",
+      "одежда",
+      "наряд",
+      "аксессуары",
+      "lifestyle fashion",
+      "fashion",
+      "style",
+      "outfit",
+      "dress",
+      "accessories",
+      "wardrobe"
+    ],
+    "queries": [
+      "fashion style outfit",
+      "women fashion modern",
+      "fashion accessory dress",
+      "minimalist style fashion",
+      "trendy clothing fashion"
+    ],
+    "source": "stock",
+    "color": "pink",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "adult",
+        "lingerie",
+        "sensual"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "nature_outdoor": {
+    "aliases": [
+      "природа",
+      "лес",
+      "цветы",
+      "сад",
+      "горы",
+      "море",
+      "пляж",
+      "закат",
+      "восход",
+      "ландшафт",
+      "nature",
+      "forest",
+      "flowers",
+      "garden",
+      "mountain",
+      "beach",
+      "sunset",
+      "sunrise",
+      "landscape"
+    ],
+    "queries": [
+      "beautiful nature landscape",
+      "mountain lake scenery",
+      "forest sunlight trees",
+      "beach sunset ocean",
+      "wildflower meadow nature"
+    ],
+    "source": "stock",
+    "color": "green",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "halloween",
+        "spooky"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "home_interior": {
+    "aliases": [
+      "интерьер",
+      "дом",
+      "квартира",
+      "уют",
+      "декор",
+      "мебель",
+      "дизайн интерьера",
+      "home",
+      "interior",
+      "room decor",
+      "cozy home",
+      "furniture",
+      "apartment"
+    ],
+    "queries": [
+      "cozy home interior",
+      "modern room decoration",
+      "minimalist apartment design",
+      "warm cozy living room",
+      "home decor aesthetic"
+    ],
+    "source": "stock",
+    "color": "brown",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "hotel",
+        "commercial"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "food_drink": {
+    "aliases": [
+      "еда",
+      "кулинария",
+      "рецепт",
+      "готовка",
+      "завтрак",
+      "кофе",
+      "напиток",
+      "десерт",
+      "food",
+      "recipe",
+      "cooking",
+      "breakfast",
+      "coffee",
+      "drink",
+      "dessert",
+      "healthy food"
+    ],
+    "queries": [
+      "delicious healthy food",
+      "morning coffee breakfast",
+      "beautiful food plating",
+      "fresh ingredients cooking",
+      "coffee latte art"
+    ],
+    "source": "stock",
+    "color": "brown",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "fast-food",
+        "junk-food",
+        "advertisement"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "wellness_fitness": {
+    "aliases": [
+      "здоровье",
+      "фитнес",
+      "спорт",
+      "тренировка",
+      "йога",
+      "медитация",
+      "wellness",
+      "fitness",
+      "sport",
+      "workout",
+      "yoga",
+      "meditation",
+      "healthy lifestyle"
+    ],
+    "queries": [
+      "woman yoga meditation",
+      "fitness workout gym",
+      "healthy wellness lifestyle",
+      "morning yoga exercise",
+      "meditation calm peaceful"
+    ],
+    "source": "stock",
+    "color": "green",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "surgery",
+        "medical",
+        "clinical"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "travel": {
+    "aliases": [
+      "путешествие",
+      "отпуск",
+      "путешествия",
+      "поездка",
+      "приключение",
+      "паспорт",
+      "чемодан",
+      "аэропорт",
+      "travel",
+      "vacation",
+      "trip",
+      "adventure",
+      "traveler",
+      "passport",
+      "suitcase"
+    ],
+    "queries": [
+      "travel vacation adventure",
+      "world travel destination",
+      "airplane travel sky",
+      "suitcase passport travel",
+      "traveler explore world"
+    ],
+    "source": "stock",
+    "color": "blue",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "hotel-ad",
+        "booking"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "self_care": {
+    "aliases": [
+      "селф-кейр",
+      "уход за собой",
+      "релакс",
+      "спа",
+      "ванна",
+      "ароматерапия",
+      "самопомощь",
+      "self care",
+      "selfcare",
+      "relaxation",
+      "spa",
+      "bath",
+      "relax",
+      "pamper",
+      "calm"
+    ],
+    "queries": [
+      "self care routine",
+      "relaxing spa bath",
+      "calm peaceful morning",
+      "self care candles",
+      "relaxation zen calm"
+    ],
+    "source": "stock",
+    "color": "pink",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "spa-ad",
+        "commercial"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "relationship_love": {
+    "aliases": [
+      "отношения",
+      "любовь",
+      "пара",
+      "семья",
+      "дружба",
+      "свадьба",
+      "романтика",
+      "relationship",
+      "love",
+      "couple",
+      "family",
+      "friendship",
+      "wedding",
+      "romance"
+    ],
+    "queries": [
+      "couple love relationship",
+      "family together happy",
+      "wedding romantic couple",
+      "friendship happy together",
+      "romantic sunset couple"
+    ],
+    "source": "stock",
+    "color": "pink",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "adult",
+        "explicit"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "morning_routine": {
+    "aliases": [
+      "утро",
+      "утренняя рутина",
+      "пробуждение",
+      "рассвет",
+      "кофе утро",
+      "спокойное утро",
+      "morning",
+      "sunrise morning",
+      "morning routine",
+      "wake up",
+      "calm morning"
+    ],
+    "queries": [
+      "peaceful morning sunrise",
+      "morning coffee ritual",
+      "calm morning routine",
+      "sunrise window coffee",
+      "morning light bedroom"
+    ],
+    "source": "stock",
+    "color": "gold",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  }
+}

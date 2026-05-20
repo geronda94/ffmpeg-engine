@@ -1,0 +1,980 @@
+{
+  "theotokos": {
+    "aliases": [
+      "богородица",
+      "богородицы",
+      "богородице",
+      "богородицей",
+      "богородицу",
+      "пречистая",
+      "пречистой",
+      "дева мария",
+      "девы марии",
+      "деве марии",
+      "царица небесная",
+      "царицы небесной",
+      "матушка богородица",
+      "матушки богородицы",
+      "матерь божия",
+      "матери божией",
+      "богоматерь",
+      "богоматери",
+      "theotokos",
+      "virgin mary",
+      "mother of god",
+      "божия матерь"
+    ],
+    "queries": [
+      "икона божией матери",
+      "богородица православная икона",
+      "пресвятая богородица икона",
+      "икона богоматерь",
+      "богородица умиление",
+      "икона дева мария с младенцем",
+      "икона царица небесная"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "exclude_url": [
+        "cosplay",
+        "costume",
+        "fashion",
+        "model",
+        "glamour",
+        "jewelry",
+        "girl-portrait",
+        "woman-face",
+        "maria-model",
+        "pinup",
+        "celebrity"
+      ],
+      "exclude_tags": [
+        "fashion",
+        "model",
+        "glamour",
+        "cosplay",
+        "celebrity",
+        "portrait-woman",
+        "female-model"
+      ],
+      "require_tags": [
+        "orthodox",
+        "icon",
+        "religious"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18"
+  },
+  "jesus_christ": {
+    "aliases": [
+      "иисус христос",
+      "иисуса христа",
+      "иисусе христе",
+      "христос",
+      "христа",
+      "христу",
+      "спаситель",
+      "спасителя",
+      "господь",
+      "господа",
+      "господу",
+      "вседержитель",
+      "пантократор",
+      "jesus christ",
+      "christ",
+      "savior"
+    ],
+    "queries": [
+      "иисус христос икона",
+      "спаситель православная икона",
+      "господь вседержитель икона",
+      "христос пантократор икона",
+      "икона спаситель",
+      "иисус христос православный"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "exclude_url": [
+        "jesus-meme",
+        "parody",
+        "cartoon-jesus",
+        "hollywood-jesus",
+        "jesus-tattoo",
+        "photo",
+        "picture",
+        "jesus"
+      ],
+      "exclude_tags": [
+        "parody",
+        "cartoon",
+        "meme",
+        "satanic",
+        "occult",
+        "secular",
+        "photography"
+      ],
+      "require_tags": [
+        "orthodox",
+        "icon",
+        "christian"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18",
+    "mismatch_count": 2,
+    "last_mismatch_at": "now"
+  },
+  "holy_trinity": {
+    "aliases": [
+      "святая троица",
+      "святой троицы",
+      "троица",
+      "троицы",
+      "троице",
+      "тройца",
+      "рублёв троица",
+      "рублева троица",
+      "икона троица",
+      "holy trinity"
+    ],
+    "queries": [
+      "икона святая троица",
+      "троица ветхозаветная икона",
+      "троица рублёва икона",
+      "пресвятая троица икона",
+      "троица православная икона"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "exclude_tags": [
+        "pagan",
+        "triple-goddess",
+        "wicca"
+      ],
+      "require_tags": [
+        "orthodox",
+        "icon",
+        "christian"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18"
+  },
+  "st_nicholas": {
+    "aliases": [
+      "николай чудотворец",
+      "николая чудотворца",
+      "николаю чудотворцу",
+      "святитель николай",
+      "святителя николая",
+      "николай мирликийский",
+      "st nicholas",
+      "saint nicholas",
+      "никола"
+    ],
+    "queries": [
+      "икона николай чудотворец",
+      "святитель николай чудотворец икона",
+      "николай мирликийский икона",
+      "православная икона николая чудотворца",
+      "чудотворец николай икона"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "exclude_url": [
+        "santa-claus",
+        "santa",
+        "christmas-gifts",
+        "st-nicholas-parade"
+      ],
+      "exclude_tags": [
+        "santa",
+        "christmas-decoration",
+        "secular",
+        "toys"
+      ],
+      "require_tags": [
+        "orthodox",
+        "icon",
+        "saint"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18"
+  },
+  "st_seraphim_sarov": {
+    "aliases": [
+      "серафим саровский",
+      "серафима саровского",
+      "преподобный серафим",
+      "преподобного серафима",
+      "seraphim of sarov",
+      "st seraphim",
+      "батюшка серафим"
+    ],
+    "queries": [
+      "икона серафим саровский",
+      "преподобный серафим саровский икона",
+      "серафим саровский молитва икона",
+      "святой серафим саровский",
+      "православная икона серафим саровский"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "require_tags": [
+        "orthodox",
+        "icon",
+        "saint"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18"
+  },
+  "st_sergius_radonezh": {
+    "aliases": [
+      "сергий радонежский",
+      "сергия радонежского",
+      "преподобный сергий",
+      "преподобного сергия",
+      "sergius of radonezh",
+      "st sergius",
+      "игумен земли русской"
+    ],
+    "queries": [
+      "икона сергий радонежский",
+      "преподобный сергий радонежский икона",
+      "сергий радонежский православная икона",
+      "святой сергий радонежский",
+      "троице-сергиева лавра икона"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "require_tags": [
+        "orthodox",
+        "icon",
+        "saint"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18"
+  },
+  "st_matrona_moscow": {
+    "aliases": [
+      "матрона московская",
+      "матроны московской",
+      "матронушка",
+      "святая матрона",
+      "блаженная матрона",
+      "matrona of moscow",
+      "st matrona"
+    ],
+    "queries": [
+      "икона матрона московская",
+      "матронушка икона",
+      "святая матрона московская икона",
+      "блаженная матрона московская икона",
+      "матрона московская православная икона"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "require_tags": [
+        "orthodox",
+        "icon",
+        "saint"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18"
+  },
+  "st_xenia_petersburg": {
+    "aliases": [
+      "ксения петербургская",
+      "ксении петербургской",
+      "святая ксения",
+      "блаженная ксения",
+      "ксения блаженная",
+      "xenia of petersburg",
+      "st xenia"
+    ],
+    "queries": [
+      "икона ксения петербургская",
+      "блаженная ксения петербургская икона",
+      "святая ксения петербургская икона",
+      "ксения петербургская православная икона",
+      "ксения блаженная икона"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "require_tags": [
+        "orthodox",
+        "icon",
+        "saint"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18"
+  },
+  "st_luke_crimea": {
+    "aliases": [
+      "лука крымский",
+      "луки крымского",
+      "святитель лука",
+      "святителя луки",
+      "лука войно-ясенецкий",
+      "архиепископ лука",
+      "luke of crimea",
+      "st luke"
+    ],
+    "queries": [
+      "икона лука крымский",
+      "святитель лука крымский икона",
+      "лука войно-ясенецкий икона",
+      "святой лука крымский православный",
+      "архиепископ лука крымский икона"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "require_tags": [
+        "orthodox",
+        "icon",
+        "saint"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18"
+  },
+  "st_panteleimon": {
+    "aliases": [
+      "пантелеимон целитель",
+      "пантелеимона целителя",
+      "святой пантелеимон",
+      "святого пантелеимона",
+      "великомученик пантелеимон",
+      "panteleimon the healer",
+      "st panteleimon"
+    ],
+    "queries": [
+      "икона пантелеимон целитель",
+      "святой пантелеимон икона",
+      "великомученик пантелеимон икона",
+      "целитель пантелеимон икона",
+      "пантелеимон православная икона"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "require_tags": [
+        "orthodox",
+        "icon",
+        "saint"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18"
+  },
+  "st_john_chrysostom": {
+    "aliases": [
+      "иоанн златоуст",
+      "иоанна златоуста",
+      "иоанну златоусту",
+      "златоуст",
+      "святитель иоанн златоуст",
+      "святителя иоанна златоуста",
+      "chrysostom",
+      "john chrysostom"
+    ],
+    "queries": [
+      "икона иоанн златоуст",
+      "святитель иоанн златоуст икона",
+      "литургия иоанна златоуста икона",
+      "златоуст православная икона",
+      "иоанн златоуст святой икона"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "require_tags": [
+        "orthodox",
+        "icon",
+        "saint"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18"
+  },
+  "st_basil_great": {
+    "aliases": [
+      "василий великий",
+      "василия великого",
+      "святитель василий великий",
+      "basil the great",
+      "st basil"
+    ],
+    "queries": [
+      "икона василий великий",
+      "святитель василий великий икона",
+      "василий великий православная икона",
+      "святой василий великий икона"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "require_tags": [
+        "orthodox",
+        "icon",
+        "saint"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18"
+  },
+  "archangel_michael": {
+    "aliases": [
+      "архангел михаил",
+      "архангела михаила",
+      "архистратиг михаил",
+      "михаил архангел",
+      "archangel michael",
+      "michael the archangel"
+    ],
+    "queries": [
+      "икона архангел михаил",
+      "архистратиг михаил икона",
+      "архангел михаил православная икона",
+      "святой архангел михаил икона"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "exclude_url": [
+        "archangel-statue",
+        "gargoyle",
+        "fantasy-angel",
+        "tattoo-archangel"
+      ],
+      "exclude_tags": [
+        "fantasy",
+        "gothic",
+        "occult",
+        "demonic",
+        "tattoo",
+        "sculpture"
+      ],
+      "require_tags": [
+        "orthodox",
+        "icon",
+        "angel"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18"
+  },
+  "guardian_angel": {
+    "aliases": [
+      "ангел хранитель",
+      "ангела хранителя",
+      "ангел",
+      "ангелы",
+      "ангелов",
+      "небесное воинство",
+      "guardian angel",
+      "angel"
+    ],
+    "queries": [
+      "икона ангел хранитель",
+      "ангел хранитель православная икона",
+      "святой ангел хранитель икона",
+      "небесные ангелы православная икона",
+      "ангелы православные"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "exclude_url": [
+        "fantasy-angel",
+        "fairy",
+        "winged-girl",
+        "angel-costume",
+        "renaissance-angel",
+        "cherub-statue"
+      ],
+      "exclude_tags": [
+        "fantasy",
+        "renaissance",
+        "catholic",
+        "valentine",
+        "fairy",
+        "mythology",
+        "pagan"
+      ],
+      "require_tags": [
+        "orthodox",
+        "icon",
+        "angel"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18"
+  },
+  "cross": {
+    "aliases": [
+      "крест",
+      "креста",
+      "кресту",
+      "распятие",
+      "распятия",
+      "голгофа",
+      "голгофы",
+      "православный крест",
+      "крест господень",
+      "животворящий крест",
+      "cross",
+      "crucifix",
+      "crucifixion"
+    ],
+    "queries": [
+      "православный крест",
+      "крест господень икона",
+      "распятие икона православная",
+      "крест золотой православный",
+      "голгофа крест икона",
+      "православный крест золото",
+      "силуэт креста храм"
+    ],
+    "source": "stock",
+    "color": "gold",
+    "filters": {
+      "exclude_url": [
+        "cross-tattoo",
+        "cemetery-cross",
+        "graveyard",
+        "celtic-cross",
+        "cross-stitch",
+        "embroidery-cross",
+        "cross",
+        "photo"
+      ],
+      "exclude_tags": [
+        "tattoo",
+        "cemetery",
+        "graveyard",
+        "celtic",
+        "gothic",
+        "halloween",
+        "occult",
+        "embroidery",
+        "handicraft",
+        "secular",
+        "photography"
+      ],
+      "require_tags": [
+        "christian",
+        "orthodox",
+        "religious"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18",
+    "mismatch_count": 1,
+    "last_mismatch_at": "now"
+  },
+  "church_temple": {
+    "aliases": [
+      "храм",
+      "храма",
+      "храму",
+      "храме",
+      "церковь",
+      "церкви",
+      "церковью",
+      "собор",
+      "собора",
+      "монастырь",
+      "монастыря",
+      "обитель",
+      "обители",
+      "лавра",
+      "лавры",
+      "кафедральный",
+      "часовня",
+      "часовни",
+      "temple",
+      "church",
+      "monastery",
+      "cathedral"
+    ],
+    "queries": [
+      "православный храм",
+      "храм купола золотые",
+      "церковь православная архитектура",
+      "монастырь православный",
+      "собор русский православный",
+      "храм белокаменный",
+      "церковь золотые купола"
+    ],
+    "source": "stock",
+    "color": "gold",
+    "filters": {
+      "exclude_url": [
+        "mosque",
+        "minaret",
+        "pagoda",
+        "buddhist-temple",
+        "hindu-temple",
+        "gothic-church",
+        "cathedral-catholic",
+        "medieval-church"
+      ],
+      "exclude_tags": [
+        "catholic",
+        "muslim",
+        "buddhist",
+        "hindu",
+        "gothic",
+        "protestant"
+      ],
+      "require_tags": [
+        "orthodox",
+        "church",
+        "religious"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18"
+  },
+  "candle_prayer": {
+    "aliases": [
+      "свеча",
+      "свечи",
+      "свечу",
+      "свечка",
+      "свечки",
+      "молитва",
+      "молитвы",
+      "молитве",
+      "молиться",
+      "молятся",
+      "candle",
+      "prayer",
+      "pray",
+      "лампада"
+    ],
+    "queries": [
+      "свеча в храме",
+      "молитва свеча",
+      "теплый свет свечи",
+      "свеча восковая храм",
+      "лампада храм",
+      "горящая свеча церковь"
+    ],
+    "source": "stock",
+    "color": "gold",
+    "filters": {
+      "exclude_url": [
+        "romantic-candle",
+        "candlelight-dinner",
+        "birthday-candle",
+        "candle-decoration",
+        "aromatherapy",
+        "candle",
+        "photo",
+        "prayer"
+      ],
+      "exclude_tags": [
+        "romance",
+        "dinner",
+        "spa",
+        "aromatherapy",
+        "decoration",
+        "interior-design",
+        "birthday",
+        "secular",
+        "photography"
+      ],
+      "require_tags": [
+        "religious",
+        "church",
+        "spiritual"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18",
+    "mismatch_count": 1,
+    "last_mismatch_at": "now"
+  },
+  "bible_gospel": {
+    "aliases": [
+      "библия",
+      "библии",
+      "библию",
+      "евангелие",
+      "евангелия",
+      "священное писание",
+      "bible",
+      "gospel",
+      "scripture",
+      "holy scripture"
+    ],
+    "queries": [
+      "библия открытая",
+      "евангелие книга",
+      "священное писание книга",
+      "библия старинная кожа",
+      "евангелие в храме",
+      "библия православная"
+    ],
+    "source": "stock",
+    "color": "gold",
+    "filters": {
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18"
+  },
+  "resurrection_easter": {
+    "aliases": [
+      "воскресение христово",
+      "воскресение христа",
+      "пасха",
+      "пасхи",
+      "пасхе",
+      "христос воскресе",
+      "воскресение",
+      "resurrection",
+      "easter"
+    ],
+    "queries": [
+      "икона воскресение христово",
+      "пасха православная икона",
+      "воскресение христа икона",
+      "христос воскресе икона",
+      "сошествие во ад икона"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "require_tags": [
+        "orthodox",
+        "icon",
+        "christian"
+      ],
+      "exclude_url": [
+        "photo",
+        "picture"
+      ],
+      "exclude_tags": [
+        "secular",
+        "photography"
+      ]
+    },
+    "created_by": "human",
+    "created_at": "2026-05-18",
+    "mismatch_count": 1,
+    "last_mismatch_at": "now"
+  },
+  "orthodox_icon_wood_death_resurrection": {
+    "aliases": [
+      "иисус христос икона",
+      "спаситель икона",
+      "воскресение христово икона",
+      "смерть смерть поправ икона",
+      "икона крест",
+      "православный крест"
+    ],
+    "queries": [
+      "иисус христос икона",
+      "икона спаситель",
+      "сухие лепестки дерево",
+      "золотой луч света фактура",
+      "древесина темная текстура",
+      "православный крест дерево",
+      "воскресение христово икона",
+      "смерть смерть поправ икона"
+    ],
+    "source": "stock",
+    "color": "brown",
+    "filters": {
+      "exclude_url": [
+        "католический",
+        "протестантский",
+        "современное искусство",
+        "абстракция"
+      ],
+      "exclude_tags": [
+        "photorealistic",
+        "modern",
+        "cartoon",
+        "abstract",
+        "digital",
+        "3d render"
+      ],
+      "require_tags": [
+        "orthodox",
+        "icon",
+        "wood",
+        "gold",
+        "dark",
+        "religious",
+        "christian"
+      ]
+    },
+    "created_by": "ai",
+    "created_at": "auto"
+  },
+  "orthodox_icon_elements": {
+    "aliases": [
+      "икона христос воскресение",
+      "иисус христос икона",
+      "свеча молитва",
+      "храм купола",
+      "православный крест",
+      "библия книга",
+      "православная икона темное дерево текстура",
+      "православная икона лепестки сухие"
+    ],
+    "queries": [
+      "икона христос воскресение",
+      "иисус христос икона",
+      "свеча молитва",
+      "храм купола",
+      "православный крест",
+      "библия книга",
+      "православная икона темное дерево текстура",
+      "православная икона лепестки сухие"
+    ],
+    "source": "icon",
+    "color": null,
+    "filters": {
+      "exclude_url": [
+        "католический",
+        "протестантский",
+        "буддийский"
+      ],
+      "exclude_tags": [
+        "католичество",
+        "протестантизм",
+        "буддизм",
+        "индуизм"
+      ],
+      "require_tags": [
+        "православный",
+        "икона",
+        "христианство"
+      ]
+    },
+    "created_by": "ai",
+    "created_at": "auto"
+  },
+  "orthodox_icon_golden_chalice": {
+    "aliases": [
+      "икона золотая чаша",
+      "чаша икона",
+      "икона спаситель",
+      "иисус христос икона",
+      "православная икона золотая чаша"
+    ],
+    "queries": [
+      "иисус христос икона",
+      "икона спаситель",
+      "православная икона золотая чаша",
+      "чаша икона",
+      "свеча молитва",
+      "православный крест",
+      "библия книга",
+      "купола храм",
+      "православная икона кадило ладан",
+      "православная икона золото фон"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "exclude_url": [
+        "католическая",
+        "протестантская",
+        "неканоническая"
+      ],
+      "exclude_tags": [
+        "католический",
+        "протестантский",
+        "неканонический"
+      ],
+      "require_tags": [
+        "икона",
+        "православие",
+        "золото",
+        "чаша"
+      ]
+    },
+    "created_by": "ai",
+    "created_at": "auto"
+  },
+  "orthodox_icon_hand_chalice": {
+    "aliases": [
+      "православная икона рука с чашей",
+      "икона золотая чаша причастие",
+      "икона христос воскресение",
+      "икона спаситель",
+      "икона с золотом",
+      "свет изнутри икона",
+      "макро икона деталь",
+      "православная икона церковная атрибутика",
+      "свеча во тьме",
+      "православная икона золото на черном"
+    ],
+    "queries": [
+      "икона христос воскресение",
+      "икона спаситель",
+      "православная икона золотая чаша причастие",
+      "православная икона рука",
+      "свеча во тьме",
+      "православная икона золото на черном",
+      "икона с золотом",
+      "свет изнутри икона",
+      "макро икона деталь",
+      "православная икона церковная атрибутика"
+    ],
+    "source": "icon",
+    "color": "gold",
+    "filters": {
+      "exclude_url": [
+        "католическая",
+        "протестантская",
+        "буддийская",
+        "исламская",
+        "современная живопись",
+        "графика",
+        "скульптура"
+      ],
+      "exclude_tags": [
+        "католицизм",
+        "протестантизм",
+        "буддизм",
+        "ислам",
+        "современное искусство",
+        "скульптура",
+        "графика"
+      ],
+      "require_tags": [
+        "православная икона",
+        "икона",
+        "православие",
+        "христианство",
+        "золото",
+        "чаша",
+        "причастие"
+      ]
+    },
+    "created_by": "ai",
+    "created_at": "auto"
+  }
+}

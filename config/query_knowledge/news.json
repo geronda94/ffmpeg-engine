@@ -1,0 +1,385 @@
+{
+  "breaking_news": {
+    "aliases": [
+      "breaking news",
+      "срочные новости",
+      "экстренные новости",
+      "чп",
+      "чрезвычайное происшествие",
+      "тревога",
+      "alert",
+      "urgent",
+      "emergency"
+    ],
+    "queries": [
+      "breaking news broadcast",
+      "emergency breaking alert",
+      "live news report studio",
+      "newspaper headline breaking",
+      "red alert sirene"
+    ],
+    "source": "news",
+    "color": "red",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "fake",
+        "parody",
+        "satire",
+        "meme",
+        "cartoon"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "military_conflict": {
+    "aliases": [
+      "война",
+      "войны",
+      "войне",
+      "военный",
+      "военные",
+      "армия",
+      "боевые действия",
+      "атака",
+      "ракетный удар",
+      "бомбардировка",
+      "обстрел",
+      "взрыв",
+      "уничтожение",
+      "разрушение",
+      "military",
+      "war",
+      "attack",
+      "explosion",
+      "strike",
+      "drone"
+    ],
+    "queries": [
+      "war destruction aftermath",
+      "military explosion building",
+      "drone attack missile",
+      "bombed city ruins",
+      "war conflict zone"
+    ],
+    "source": "news",
+    "color": "red",
+    "filters": {
+      "exclude_url": [
+        "call-of-duty",
+        "video-game",
+        "gameplay",
+        "minecraft"
+      ],
+      "exclude_tags": [
+        "video-game",
+        "game",
+        "fiction",
+        "fantasy"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "disaster": {
+    "aliases": [
+      "землетрясение",
+      "наводнение",
+      "пожар",
+      "ураган",
+      "катастрофа",
+      "спасатели",
+      "мчс",
+      "жертвы",
+      "эвакуация",
+      "earthquake",
+      "flood",
+      "fire",
+      "hurricane",
+      "disaster",
+      "rescue"
+    ],
+    "queries": [
+      "earthquake destruction building",
+      "flood disaster rescue",
+      "wildfire forest burning",
+      "hurricane storm damage",
+      "emergency rescue team"
+    ],
+    "source": "news",
+    "color": "red",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "movie",
+        "game",
+        "fiction",
+        "animation"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "protest_rally": {
+    "aliases": [
+      "протест",
+      "протесты",
+      "митинг",
+      "митинги",
+      "демонстрация",
+      "акция протеста",
+      "толпа",
+      "демонстранты",
+      "protest",
+      "rally",
+      "demonstration",
+      "crowd protest"
+    ],
+    "queries": [
+      "crowd protest demonstration",
+      "rally protest sign",
+      "people protest street",
+      "political protest demonstration",
+      "protest march"
+    ],
+    "source": "news",
+    "color": "red",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "movie",
+        "concert",
+        "festival",
+        "sport"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "government_building": {
+    "aliases": [
+      "кремль",
+      "белый дом",
+      "капитолий",
+      "правительство",
+      "госдума",
+      "администрация",
+      "министерство",
+      "парламент",
+      "kremlin",
+      "white house",
+      "capitol",
+      "government",
+      "parliament"
+    ],
+    "queries": [
+      "kremlin moscow exterior",
+      "white house washington building",
+      "parliament building exterior",
+      "government building official",
+      "capitol building washington"
+    ],
+    "source": "news",
+    "color": "blue",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "model",
+        "toy",
+        "miniature",
+        "lego"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "politician_leader": {
+    "aliases": [
+      "президент",
+      "премьер-министр",
+      "премьера",
+      "канцлер",
+      "лидер",
+      "глава государства",
+      "president",
+      "prime minister",
+      "chancellor",
+      "leader",
+      "putin",
+      "trump",
+      "biden",
+      "zelensky",
+      "zerensky"
+    ],
+    "queries": [
+      "president putin press conference",
+      "president trump rally",
+      "president biden speech",
+      "world leader meeting summit",
+      "zelensky official portrait"
+    ],
+    "source": "news",
+    "color": "blue",
+    "filters": {
+      "exclude_url": [
+        "caricature",
+        "cartoon-"
+      ],
+      "exclude_tags": [
+        "cartoon",
+        "parody",
+        "caricature",
+        "meme"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "map_geopolitics": {
+    "aliases": [
+      "карта",
+      "карты",
+      "карту",
+      "география",
+      "граница",
+      "границы",
+      "территория",
+      "регион",
+      "область",
+      "map",
+      "region",
+      "border",
+      "territory",
+      "geopolitical"
+    ],
+    "queries": [
+      "world map political",
+      "ukraine russia map conflict",
+      "map region highlighted",
+      "geopolitical map world",
+      "country border map"
+    ],
+    "source": "news",
+    "color": "blue",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "fantasy-map",
+        "game-map",
+        "fictional"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "news_studio": {
+    "aliases": [
+      "новостная студия",
+      "телестудия",
+      "телеведущий",
+      "журналист",
+      "репортер",
+      "корреспондент",
+      "news studio",
+      "tv studio",
+      "journalist",
+      "reporter",
+      "anchor"
+    ],
+    "queries": [
+      "news studio television",
+      "tv news anchor broadcast",
+      "journalist reporter interview",
+      "news studio background",
+      "television news broadcast studio"
+    ],
+    "source": "stock",
+    "color": "blue",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "movie",
+        "film",
+        "hollywood"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "press_conference": {
+    "aliases": [
+      "пресс-конференция",
+      "брифинг",
+      "пресс-конференции",
+      "брифинга",
+      "press conference",
+      "briefing",
+      "press briefing",
+      "podium"
+    ],
+    "queries": [
+      "press conference podium",
+      "white house briefing room",
+      "press conference microphones",
+      "official briefing press",
+      "press conference government"
+    ],
+    "source": "news",
+    "color": "blue",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "movie"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "police_emergency": {
+    "aliases": [
+      "полиция",
+      "полиции",
+      "скорая помощь",
+      "скорой помощи",
+      "пожарные",
+      "мчс",
+      "спасатели",
+      "полицейский",
+      "police",
+      "ambulance",
+      "fire truck",
+      "emergency vehicle",
+      "rescue worker"
+    ],
+    "queries": [
+      "police car emergency lights",
+      "ambulance urgent medical",
+      "fire truck emergency response",
+      "police line do not cross",
+      "emergency rescue vehicle"
+    ],
+    "source": "news",
+    "color": "red",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "toy",
+        "model-car",
+        "lego"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  }
+}

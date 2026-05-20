@@ -1,9 +1,20 @@
 import json
 import logging
 import re
+import hashlib
 from ai.llm_client import achat_json
 
 logger = logging.getLogger(__name__)
+
+_SCORE_CACHE: dict[str, dict] = {}
+
+def _score_cache_key(url: str, scene_text: str, visual: str, source: str) -> str:
+    s = f"{url}|{scene_text[:100]}|{visual[:100]}|{source}"
+    return hashlib.md5(s.encode()).hexdigest()[:16]
+
+def _opt_cache_key(visual: str, spoken: str, style: str) -> str:
+    s = f"{visual[:100]}|{spoken[:100]}|{style}"
+    return hashlib.md5(s.encode()).hexdigest()[:16]
 
 
 async def score_images(images_batch: list, scene_text: str, visual_description: str,
@@ -20,6 +31,19 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
     min_res = channel_rules.get("min_resolution", 800)
     style = channel_rules.get("style_notes", "")
     no_people = channel_rules.get("no_photos_of_people", False)
+
+    # ── Entity filters из knowledge base ──
+    from core.query_knowledge import query_knowledge
+    entity_filters = {}
+    entity_key = None
+    for candidate_key in query_knowledge.detect_entity_keys(
+        (scene_text + " " + visual_description)[:300], "orthodox"
+    ):
+        ef = query_knowledge.get_entity_filters("orthodox", candidate_key)
+        if ef:
+            entity_filters = ef
+            entity_key = candidate_key
+            break
 
     # ПРЕ-ФИЛЬТР: отсеиваем фото людей если запрещено
     filtered = []
@@ -138,10 +162,32 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
             logger.info(f"Pre-filter: rejecting image due to banned keyword '{matched_bw}' in tags/URL: {tags_low[:60]}")
             continue
 
+        # ── Entity filters из knowledge base ──
+        if entity_filters:
+            ef_exclude = entity_filters.get("exclude_url", [])
+            if any(bad in url_low for bad in ef_exclude):
+                continue
+            ef_exclude_tags = entity_filters.get("exclude_tags", [])
+            if any(bad in tags_low for bad in ef_exclude_tags):
+                continue
+            ef_require = entity_filters.get("require_tags", [])
+            if ef_require:
+                has_any = any(req in tags_low for req in ef_require)
+                if not has_any:
+                    continue
+
         filtered.append(img)
 
     if not filtered:
         return {"best_url": None, "best_score": 0, "scores": []}
+
+    # ── Кеш скоринга: если эта же сцена уже скорилась → вернуть сразу ──
+    cache_ctx_key = hashlib.md5(
+        f"SCENE|{scene_text[:150]}|{visual_description[:150]}|{search_source}".encode()
+    ).hexdigest()[:16]
+    cached_ctx = _SCORE_CACHE.get(cache_ctx_key)
+    if cached_ctx and cached_ctx.get("url_set") == {img.get("url", "") for img in filtered}:
+        return cached_ctx["result"]
 
     photos = []
     for img in filtered[:20]:
@@ -218,15 +264,74 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
             f"Image scoring: {len(scores)} evaluated, best={best_score}/10"
             f"{' [ALL IRRELEVANT → reformulate]' if all_irrelevant else ''}"
         )
-        return {
-            "best_url": best_url,
-            "best_score": best_score,
-            "scores": scores,
-            "all_irrelevant": all_irrelevant,
-            "fallback_queries": fallback_queries,
+        _SCORE_CACHE[cache_ctx_key] = {
+            "url_set": {img.get("url", "") for img in filtered},
+            "result": {
+                "best_url": best_url,
+                "best_score": best_score,
+                "scores": scores,
+                "all_irrelevant": all_irrelevant,
+                "fallback_queries": fallback_queries,
+            },
         }
+        return _SCORE_CACHE[cache_ctx_key]["result"]
     except Exception as e:
         logger.error(f"Image scoring error: {e}", exc_info=True)
         return {"best_url": None, "best_score": 0, "scores": [],
                 "all_irrelevant": True, "fallback_queries": []}
+
+
+async def score_images_batch(
+    scene_batches: list[dict],
+    rules: dict = None,
+    search_source: str = "stock"
+) -> list[list[dict]]:
+    """
+    Пакетный скоринг: оценивает изображения для НЕСКОЛЬКИХ сцен
+    в одном LLM вызове. Возвращает список списков scores — по одному на сцену.
+    """
+    if not scene_batches:
+        return []
+
+    batch_parts = []
+    for i, sb in enumerate(scene_batches):
+        images = sb.get("images", [])[:10]  # макс 10 картинок на сцену
+        scene_text = sb.get("scene_text", "")[:120]
+        visual = sb.get("visual", "")[:120]
+        photos = [
+            {"id": j, "url": img.get("url", ""), "w": img.get("width", 0), "h": img.get("height", 0)}
+            for j, img in enumerate(images)
+        ]
+        batch_parts.append({
+            "scene_idx": i,
+            "scene_text": scene_text,
+            "visual": visual,
+            "photos": photos,
+        })
+
+    prompt = (
+        "You are an image curator. Score images for MULTIPLE scenes in one response.\n\n"
+        "For each SCENE, return a list of scores. "
+        "Return JSON: { \"scene_0\": [{\"url\": \"...\", \"score\": 5}], \"scene_1\": [...] }\n\n"
+    )
+    for bp in batch_parts:
+        prompt += (
+            f"--- SCENE {bp['scene_idx']} ---\n"
+            f"Text: {bp['scene_text']}\n"
+            f"Visual: {bp['visual']}\n"
+            f"Images: {json.dumps(bp['photos'], ensure_ascii=False)}\n\n"
+        )
+
+    results = [[] for _ in scene_batches]
+    try:
+        resp = await achat_json(user_prompt=prompt)
+        for i in range(len(scene_batches)):
+            scene_scores = resp.get(f"scene_{i}", [])
+            if not isinstance(scene_scores, list):
+                scene_scores = []
+            results[i] = scene_scores
+    except Exception as e:
+        logger.error(f"score_images_batch error: {e}")
+
+    return results
 

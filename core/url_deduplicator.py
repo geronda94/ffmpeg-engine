@@ -45,10 +45,21 @@ class URLDeduplicator:
             json.dump(self._cache.get(channel, {}), f, ensure_ascii=False)
 
     @staticmethod
+    def _clean_url(url: str) -> str:
+        """Нормализует URL: убирает query-параметры, протокол, trailing slash."""
+        url = url.split("?")[0]          # убираем ?key=val...
+        url = url.split("#")[0]          # убираем #fragment
+        url = url.replace("https://", "").replace("http://", "")  # убираем протокол
+        url = url.lstrip("/")            # убираем // в начале (protocol-relative)
+        url = url.rstrip("/")            # убираем / в конце
+        return url
+
+    @staticmethod
     def _url_key(url: str) -> str:
-        """Хеш URL для ключа словаря."""
+        """Хеш URL для ключа словаря (без query-параметров)."""
         import hashlib
-        return hashlib.md5(url.encode()).hexdigest()[:12]
+        clean = URLDeduplicator._clean_url(url)
+        return hashlib.md5(clean.encode()).hexdigest()[:12]
 
     def is_used(self, url: str, channel: str, language: str = None) -> bool:
         """Проверяет, использовался ли URL в последние 4 дня."""

@@ -444,6 +444,75 @@ async def _perform_download(url: str) -> str | None:
     return None
 
 
+async def _individual_stock_fallback(
+    idx: int, scene: dict, results: list,
+    channel_profile_id: str, style_id: str, full_script: str,
+    rules: dict, selected_urls: set, search_source: str, proj_lang: str
+) -> str | None:
+    """Фоллбэк для одной сцены: перебирает 4 источника + SearXNG."""
+    import random
+    from ai.duckduckgo_search import search_images_ddg
+    queries = [scene.get("visual_description", "church building")]
+
+    for src_type, src_label in AUTO_FALLBACK_CHAIN:
+        try:
+            fallback = await asyncio.wait_for(
+                image_search_agent.search_images(queries, color=None, source_type=src_type),
+                timeout=25
+            )
+            if fallback:
+                random.shuffle(fallback)
+                scored = await score_images(fallback[:15],
+                    scene.get("text_segment", ""),
+                    scene.get("image_prompt") or scene.get("visual_description") or "",
+                    rules, search_source=src_type)
+                if scored and scored.get("scores"):
+                    sorted_s = sorted(scored["scores"], key=lambda x: x.get("score", 0), reverse=True)
+                    max_s = sorted_s[0].get("score", 0)
+                    if max_s >= 3:
+                        top = [x for x in sorted_s[:5] if x.get("score", 0) >= (max_s - 1 if max_s >= 7 else max_s)]
+                        random.shuffle(top)
+                        seen = {x.get("url") for x in top}
+                        rest = [x for x in sorted_s if x.get("url") not in seen and x.get("score", 0) >= 3]
+                        for img in top + rest:
+                            url = img.get("url", "")
+                            if not url or img.get("score", 0) < 3 or url in selected_urls:
+                                continue
+                            selected_urls.add(url)
+                            local = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
+                            if local:
+                                return local
+                            selected_urls.remove(url)
+        except Exception:
+            pass
+
+    # SearXNG ultra fallback
+    try:
+        fb_q = queries[0]
+        if channel_profile_id == "orthodox" and any(k in fb_q.lower() for k in ["икон", "свято", "богородиц", "старец"]):
+            fb_q = f"православная икона {fb_q}" if "икон" not in fb_q.lower() else fb_q
+        await asyncio.sleep(1.0)
+        web_results = await asyncio.to_thread(search_images_ddg, fb_q, max_results=10)
+        if web_results:
+            scored = await score_images(web_results[:10],
+                scene.get("text_segment", ""),
+                scene.get("image_prompt") or scene.get("visual_description") or "",
+                rules, search_source="web")
+            if scored and scored.get("scores"):
+                for img in sorted(scored["scores"], key=lambda x: x.get("score", 0), reverse=True):
+                    url = img.get("url", "")
+                    if not url or img.get("score", 0) < 3 or url in selected_urls:
+                        continue
+                    selected_urls.add(url)
+                    local = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
+                    if local:
+                        return local
+                    selected_urls.remove(url)
+    except Exception:
+        pass
+    return None
+
+
 async def _download_and_dedup(url: str, channel: str, scene_text: str = "", language: str = None) -> str | None:
     """Скачивает URL и помечает его в дедупликаторе."""
     local = await _download_best(url)
@@ -645,10 +714,11 @@ async def auto_pick_for_project(
         else:
             stock_queue.append(scene_data)
 
-    # 3. Асинхронный параллельный поиск по стокам (с семафором)
+    # 3. PHASE 1: Поиск по стокам (search+dedup, БЕЗ скоринга)
     sem = asyncio.Semaphore(5)
+    all_search_results: dict[int, dict] = {}  # {idx: {"images": [...], "scene_text": "...", "visual": "..."}}
 
-    async def process_stock_scene(data):
+    async def search_stock_scene(data):
         idx = data["idx"]
         scene = data["scene"]
         queries = data["queries"]
@@ -660,7 +730,6 @@ async def auto_pick_for_project(
                 f"🤖 **Подбор стоков**\n"
                 f"🔍 Сцена {idx+1}/{total}: {', '.join(queries[:2])}..."
             )
-
             stype = "all" if search_source == "stock" else search_source
             try:
                 results = await asyncio.wait_for(
@@ -671,13 +740,9 @@ async def auto_pick_for_project(
                 logger.error(f"Stock search error for scene {idx}: {ex}")
                 results = []
 
-            best_local = None
             if results:
                 import random
-                # Shuffle the search results to ensure high visual entropy across projects
                 random.shuffle(results)
-
-                # URL дедупликация (7 дней)
                 from core.url_deduplicator import deduplicator
                 before_dedup = len(results)
                 results = deduplicator.filter_results(results, channel_profile_id, language=proj_lang)
@@ -699,153 +764,92 @@ async def auto_pick_for_project(
                         except Exception:
                             results = []
 
-                scored = await score_images(
-                    results[:20], scene.get("text_segment", ""),
-                    scene.get("image_prompt") or scene.get("visual_description") or "",
-                    rules, search_source=search_source
-                )
-                if scored and scored.get("scores"):
-                    sorted_scores = sorted(scored["scores"], key=lambda x: x.get("score", 0), reverse=True)
-                    
-                    # Select from top-tier candidates randomly to avoid choosing the exact same image every run
-                    max_score = sorted_scores[0].get("score", 0)
-                    if max_score < 3:
-                        eval_order = []
-                    else:
-                        if max_score >= 7:
-                            top_candidates = [x for x in sorted_scores[:5] if x.get("score", 0) >= max_score - 1]
-                        else:
-                            top_candidates = [x for x in sorted_scores[:5] if x.get("score", 0) == max_score]
-                        
-                        random.shuffle(top_candidates)
-                        
-                        # Merge with remaining sorted scores as a safety fallback net
-                        seen_urls = {x.get("url") for x in top_candidates}
-                        remaining = [x for x in sorted_scores if x.get("url") not in seen_urls and x.get("score", 0) >= 3]
-                        eval_order = top_candidates + remaining
-
-                    for img_score in eval_order:
-                        url = img_score.get("url", "")
-                        if not url or img_score.get("score", 0) < 3:
-                            continue
-                        
-                        # Skip if URL was already selected for another scene in this run
-                        if url in selected_urls:
-                            logger.info(f"Avoiding duplicate image for scene {idx}: {url[:60]}")
-                            continue
-
-                        # Reserve immediately to prevent race conditions during concurrent downloads
-                        selected_urls.add(url)
-                        local_path = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
-                        if local_path:
-                            best_local = local_path
-                            break
-                        else:
-                            selected_urls.remove(url)
-
-            if not best_local:
-                # Fallback chain
-                for src_type, src_label in AUTO_FALLBACK_CHAIN:
-                    try:
-                        fallback = await asyncio.wait_for(
-                            image_search_agent.search_images(queries, color=None, source_type=src_type),
-                            timeout=25
-                        )
-                        if fallback:
-                            import random
-                            random.shuffle(fallback)
-                            scored = await score_images(
-                                fallback[:15], scene.get("text_segment", ""),
-                                scene.get("image_prompt") or scene.get("visual_description") or "",
-                                rules
-                            )
-                            if scored and scored.get("scores"):
-                                sorted_scores = sorted(scored["scores"], key=lambda x: x.get("score", 0), reverse=True)
-                                
-                                max_score = sorted_scores[0].get("score", 0)
-                                if max_score < 3:
-                                    eval_order = []
-                                else:
-                                    if max_score >= 7:
-                                        top_candidates = [x for x in sorted_scores[:5] if x.get("score", 0) >= max_score - 1]
-                                    else:
-                                        top_candidates = [x for x in sorted_scores[:5] if x.get("score", 0) == max_score]
-                                    
-                                    random.shuffle(top_candidates)
-                                    seen_urls = {x.get("url") for x in top_candidates}
-                                    remaining = [x for x in sorted_scores if x.get("url") not in seen_urls and x.get("score", 0) >= 3]
-                                    eval_order = top_candidates + remaining
-
-                                for img_score in eval_order:
-                                    url = img_score.get("url", "")
-                                    if not url or img_score.get("score", 0) < 3:
-                                        continue
-                                    
-                                    if url in selected_urls:
-                                        logger.info(f"Avoiding duplicate fallback image for scene {idx}: {url[:60]}")
-                                        continue
-
-                                    selected_urls.add(url)
-                                    local_path = await _download_and_dedup(url, channel_profile_id)
-                                    if local_path:
-                                        best_local = local_path
-                                        break
-                                    else:
-                                        selected_urls.remove(url)
-                        if best_local:
-                            break
-                    except Exception:
-                        pass
-
-            if not best_local:
-                logger.info(f"Scene {idx}: All stock platforms failed. Trying polite SearXNG fallback search...")
-                from ai.duckduckgo_search import search_images_ddg
-                try:
-                    fb_q = queries[0]
-                    if channel_profile_id == "orthodox" and any(k in fb_q.lower() for k in ["икон", "свято", "богородиц", "старец"]):
-                        fb_q = f"православная икона {fb_q}" if "икон" not in fb_q.lower() else fb_q
-                    
-                    await asyncio.sleep(1.0)  # Polite delay
-                    web_results = await asyncio.to_thread(search_images_ddg, fb_q, max_results=10)
-                    if web_results:
-                        scored = await score_images(
-                            web_results[:10], scene.get("text_segment", ""),
-                            scene.get("image_prompt") or scene.get("visual_description") or "",
-                            rules, search_source="web"
-                        )
-                        if scored and scored.get("scores"):
-                            sorted_scores = sorted(scored["scores"], key=lambda x: x.get("score", 0), reverse=True)
-                            for img_score in sorted_scores:
-                                url = img_score.get("url", "")
-                                if not url or img_score.get("score", 0) < 3:
-                                    continue
-                                if url in selected_urls:
-                                    continue
-                                selected_urls.add(url)
-                                local_path = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
-                                if local_path:
-                                    best_local = local_path
-                                    logger.info(f"✅ Scene {idx+1}/{total} stock pick OK via SearXNG fallback: {best_local}")
-                                    break
-                                else:
-                                    selected_urls.remove(url)
-                except Exception as ex:
-                    logger.error(f"SearXNG fallback error for stock scene {idx}: {ex}")
-
-            if best_local:
-                logger.info(f"✅ Scene {idx+1}/{total} stock pick OK: {best_local}")
-            else:
-                logger.warning(f"❌ Scene {idx+1}/{total} stock pick FAILED")
-            return idx, best_local
+            # Сохраняем для батч-скоринга
+            if results:
+                all_search_results[idx] = {
+                    "images": results[:20],
+                    "scene_text": scene.get("text_segment", ""),
+                    "visual": scene.get("image_prompt") or scene.get("visual_description") or "",
+                    "search_source": search_source,
+                    "scene": scene,
+                }
+            return idx, all_search_results.get(idx)
 
     if stock_queue:
-        logger.info(f"Starting stock parallel queue: {len(stock_queue)} scenes")
-        stock_results = await asyncio.gather(*(process_stock_scene(data) for data in stock_queue))
-        for idx, best_local in stock_results:
-            if best_local:
-                pm.update_asset(project_id, idx, best_local)
+        logger.info(f"Stage 1: stock parallel SEARCH ({len(stock_queue)} scenes)")
+        await asyncio.gather(*(search_stock_scene(data) for data in stock_queue))
 
-    # 4. Последовательный поиск по DuckDuckGo
+    logger.info(f"Stage 1 complete: stock results collected for {len(all_search_results)} scenes")
+
+    # ── PHASE 2: Батч-скоринг сток-результатов ──
+    if all_search_results:
+        from ai.image_scoring_agent import score_images_batch
+        batch_items = list(all_search_results.values())
+        batch_scores: dict[int, list] = {}
+        for chunk_start in range(0, len(batch_items), 5):
+            chunk = batch_items[chunk_start:chunk_start + 5]
+            chunk_indices = [next(k for k, v in all_search_results.items() if v is item) for item in chunk]
+            try:
+                scored_list = await score_images_batch(chunk, rules, search_source=chunk[0].get("search_source", "stock"))
+                for ci, scores in zip(chunk_indices, scored_list):
+                    batch_scores[ci] = scores
+            except Exception as e:
+                logger.error(f"Batch scoring failed for chunk {chunk_start}: {e}")
+
+    # ── PHASE 3: Скачивание лучших изображений для сток-сцен ──
+    async def download_best_for_scene(idx, scene, scored_list, selected_urls, search_source="stock"):
+        best_local = None
+        if scored_list:
+            sorted_scores = sorted(scored_list, key=lambda x: x.get("score", 0), reverse=True)
+            max_score = sorted_scores[0].get("score", 0)
+            if max_score >= 3:
+                if max_score >= 7:
+                    top = [x for x in sorted_scores[:5] if x.get("score", 0) >= max_score - 1]
+                else:
+                    top = [x for x in sorted_scores[:5] if x.get("score", 0) == max_score]
+                import random
+                random.shuffle(top)
+                seen = {x.get("url") for x in top}
+                rest = [x for x in sorted_scores if x.get("url") not in seen and x.get("score", 0) >= 3]
+                eval_order = top + rest
+                for img_score in eval_order:
+                    url = img_score.get("url", "")
+                    if not url or img_score.get("score", 0) < 3:
+                        continue
+                    if url in selected_urls:
+                        continue
+                    selected_urls.add(url)
+                    local_path = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
+                    if local_path:
+                        best_local = local_path
+                        break
+                    else:
+                        selected_urls.remove(url)
+
+        if not best_local:
+            best_local = await _individual_stock_fallback(
+                idx, scene, all_search_results.get(idx, {}).get("images", []),
+                channel_profile_id, style_id, full_script, rules, selected_urls, search_source, proj_lang
+            )
+
+        if best_local:
+            pm.update_asset(project_id, idx, best_local)
+            logger.info(f"✅ Scene {idx+1}/{total} stock pick OK: {best_local}")
+        else:
+            logger.warning(f"❌ Scene {idx+1}/{total} stock pick FAILED")
+        return best_local
+
+    if all_search_results:
+        logger.info(f"Stage 2/3: stock download ({len(all_search_results)} scenes)")
+        for scene_idx, sr in all_search_results.items():
+            scores = batch_scores.get(scene_idx, [])
+            await download_best_for_scene(
+                scene_idx, sr["scene"], scores, selected_urls,
+                search_source=sr.get("search_source", "stock")
+            )
+
+    # 4. PHASE 1: Последовательный ПОИСК DuckDuckGo (БЕЗ скоринга)
+    ddg_search_results: dict[int, dict] = {}
     for data in ddg_queue:
         idx = data["idx"]
         scene = data["scene"]
@@ -879,27 +883,23 @@ async def auto_pick_for_project(
                         ddg_q = f"orthodox icon {q}" if "icon" not in q_low else q
                 else:
                     ddg_q = q
-                # Fetch more results to increase chances of finding a good image in 1 request
-                await asyncio.sleep(1.0)  # Пауза против бана по IP
+                await asyncio.sleep(1.0)
                 q_results = await asyncio.to_thread(search_images_ddg, ddg_q, max_results=20)
                 if q_results:
                     results.extend(q_results)
-                    break # Stop if we found results for this query
+                    break
             except Exception as ex:
                 logger.error(f"SearXNG search error for scene {idx}, query '{q}': {ex}")
 
-        best_local = None
         if results:
             import random
             random.shuffle(results)
-
-            # URL дедупликация (7 дней)
             from core.url_deduplicator import deduplicator
             before_dedup = len(results)
             results = deduplicator.filter_results(results, channel_profile_id, language=proj_lang)
             if before_dedup > len(results):
                 logger.info(f"Scene {idx}: SearXNG dedup {before_dedup} → {len(results)}")
-            
+
             is_reformulated = False
             if not results:
                 from ai.duckduckgo_search import reformulate_query_ai
@@ -913,7 +913,6 @@ async def auto_pick_for_project(
                     for q in queries:
                         if search_source == "icon":
                             q_low = q.lower()
-                            abstract_words = ["рука", "силуэт", "свеча", "храм", "церковь", "купол", "небо", "ребенок", "книга", "библия", "вода", "огонь", "крест", "окно", "hand", "silhouette", "candle", "temple", "church", "dome", "sky", "child", "book", "bible", "water", "fire", "cross", "window"]
                             if any(aw in q_low for aw in abstract_words):
                                 new_ddg_q = q
                             elif channel_profile_id == "orthodox":
@@ -923,7 +922,7 @@ async def auto_pick_for_project(
                         else:
                             new_ddg_q = q
                         try:
-                            await asyncio.sleep(1.0)  # Пауза против бана по IP
+                            await asyncio.sleep(1.0)
                             results = await asyncio.to_thread(search_images_ddg, new_ddg_q, max_results=20)
                             if results: break
                         except Exception:
@@ -931,39 +930,54 @@ async def auto_pick_for_project(
 
             visual_desc = scene.get("image_prompt") or scene.get("visual_description") or ""
             if is_reformulated and queries:
-                visual_desc = f"Symbolic fallback representation: {queries[0]}. original context: {visual_desc}"
+                visual_desc = f"Symbolic fallback: {queries[0]}"
 
-            scored = await score_images(
-                results[:20], scene.get("text_segment", ""),
-                visual_desc,
-                rules, search_source=search_source
-            )
-            if scored and scored.get("scores"):
-                sorted_scores = sorted(scored["scores"], key=lambda x: x.get("score", 0), reverse=True)
-                
-                max_score = sorted_scores[0].get("score", 0)
-                if max_score < 3:
-                    eval_order = []
+            ddg_search_results[idx] = {
+                "images": results[:20],
+                "scene_text": scene.get("text_segment", ""),
+                "visual": visual_desc,
+                "search_source": search_source,
+                "scene": scene,
+                "queries": queries,
+            }
+        await asyncio.sleep(1.0)
+
+    # ── PHASE 2: Батч-скоринг DDG-результатов ──
+    if ddg_search_results:
+        from ai.image_scoring_agent import score_images_batch
+        ddg_items = list(ddg_search_results.values())
+        ddg_batch_scores: dict[int, list] = {}
+        for chunk_start in range(0, len(ddg_items), 5):
+            chunk = ddg_items[chunk_start:chunk_start + 5]
+            chunk_indices = [next(k for k, v in ddg_search_results.items() if v is item) for item in chunk]
+            try:
+                scored_list = await score_images_batch(chunk, rules, search_source=chunk[0].get("search_source", "web"))
+                for ci, scores in zip(chunk_indices, scored_list):
+                    ddg_batch_scores[ci] = scores
+            except Exception as e:
+                logger.error(f"DDG batch scoring failed for chunk {chunk_start}: {e}")
+
+    # ── PHASE 3: Скачивание лучших DDG изображений ──
+    for idx, sr in ddg_search_results.items():
+        scene = sr["scene"]
+        scores = ddg_batch_scores.get(idx, [])
+        best_local = None
+        if scores:
+            import random
+            sorted_scores = sorted(scores, key=lambda x: x.get("score", 0), reverse=True)
+            max_score = sorted_scores[0].get("score", 0)
+            if max_score >= 3:
+                if max_score >= 7:
+                    top = [x for x in sorted_scores[:5] if x.get("score", 0) >= max_score - 1]
                 else:
-                    if max_score >= 7:
-                        top_candidates = [x for x in sorted_scores[:5] if x.get("score", 0) >= max_score - 1]
-                    else:
-                        top_candidates = [x for x in sorted_scores[:5] if x.get("score", 0) == max_score]
-                    
-                    random.shuffle(top_candidates)
-                    seen_urls = {x.get("url") for x in top_candidates}
-                    remaining = [x for x in sorted_scores if x.get("url") not in seen_urls and x.get("score", 0) >= 3]
-                    eval_order = top_candidates + remaining
-
-                for img_score in eval_order:
+                    top = [x for x in sorted_scores[:5] if x.get("score", 0) == max_score]
+                random.shuffle(top)
+                seen = {x.get("url") for x in top}
+                rest = [x for x in sorted_scores if x.get("url") not in seen and x.get("score", 0) >= 3]
+                for img_score in top + rest:
                     url = img_score.get("url", "")
-                    if not url or img_score.get("score", 0) < 3:
+                    if not url or img_score.get("score", 0) < 3 or url in selected_urls:
                         continue
-                    
-                    if url in selected_urls:
-                        logger.info(f"Avoiding duplicate SearXNG image for scene {idx}: {url[:60]}")
-                        continue
-
                     selected_urls.add(url)
                     local_path = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
                     if local_path:
@@ -974,97 +988,68 @@ async def auto_pick_for_project(
                         selected_urls.remove(url)
 
         if not best_local:
-            logger.info(f"⚠️ SearXNG pick failed for scene {idx+1}, triggering fallbacks...")
-            
-            if channel_profile_id in ("orthodox", "news"):
-                import random
-                pool = CHANNEL_FALLBACK_POOLS.get(channel_profile_id, [])
-                if pool:
-                    fb_q = random.choice(pool)
-                    await _safe_edit(status_msg, f"🤖 **Фоллбэк (safe Web/SearXNG)**\n🔍 Сцена {idx+1}/{total}: {fb_q}...")
-                    from ai.duckduckgo_search import search_images_ddg
-                    try:
-                        await asyncio.sleep(1.0)  # Пауза против бана по IP
-                        fb_results = await asyncio.to_thread(search_images_ddg, fb_q, max_results=15)
-                        if fb_results:
-                            fb_q_text = f"Channel background: {fb_q}"
-                            scored = await score_images(fb_results[:15], fb_q_text, fb_q_text, rules, search_source="web")
-                            if scored and scored.get("scores"):
-                                sorted_scores = sorted(scored["scores"], key=lambda x: x.get("score", 0), reverse=True)
-                                for img_score in sorted_scores[:5]:
-                                    url = img_score.get("url", "")
-                                    if not url or img_score.get("score", 0) < 3 or url in selected_urls:
-                                        continue
-                                    selected_urls.add(url)
-                                    local_path = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
-                                    if local_path:
-                                        pm.update_asset(project_id, idx, local_path)
-                                        best_local = local_path
-                                        await _safe_edit(status_msg, f"🤖 **Сцена {idx+1}/{total}** — 🛡️ Безопасный фон канала")
-                                        break
-                                    else:
-                                        selected_urls.remove(url)
-                    except Exception as e:
-                        logger.error(f"SearXNG fallback error: {e}")
-                        
+            # Индивидуальный фоллбэк для сцены
+            import random
+            if channel_profile_id in CHANNEL_FALLBACK_POOLS:
+                fb_q = random.choice(CHANNEL_FALLBACK_POOLS[channel_profile_id])
+                from ai.duckduckgo_search import search_images_ddg
+                try:
+                    await asyncio.sleep(1.0)
+                    fb_results = await asyncio.to_thread(search_images_ddg, fb_q, max_results=15)
+                    if fb_results:
+                        scored = await score_images(fb_results[:15], fb_q, fb_q, rules, search_source="web")
+                        if scored and scored.get("scores"):
+                            for img in sorted(scored["scores"], key=lambda x: x.get("score", 0), reverse=True):
+                                url = img.get("url", "")
+                                if not url or img.get("score", 0) < 3 or url in selected_urls:
+                                    continue
+                                selected_urls.add(url)
+                                local = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
+                                if local:
+                                    pm.update_asset(project_id, idx, local)
+                                    best_local = local
+                                    break
+                                else:
+                                    selected_urls.remove(url)
+                except Exception as e:
+                    logger.error(f"DDG channel fallback error for scene {idx}: {e}")
+
             if not best_local:
-                await _safe_edit(status_msg, f"🤖 **Фоллбэк на стоки**\n🔍 Сцена {idx+1}/{total}...")
                 for src_type, src_label in AUTO_FALLBACK_CHAIN:
                     try:
-                        if channel_profile_id in CHANNEL_FALLBACK_POOLS:
-                            fallback_queries = CHANNEL_FALLBACK_POOLS[channel_profile_id]
-                        else:
-                            fallback_queries = queries[1:] if len(queries) > 1 else queries
-                            
+                        fb_qs = sr.get("queries", [])[1:] or sr.get("queries", [chr(ord('a'))])
                         fallback = await asyncio.wait_for(
-                            image_search_agent.search_images(fallback_queries, color=color, source_type=src_type),
+                            image_search_agent.search_images(fb_qs, color=None, source_type=src_type),
                             timeout=25
                         )
                         if fallback:
-                            import random
                             random.shuffle(fallback)
-                            scored = await score_images(
-                                fallback[:15], scene.get("text_segment", ""),
+                            scored = await score_images(fallback[:15],
+                                scene.get("text_segment", ""),
                                 scene.get("image_prompt") or scene.get("visual_description") or "",
-                                rules
-                            )
+                                rules, search_source=src_type)
                             if scored and scored.get("scores"):
-                                sorted_scores = sorted(scored["scores"], key=lambda x: x.get("score", 0), reverse=True)
-                                max_score = sorted_scores[0].get("score", 0)
-                                if max_score >= 3:
-                                    if max_score >= 7:
-                                        top_candidates = [x for x in sorted_scores[:5] if x.get("score", 0) >= max_score - 1]
+                                for img in sorted(scored["scores"], key=lambda x: x.get("score", 0), reverse=True):
+                                    url = img.get("url", "")
+                                    if not url or img.get("score", 0) < 3 or url in selected_urls:
+                                        continue
+                                    selected_urls.add(url)
+                                    local = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
+                                    if local:
+                                        pm.update_asset(project_id, idx, local)
+                                        best_local = local
+                                        break
                                     else:
-                                        top_candidates = [x for x in sorted_scores[:5] if x.get("score", 0) == max_score]
-                                    random.shuffle(top_candidates)
-                                    seen_urls = {x.get("url") for x in top_candidates}
-                                    remaining = [x for x in sorted_scores if x.get("url") not in seen_urls and x.get("score", 0) >= 3]
-                                    eval_order = top_candidates + remaining
-                                    for img_score in eval_order:
-                                        url = img_score.get("url", "")
-                                        if not url or img_score.get("score", 0) < 3 or url in selected_urls:
-                                            continue
-                                        selected_urls.add(url)
-                                        local_path = await _download_and_dedup(url, channel_profile_id, language=proj_lang)
-                                        if local_path:
-                                            pm.update_asset(project_id, idx, local_path)
-                                            best_local = local_path
-                                            await _safe_edit(status_msg, f"🤖 **Сцена {idx+1}/{total}** — ⚠️ {src_label} (фоллбэк)")
-                                            break
-                                        else:
-                                            selected_urls.remove(url)
-                        if best_local:
-                            break
+                                        selected_urls.remove(url)
                     except Exception:
                         pass
+                    if best_local:
+                        break
 
         if best_local:
             logger.info(f"✅ Scene {idx+1}/{total} SearXNG/fallback pick OK: {best_local}")
         else:
             logger.warning(f"❌ Scene {idx+1}/{total} SearXNG pick FAILED completely")
-
-        # Вежливая пауза
-        await asyncio.sleep(1.0)
 
     # Загружаем актуальное состояние проекта
     proj_final = pm.load_project(project_id) or {}

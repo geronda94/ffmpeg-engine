@@ -7,9 +7,16 @@ import re
 from pathlib import Path
 from dotenv import load_dotenv
 
+import hashlib
+
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 logger = logging.getLogger(__name__)
+
+_OPT_CACHE: dict[str, tuple[list[str], str | None, str]] = {}
+
+def _opt_cache_key(visual: str, spoken: str, style: str) -> str:
+    return hashlib.md5(f"{visual[:100]}|{spoken[:100]}|{style}".encode()).hexdigest()[:16]
 
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
 PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY")
@@ -106,6 +113,28 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
                 narrative_block += f"  NEXT SCENE: \"{next_scene[:150]}\"\n"
             narrative_block += "\n"
 
+        # ── Слой 1: Knowledge base (0 LLM) ──
+        from core.query_knowledge import query_knowledge
+        search_text = (visual_description + " " + scene_text)[:400].lower()
+        _style_channel_map = {"spiritual_direct": "orthodox", "spiritual_conflict": "orthodox",
+                              "orthodox": "orthodox", "it_b2b_architect": "tech_business",
+                              "news_broadcast": "news", "lifestyle_aesthetic": "lifestyle"}
+        channel_name = _style_channel_map.get(style_id, "educational")
+        kb_entity = query_knowledge.match_entity(search_text, channel_name)
+        if kb_entity:
+            logger.info(f"✅ KB HIT: entity={kb_entity['key']}, source={kb_entity.get('source')}, channel={channel_name}")
+            q_copy = list(kb_entity["queries"])
+            random.shuffle(q_copy)
+            return q_copy[:10], kb_entity.get("color"), kb_entity.get("source", "stock")
+        else:
+            logger.info(f"❌ KB MISS: channel={channel_name}, search_text_snippet={search_text[:100]}")
+
+        # ── Слой 2: In-memory кеш ──
+        cache_key = _opt_cache_key(visual_description, scene_text, style_id)
+        cached = _OPT_CACHE.get(cache_key)
+        if cached:
+            return cached[0], cached[1], cached[2]
+
         script_block = ""
         if script:
             script_block = f"FULL VIDEO SCRIPT CONTEXT:\n{script[:600]}\n\n"
@@ -190,6 +219,19 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
             k_list = [f"documentary photo {q}" if "photo" not in q.lower() else q for q in k_list]
 
         logger.info(f"AI Search Optimization: queries={k_list}, color={c_val}, source={source_val}")
+        _OPT_CACHE[cache_key] = (k_list, c_val, source_val)
+
+        # Сохраняем новую сущность в knowledge base для будущих запросов
+        try:
+            await query_knowledge.create_entity_template(
+                k_list, source_val, c_val,
+                visual_description[:200] + " " + scene_text[:200],
+                channel_name
+            )
+        except Exception as e:
+            # Для абстрактных сцен (природа, листья и т.п.) нормально — не всё становится сущностью
+            pass
+
         return k_list, c_val, source_val
 
     except Exception as e:

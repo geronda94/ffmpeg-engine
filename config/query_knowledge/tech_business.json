@@ -1,0 +1,356 @@
+{
+  "server_data_center": {
+    "aliases": [
+      "сервер",
+      "сервера",
+      "серверной",
+      "дата-центр",
+      "дата центр",
+      "облако",
+      "облачные технологии",
+      "server",
+      "data center",
+      "cloud",
+      "hosting",
+      "infrastructure"
+    ],
+    "queries": [
+      "server rack data center",
+      "server room blue lights",
+      "cloud computing server",
+      "data center storage",
+      "server hardware technology"
+    ],
+    "source": "stock",
+    "color": "blue",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "code_programming": {
+    "aliases": [
+      "код",
+      "программирование",
+      "программист",
+      "разработка",
+      "coding",
+      "programming",
+      "developer",
+      "software",
+      "code",
+      "programmer",
+      "python",
+      "javascript",
+      "react",
+      "docker",
+      "kubernetes"
+    ],
+    "queries": [
+      "code programming screen",
+      "developer coding monitor",
+      "programming code dark mode",
+      "software developer workspace",
+      "computer code syntax"
+    ],
+    "source": "stock",
+    "color": "blue",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "abstract",
+        "art"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "dashboard_analytics": {
+    "aliases": [
+      "дашборд",
+      "аналитика",
+      "график",
+      "диаграмма",
+      "статистика",
+      "отчет",
+      "анализ данных",
+      "dashboard",
+      "analytics",
+      "chart",
+      "graph",
+      "stats",
+      "report",
+      "data analysis"
+    ],
+    "queries": [
+      "digital dashboard analytics",
+      "business analytics chart graph",
+      "data visualization dashboard",
+      "finance chart growth",
+      "statistics graph monitor"
+    ],
+    "source": "stock",
+    "color": "blue",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "ui-kit",
+        "wireframe",
+        "mockup",
+        "template"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "startup_business": {
+    "aliases": [
+      "стартап",
+      "бизнес",
+      "офис",
+      "офиса",
+      "совещание",
+      "команда",
+      "предприниматель",
+      "startup",
+      "business",
+      "office",
+      "meeting",
+      "team",
+      "entrepreneur",
+      "coworking",
+      "workspace"
+    ],
+    "queries": [
+      "startup office modern",
+      "team meeting brainstorming",
+      "coworking space creative",
+      "business meeting conference",
+      "entrepreneur startup workspace"
+    ],
+    "source": "stock",
+    "color": "teal",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "fashion",
+        "glamour"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "cybersecurity": {
+    "aliases": [
+      "кибербезопасность",
+      "информационная безопасность",
+      "защита данных",
+      "хакер",
+      "шифрование",
+      "безопасность",
+      "cybersecurity",
+      "hacker",
+      "encryption",
+      "firewall",
+      "security",
+      "cyber attack"
+    ],
+    "queries": [
+      "cybersecurity firewall digital",
+      "hacker cyber attack screen",
+      "data protection encryption",
+      "cyber security lock",
+      "network security technology"
+    ],
+    "source": "stock",
+    "color": "blue",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "movie",
+        "gaming"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "ai_technology": {
+    "aliases": [
+      "искусственный интеллект",
+      "ии",
+      "нейросеть",
+      "машинное обучение",
+      "робот",
+      "автоматизация",
+      "ai",
+      "artificial intelligence",
+      "machine learning",
+      "robot",
+      "automation",
+      "neural network"
+    ],
+    "queries": [
+      "artificial intelligence brain",
+      "neural network digital",
+      "robot futuristic technology",
+      "ai machine learning",
+      "automation robot industry"
+    ],
+    "source": "stock",
+    "color": "purple",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "toy",
+        "cartoon",
+        "fiction"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "fintech_crypto": {
+    "aliases": [
+      "финансы",
+      "финтех",
+      "криптовалюта",
+      "биткоин",
+      "блокчейн",
+      "инвестиции",
+      "банк",
+      "finance",
+      "fintech",
+      "cryptocurrency",
+      "bitcoin",
+      "blockchain",
+      "investment",
+      "banking",
+      "trading"
+    ],
+    "queries": [
+      "cryptocurrency bitcoin digital",
+      "finance stock market chart",
+      "blockchain technology network",
+      "banking finance future",
+      "trading crypto chart"
+    ],
+    "source": "stock",
+    "color": "gold",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "hardware_circuit": {
+    "aliases": [
+      "процессор",
+      "микросхема",
+      "микрочип",
+      "плата",
+      "электроника",
+      "hardware",
+      "circuit board",
+      "cpu",
+      "chip",
+      "microchip",
+      "electronics",
+      "processor"
+    ],
+    "queries": [
+      "cpu processor chip closeup",
+      "circuit board electronic macro",
+      "microchip technology hardware",
+      "computer motherboard circuit",
+      "hardware electronics macro"
+    ],
+    "source": "stock",
+    "color": "blue",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "art",
+        "abstract"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "network_connectivity": {
+    "aliases": [
+      "сеть",
+      "интернет",
+      "связь",
+      "соединение",
+      "беспроводной",
+      "5g",
+      "wifi",
+      "network",
+      "internet",
+      "connectivity",
+      "wireless",
+      "communication",
+      "signal"
+    ],
+    "queries": [
+      "network connection digital",
+      "internet global connectivity",
+      "5g wireless technology",
+      "network servers communication",
+      "digital world network"
+    ],
+    "source": "stock",
+    "color": "blue",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [
+        "fantasy"
+      ],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  },
+  "presentation_meeting": {
+    "aliases": [
+      "презентация",
+      "выступление",
+      "переговоры",
+      "конференция",
+      "питч",
+      "presentation",
+      "pitch",
+      "boardroom",
+      "meeting conference",
+      "keynote",
+      "speaker"
+    ],
+    "queries": [
+      "business presentation pitch",
+      "boardroom executive meeting",
+      "conference speaker stage",
+      "business pitch presentation",
+      "meeting conference room"
+    ],
+    "source": "stock",
+    "color": "teal",
+    "filters": {
+      "exclude_url": [],
+      "exclude_tags": [],
+      "require_tags": []
+    },
+    "created_by": "human",
+    "created_at": "2026-05-20"
+  }
+}
