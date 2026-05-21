@@ -125,6 +125,23 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
             logger.info(f"✅ KB HIT: entity={kb_entity['key']}, source={kb_entity.get('source')}, channel={channel_name}")
             q_copy = list(kb_entity["queries"])
             random.shuffle(q_copy)
+
+            # ── Контекстная инъекция (все каналы, 0 LLM) ──
+            ctx_text = (visual_description + " " + scene_text).lower()
+            _NOISE = {"cinematic", "asceticism", "macro", "shot", "close-up",
+                      "slow", "camera", "style", "high", "contrast", "warm",
+                      "shadows", "color", "background", "texture", "light",
+                      "gold", "charcoal", "parchment", "dark", "golden", "brown",
+                      "black", "white", "red", "blue", "scene", "view", "lens",
+                      "focus", "shallow", "aerial", "silhouette", "mood",
+                      "#c9a84c", "#121212", "#e5d3b3"}
+            meaningful = [w for w in ctx_text.split()
+                          if len(w) > 3 and w not in _NOISE and w.isalpha()]
+            if meaningful:
+                keywords = sorted(set(meaningful), key=len, reverse=True)[:2]
+                if len(q_copy) > 1:
+                    q_copy[1] = f"{q_copy[1]} {' '.join(keywords)}"
+
             return q_copy[:10], kb_entity.get("color"), kb_entity.get("source", "stock")
         else:
             logger.info(f"❌ KB MISS: channel={channel_name}, search_text_snippet={search_text[:100]}")
