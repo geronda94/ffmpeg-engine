@@ -132,15 +132,49 @@ class QueryKnowledge:
         Генерирует entity_key и сохраняет. Возвращает entity_key или None."""
         from ai.llm_client import achat_json
 
+        # Загружаем базовые фильтры канала из channel_context.json
+        base_exclude_url = []
+        base_exclude_tags = []
+        base_require_tags = []
+        base_source = source
+        try:
+            from core.config_loader import get_channel_profile
+            prof = get_channel_profile(channel)
+            visual_rules = prof.get("visual_rules", {})
+            banned = visual_rules.get("banned_keywords", [])
+            base_exclude_tags = [b.lower() for b in banned if len(b) > 2]
+            preferred = visual_rules.get("preferred_keywords", [])
+            base_require_tags = [p.lower() for p in preferred if len(p) > 2]
+            # Orthodox: всегда icon для иконных сущностей
+            if channel == "orthodox" and source == "icon":
+                base_source = "icon"
+            elif channel == "orthodox":
+                base_source = "icon"  # дефолт для православия — иконы
+        except Exception:
+            pass
+
         prompt = (
             f"Generate an entity template for an Orthodox image search knowledge base.\n\n"
             f"Scene text: {scene_text[:300]}\n"
             f"Auto-generated queries: {queries}\n"
             f"Source: {source}, Color: {color}\n\n"
+            f"STRICT RULES:\n"
+            f"1. ONLY create an entity if this scene mentions a SPECIFIC Orthodox subject "
+            f"(a named saint, holiday, icon type, or religious symbol).\n"
+            f"2. DO NOT create entities for generic cinematic descriptions "
+            f"(\"macro shot of...\", \"close-up of...\", \"cinematic asceticism\").\n"
+            f"3. DO NOT create entities for abstract concepts that are not specifically Orthodox.\n"
+            f"4. If the scene is NOT about a named Orthodox subject → return: {{\"skip\": true}}\n"
+            f"5. Always include these in exclude_tags: [\"woman\", \"girl\", \"model\", "
+            f"\"portrait\", \"face\", \"person\", \"man\", \"people\", \"celebrity\", "
+            f"\"fashion\", \"glamour\"].\n"
+            f"6. Set source=\"icon\" for saint/icon entities, source=\"stock\" only for "
+            f"general religious symbols (church, candle, cross, bible).\n\n"
             f"Return JSON:\n"
             f"{{\n"
+            f"  \"skip\": true,   // ← set this if NOT a real Orthodox entity\n"
             f"  \"entity_key\": \"unique_slug_english\",\n"
-            f"  \"aliases\": [\"all morfological forms of the main saint/entity name in russian\"],\n"
+            f"  \"aliases\": [\"all morphological forms of the main saint/entity name in Russian\"],\n"
             f"  \"exclude_url\": [\"keywords to exclude from URL\"],\n"
             f"  \"exclude_tags\": [\"keywords to exclude from tags\"],\n"
             f"  \"require_tags\": [\"tags that must be present\"]\n"
@@ -149,20 +183,29 @@ class QueryKnowledge:
 
         try:
             result = await achat_json(user_prompt=prompt)
+            if result.get("skip") == True:
+                return None
             entity_key = result.get("entity_key", "").strip()
             if not entity_key:
                 return None
 
+            # Мёржим базовые фильтры канала с LLM-сгенерированными
+            llm_exclude_url = result.get("exclude_url", [])
+            llm_exclude_tags = result.get("exclude_tags", [])
+            llm_require_tags = result.get("require_tags", [])
+
+            filters = {
+                "exclude_url": list(set(llm_exclude_url + base_exclude_url)),
+                "exclude_tags": list(set(llm_exclude_tags + base_exclude_tags)),
+                "require_tags": list(set(llm_require_tags + base_require_tags)),
+            }
+
             self.create_entity(channel, entity_key, {
                 "aliases": result.get("aliases", []),
                 "queries": queries,
-                "source": source,
+                "source": base_source,
                 "color": color,
-                "filters": {
-                    "exclude_url": result.get("exclude_url", []),
-                    "exclude_tags": result.get("exclude_tags", []),
-                    "require_tags": result.get("require_tags", []),
-                },
+                "filters": filters,
             })
             return entity_key
         except Exception as e:

@@ -479,6 +479,38 @@ def _make_auto_callback(channel_name: str):
                 logger.info(f"Auto callback: video sent to topic {topic_id}")
             except Exception as e:
                 logger.error(f"Send to topic {topic_id}: {e}")
+                # Сохраняем информацию о неудачной отправке
+                try:
+                    proj = pm.load_project(project_id)
+                    proj['send_failed'] = {
+                        "video_path": video_path,
+                        "topic_id": topic_id,
+                        "chat_id": chat_id,
+                        "channel": channel_name,
+                        "error": str(e)[:200],
+                        "failed_at": __import__('time').time(),
+                        "caption": caption[:1024],
+                    }
+                    pm.save_project(project_id, proj)
+                except Exception:
+                    pass
+                # Уведомляем пользователя в ЛС
+                try:
+                    from aiogram.utils.keyboard import InlineKeyboardBuilder
+                    kb = InlineKeyboardBuilder()
+                    kb.button(text="📤 Повторить отправку", callback_data=f"resend_video:{project_id}")
+                    source_chat_id = pipe.get('source_chat_id', proj.get('user_id'))
+                    await bot.send_message(
+                        chat_id=source_chat_id if source_chat_id else proj.get('user_id'),
+                        text=f"⚠️ **Не удалось отправить видео**\n\n"
+                             f"Проект: `{project_id}`\n"
+                             f"Топик: `{topic_id}`\n"
+                             f"Ошибка: `{str(e)[:200]}`\n\n"
+                             f"Нажми кнопку чтобы повторить отправку:",
+                        reply_markup=kb.as_markup(),
+                    )
+                except Exception as notify_err:
+                    logger.warning(f"Failed to notify user about send failure: {notify_err}")
 
         # Удаляем сжатый файл после отправки
         if compressed_path and os.path.exists(compressed_path):
@@ -875,3 +907,42 @@ async def cmd_rebuild_last(message: types.Message, state: FSMContext = None):
     if state:
         await state.clear()
     await rebuild_last_project(message)
+
+
+@router.callback_query(F.data.startswith("resend_video:"))
+async def callback_resend_video(callback: types.CallbackQuery):
+    """Повторная отправка видео после неудачной попытки."""
+    await callback.answer()
+    project_id = callback.data.split(":", 1)[1]
+    proj = pm.load_project(project_id)
+    if not proj:
+        await callback.message.answer("❌ Проект не найден.")
+        return
+    fail = proj.get('send_failed')
+    if not fail:
+        await callback.message.answer("✅ Видео уже отправлено, ошибок нет.")
+        return
+    video_path = fail.get('video_path')
+    if not video_path or not os.path.exists(video_path):
+        await callback.message.answer(f"❌ Файл видео не найден на диске: `{video_path}`")
+        return
+    bot = task_manager.bot
+    if not bot:
+        await callback.message.answer("❌ Бот не инициализирован.")
+        return
+    try:
+        from aiogram.types import FSInputFile
+        await bot.send_video(
+            chat_id=fail.get('chat_id'),
+            video=FSInputFile(video_path),
+            caption=fail.get('caption', '✅ Повторная отправка'),
+            parse_mode="Markdown",
+            message_thread_id=fail.get('topic_id'),
+            request_timeout=600,
+        )
+        proj.pop('send_failed', None)
+        pm.save_project(project_id, proj)
+        await callback.message.answer(f"✅ Видео `{project_id}` повторно отправлено в топик `{fail.get('topic_id')}`.")
+    except Exception as e:
+        logger.error(f"Resend failed for {project_id}: {e}")
+        await callback.message.answer(f"❌ Повторная отправка не удалась: {e}")

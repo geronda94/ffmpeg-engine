@@ -221,16 +221,29 @@ async def optimize_query_ai(visual_description: str, scene_text: str = "", style
         logger.info(f"AI Search Optimization: queries={k_list}, color={c_val}, source={source_val}")
         _OPT_CACHE[cache_key] = (k_list, c_val, source_val)
 
-        # Сохраняем новую сущность в knowledge base для будущих запросов
-        try:
-            await query_knowledge.create_entity_template(
-                k_list, source_val, c_val,
-                visual_description[:200] + " " + scene_text[:200],
-                channel_name
-            )
-        except Exception as e:
-            # Для абстрактных сцен (природа, листья и т.п.) нормально — не всё становится сущностью
-            pass
+        # Сохраняем новую сущность в knowledge base ТОЛЬКО если есть православный контекст
+        if channel_name == "orthodox":
+            _ORTHODOX_CONTEXT_MARKERS = [
+                "икона", "иконы", "святой", "святая", "святитель", "святые", "святых",
+                "храм", "храма", "церковь", "собор", "монастырь", "монастыря", "лавра", "обитель",
+                "крест", "креста", "распятие", "голгофа", "евангелие", "библия", "молитва",
+                "богородица", "христос", "христа", "спаситель", "спасителя", "господь",
+                "ангел", "архангел", "православие", "православный", "духовный", "духовная",
+                "апостол", "апостолы", "апостолов", "преподобный", "преподобного",
+                "icon", "saint", "orthodox", "christ", "jesus", "church", "monastery",
+                "resurrection", "ascension", "eucharist",
+            ]
+            context_text = (visual_description + " " + scene_text).lower()
+            has_context = any(m in context_text for m in _ORTHODOX_CONTEXT_MARKERS)
+            if has_context:
+                try:
+                    await query_knowledge.create_entity_template(
+                        k_list, source_val, c_val,
+                        visual_description[:200] + " " + scene_text[:200],
+                        channel_name
+                    )
+                except Exception:
+                    pass
 
         return k_list, c_val, source_val
 

@@ -67,6 +67,12 @@ async def score_images(images_batch: list, scene_text: str, visual_description: 
             "monasteryicons", "cn-", "cn_", "stockphoto", "bigstockphoto", "canva", "freepik",
             "vecteezy", "vectorstock", "pinterest", "pinimg", "etsy", "ebay", "amazon",
             "redbubble", "teepublic", "society6", "deviantart",
+            # Watermarked stock extensions & broken sources
+            "flickr", "live.staticflickr", "staticflickr",
+            "pixabay.com/get/g",
+            "artstation", "shuttershock",
+            # News & commercial
+            "bbc.com", "cnn.com", "foxnews.com", "msnbc.com", "aljazeera.com", "reuters.com", "bloomberg.com",
             # Vector/illustration types
             "vector", "illustration", "cartoon", "drawing", "sketch", "clipart",
             # Competitor news logos & breaking news generic watermarks

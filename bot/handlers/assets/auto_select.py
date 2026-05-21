@@ -413,6 +413,9 @@ async def _perform_download(url: str) -> str | None:
     local = f"temp/auto_{int(time.time())}_{hash(url) & 0xffffffff}.jpg"
     try:
         logger.info(f"Auto download: GET {url[:80]}...")
+        # Нормализация protocol-relative URL (//domain → https://domain)
+        if url.startswith("//"):
+            url = "https:" + url
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
@@ -1050,6 +1053,25 @@ async def auto_pick_for_project(
             logger.info(f"✅ Scene {idx+1}/{total} SearXNG/fallback pick OK: {best_local}")
         else:
             logger.warning(f"❌ Scene {idx+1}/{total} SearXNG pick FAILED completely")
+
+    # ── PHASE FINAL: Фоллбэки для сцен, оставшихся без картинок ──
+    proj_current = pm.load_project(project_id) or {}
+    for idx in range(total):
+        if str(idx) not in proj_current.get("assets", {}):
+            scene = scenes[idx]
+            logger.info(f"⚠️ Scene {idx+1}/{total} still missing — running individual fallback...")
+            await _safe_edit(status_msg, f"⚠️ **Сцена {idx+1}/{total}** — фоллбэк...")
+            from ai.duckduckgo_search import search_images_ddg
+            fb_local = await _individual_stock_fallback(
+                idx, scene, [],
+                channel_profile_id, style_id, full_script,
+                rules, selected_urls, "stock", proj_lang
+            )
+            if fb_local:
+                pm.update_asset(project_id, idx, fb_local)
+                logger.info(f"✅ Scene {idx+1}/{total} final fallback pick OK: {fb_local}")
+            else:
+                logger.warning(f"❌ Scene {idx+1}/{total} final fallback FAILED")
 
     # Загружаем актуальное состояние проекта
     proj_final = pm.load_project(project_id) or {}
