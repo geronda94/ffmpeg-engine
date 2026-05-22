@@ -27,7 +27,7 @@ def get_client() -> OpenAI:
     global _sync_client
     if _sync_client is None:
         from httpx import Client, Timeout
-        timeout = Timeout(45.0, connect=15.0, read=45.0)
+        timeout = Timeout(120.0, connect=30.0, read=120.0)
         http_client = Client(timeout=timeout)
         _sync_client = OpenAI(
             api_key=_get_api_key(),
@@ -41,7 +41,7 @@ def get_async_client() -> AsyncOpenAI:
     global _async_client
     if _async_client is None:
         from httpx import AsyncClient, Timeout
-        timeout = Timeout(45.0, connect=15.0, read=45.0)
+        timeout = Timeout(120.0, connect=30.0, read=120.0)
         http_client = AsyncClient(timeout=timeout)
         _async_client = AsyncOpenAI(
             api_key=_get_api_key(),

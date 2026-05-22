@@ -71,7 +71,7 @@ async def main():
         logging.warning(f"Failed to set bot commands: {e}")
 
     logging.info("🤖 Starting AUTO Content Factory...")
-    await dp.start_polling(bot, request_timeout=120)
+    await dp.start_polling(bot, request_timeout=300)
 
 
 if __name__ == "__main__":
