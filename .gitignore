@@ -1,14 +1,48 @@
-.venv/
-temp_assets/
-output/
+# Python
 __pycache__/
-*.pyc
-.DS_Store
+*.py[cod]
+*.pyo
 *.egg-info/
-tasks/religious_reel.json
-docs/directus_integration_blueprint.md
+dist/
+build/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment file (contains API keys)
 .env
-env
-venv
+
+# Project data (runtime — regenerated)
 projects/
 temp/
+
+# Media library (local files)
+media_library/orthodox/
+media_library/news/
+media_library/tech_business/
+media_library/lifestyle/
+
+# URL dedup storage (runtime)
+projects/used_urls/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Scratch files
+scratch.py
+scratch2.py
+scratch/
+
+# Sensitive
+*.key
+*.pem
